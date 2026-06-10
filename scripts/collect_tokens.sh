@@ -5,7 +5,9 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CCUSAGE="${CCUSAGE:-bunx ccusage@20.0.9}"
+# --bun forces the bun runtime: /usr/local/bin/node is an x86_64 leftover and
+# the ccusage wrapper otherwise spawns it and looks for the wrong native binary.
+CCUSAGE="${CCUSAGE:-bunx --bun ccusage@20.0.9}"
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 cd "$REPO_DIR"
@@ -44,12 +46,19 @@ jq -n \
     }
   }' > data/tokens.json
 
-git pull --rebase origin main || true
 git add data/tokens.json
 if git diff --cached --quiet; then
   echo "tokens.json unchanged; nothing to push"
   exit 0
 fi
 git commit -m "chore: daily token stats $(date -u +%Y-%m-%d)"
-git push origin main
-echo "pushed token stats $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# The readme/3d workflows also commit to main; rebase-and-retry around them.
+for i in 1 2 3 4 5; do
+  git pull --rebase origin main && git push origin main && {
+    echo "pushed token stats $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    exit 0
+  }
+  sleep 5
+done
+echo "failed to push after 5 attempts" >&2
+exit 1
