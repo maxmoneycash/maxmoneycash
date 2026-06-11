@@ -3,6 +3,7 @@ name: readme-cards
 on:
   schedule:
     - cron: "23 5 * * *"
+    - cron: "23 17 * * *"
   push:
     branches: [main]
     paths: ["data/**", "scripts/**"]

@@ -55,25 +55,41 @@ def render_year(year):
 
     # Fixed 53-column grid so every year's card has identical dimensions
     # (the current year would otherwise be narrower and scale up larger).
+    # Days after today render as faint empty boxes: the rest of the year.
     COLS = 53
     cell, gap, pad_x, pad_y = 11, 3, 18, 40
-    weeks = cal["weeks"][:COLS]
     W = pad_x * 2 + COLS * (cell + gap)
     H = pad_y + 7 * (cell + gap) + 14
 
+    counts = {
+        d["date"]: d["contributionCount"]
+        for w in cal["weeks"]
+        for d in w["contributionDays"]
+    }
+    jan1 = datetime.date(year, 1, 1)
+    grid_start = jan1 - datetime.timedelta(days=(jan1.weekday() + 1) % 7)
+
     rects = []
-    for wi, w in enumerate(weeks):
-        for d in w["contributionDays"]:
-            day = datetime.date.fromisoformat(d["date"]).weekday()
-            # GitHub weeks start Sunday
-            row = (day + 1) % 7
-            lvl = _level(d["contributionCount"], q)
-            x = pad_x + wi * (cell + gap)
-            y = pad_y + row * (cell + gap)
+    d = jan1
+    while d.year == year:
+        offset = (d - grid_start).days
+        col, row = offset // 7, offset % 7
+        if col >= COLS:
+            break
+        x = pad_x + col * (cell + gap)
+        y = pad_y + row * (cell + gap)
+        if d > today:
+            rects.append(
+                f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" rx="2.5" '
+                f'fill="{PALETTE[0]}" opacity="0.45"/>'
+            )
+        else:
+            lvl = _level(counts.get(d.isoformat(), 0), q)
             rects.append(
                 f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" rx="2.5" '
                 f'fill="{PALETTE[lvl]}"/>'
             )
+        d += datetime.timedelta(days=1)
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
 <rect width="{W}" height="{H}" rx="10" fill="{THEME['bg']}" stroke="{THEME['border']}"/>
