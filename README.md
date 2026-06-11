@@ -19,35 +19,21 @@
 
 ## <samp>~ ❯ git log --graph --all</samp>
 
-<table align="center" width="100%">
-<tr><td colspan="3" align="center">
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/output/github-contribution-grid-snake-dark.svg"/>
-<source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/output/github-contribution-grid-snake.svg"/>
-<img alt="contribution snake" src="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/output/github-contribution-grid-snake-dark.svg" width="100%"/>
-</picture>
-<p><b>live <sub>(rolling 365 days)</sub></b></p>
-</td></tr>
-<tr>
-<td width="33%" align="center"><a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg" width="100%" alt="2023 contributions"/></a><p><b>2023</b></p></td>
-<td width="33%" align="center"><a href="https://github.com/maxmoneycash?tab=overview&from=2024-01-01&to=2024-12-31"><img src="./assets/heatmap-2024.svg" width="100%" alt="2024 contributions"/></a><p><b>2024</b></p></td>
-<td width="33%" align="center"><a href="https://github.com/maxmoneycash?tab=overview&from=2025-01-01&to=2025-12-31"><img src="./assets/heatmap-2025.svg" width="100%" alt="2025 contributions"/></a><p><b>2025</b></p></td>
-</tr>
-</table>
+<a href="https://github.com/maxmoneycash"><img src="https://commitpulse.vercel.app/api/streak?user=maxmoneycash&bg=070b10&accent=16c79a&text=9fb2c8&radius=12&shading=true&gradient=true" width="600" alt="live contribution pulse — rolling 365 days"/></a>
 
-## <samp>~ ❯ gh contrib --3d</samp>
+<br/><br/>
 
-<table align="center" width="100%">
-<tr><td colspan="3" align="center">
-<img src="./profile-3d-contrib/profile-night-rainbow.svg" width="100%" alt="3D contribution profile — rolling 365 days"/>
-<p><b>live <sub>(rolling 365 days)</sub></b></p>
-</td></tr>
-<tr>
-<td width="33%" align="center"><img src="./profile-3d-contrib/2023/profile-night-rainbow.svg" width="100%" alt="3D contributions 2023"/><p><b>2023</b></p></td>
-<td width="33%" align="center"><img src="./profile-3d-contrib/2024/profile-night-rainbow.svg" width="100%" alt="3D contributions 2024"/><p><b>2024</b></p></td>
-<td width="33%" align="center"><img src="./profile-3d-contrib/2025/profile-night-rainbow.svg" width="100%" alt="3D contributions 2025"/><p><b>2025</b></p></td>
-</tr>
-</table>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2026-01-01&to=2026-12-31"><img src="./assets/heatmap-2026.svg" width="100%" alt="2026 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2025-01-01&to=2025-12-31"><img src="./assets/heatmap-2025.svg" width="100%" alt="2025 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2024-01-01&to=2024-12-31"><img src="./assets/heatmap-2024.svg" width="100%" alt="2024 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg" width="100%" alt="2023 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg" width="100%" alt="2022 contributions"/></a>
+
+## <samp>~ ❯ gh contrib --terminal</samp>
+
+<img src="./assets/market.svg" width="100%" alt="contribution candles, agent order book"/>
+
+<img src="./profile-3d-contrib/profile-terminal.svg" width="100%" alt="3D contribution profile — rolling 365 days, terminal theme"/>
 
 <br/>
 

@@ -1,41 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 719" width="420" font-family="ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 738" width="420" font-family="ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace">
 <defs>
   <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
     <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/>
   </filter>
 </defs>
-<polygon points="0,7 14,0 28,7 42,0 56,7 70,0 84,7 98,0 112,7 126,0 140,7 154,0 168,7 182,0 196,7 210,0 224,7 238,0 252,7 266,0 280,7 294,0 308,7 322,0 336,7 350,0 364,7 378,0 392,7 406,0 420,7 420,719 406,712 392,719 378,712 364,719 350,712 336,719 322,712 308,719 294,712 280,719 266,712 252,719 238,712 224,719 210,712 196,719 182,712 168,719 154,712 140,719 126,712 112,719 98,712 84,719 70,712 56,719 42,712 28,719 14,712 0,719" fill="#f7f3e9" filter="url(#drop)"/>
-<text x="210.0" y="74" text-anchor="middle" font-size="16" fill="#211c16" font-weight="700">MAXMONEYCASH COMPUTE CO.</text>
-<text x="210.0" y="98" text-anchor="middle" font-size="11" fill="#6b6256">ARTISANAL TOKENS · SMALL BATCH</text>
-<text x="210.0" y="116" text-anchor="middle" font-size="11" fill="#6b6256">SAN FRANCISCO TERMINAL NO. 1</text>
+<polygon points="0,7 14,0 28,7 42,0 56,7 70,0 84,7 98,0 112,7 126,0 140,7 154,0 168,7 182,0 196,7 210,0 224,7 238,0 252,7 266,0 280,7 294,0 308,7 322,0 336,7 350,0 364,7 378,0 392,7 406,0 420,7 420,738 406,731 392,738 378,731 364,738 350,731 336,738 322,731 308,738 294,731 280,738 266,731 252,738 238,731 224,738 210,731 196,738 182,731 168,738 154,731 140,738 126,731 112,738 98,731 84,738 70,731 56,738 42,731 28,738 14,731 0,738" fill="#f7f3e9" filter="url(#drop)"/>
+<text x="210.0" y="74" text-anchor="middle" font-size="17" fill="#211c16" font-weight="700">MAXMONEYCASH</text>
+<text x="210.0" y="98" text-anchor="middle" font-size="11" fill="#6b6256">AI COMPUTE STATEMENT</text>
+<text x="210.0" y="116" text-anchor="middle" font-size="11" fill="#6b6256">BILLING PERIOD: OCT 2025 — JUN 2026</text>
 <text x="210.0" y="136" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
-<g font-size="13"><text x="34" y="155" fill="#211c16">RECEIPT #</text><text x="386" y="155" text-anchor="end" fill="#211c16">MMC_20260610_89DA53</text></g>
-<g font-size="13"><text x="34" y="174" fill="#211c16">DATE</text><text x="386" y="174" text-anchor="end" fill="#211c16">2026-06-10 16:51 UTC</text></g>
-<g font-size="13"><text x="34" y="193" fill="#211c16">CASHIER</text><text x="386" y="193" text-anchor="end" fill="#211c16">5 CODING AGENTS</text></g>
-<text x="210.0" y="212" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
-<g font-size="13" font-weight="700"><text x="34" y="231" fill="#211c16">ITEM</text><text x="386" y="231" text-anchor="end" fill="#211c16">TOKENS</text></g>
-<text x="210.0" y="250" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
-<g font-size="13"><text x="34" y="269" fill="#211c16">CODEX</text><text x="386" y="269" text-anchor="end" fill="#211c16">8.58B</text></g>
-<g font-size="13"><text x="34" y="288" fill="#211c16">CLAUDE CODE</text><text x="386" y="288" text-anchor="end" fill="#211c16">7.91B</text></g>
-<g font-size="13"><text x="34" y="307" fill="#211c16">  · OPUS 4.7</text><text x="386" y="307" text-anchor="end" fill="#211c16">7.36B</text></g>
-<g font-size="13"><text x="34" y="324" fill="#211c16">  · OPUS 4.8</text><text x="386" y="324" text-anchor="end" fill="#211c16">525.2M</text></g>
-<g font-size="13"><text x="34" y="341" fill="#211c16">  · FABLE 5</text><text x="386" y="341" text-anchor="end" fill="#211c16">13.7M</text></g>
-<g font-size="13"><text x="34" y="358" fill="#211c16">DROID</text><text x="386" y="358" text-anchor="end" fill="#211c16">1.01B</text></g>
-<g font-size="13"><text x="34" y="377" fill="#211c16">KIMI CODE</text><text x="386" y="377" text-anchor="end" fill="#211c16">419.0M</text></g>
-<g font-size="13"><text x="34" y="396" fill="#211c16">OPENCODE</text><text x="386" y="396" text-anchor="end" fill="#211c16">66.0M</text></g>
-<g font-size="13"><text x="34" y="415" fill="#211c16">GROK BUILD</text><text x="386" y="415" text-anchor="end" fill="#211c16">UNTRACKED*</text></g>
-<text x="210.0" y="434" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
-<g font-size="13" font-weight="700"><text x="34" y="453" fill="#211c16">SUBTOTAL</text><text x="386" y="453" text-anchor="end" fill="#211c16">18.0B TOK</text></g>
-<g font-size="13"><text x="34" y="472" fill="#211c16">CACHE READS</text><text x="386" y="472" text-anchor="end" fill="#211c16">17.3B (95.9%)</text></g>
-<g font-size="13"><text x="34" y="491" fill="#211c16">OUTPUT TOK</text><text x="386" y="491" text-anchor="end" fill="#211c16">57.7M</text></g>
-<text x="210.0" y="510" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
-<g font-size="13" font-weight="700"><text x="34" y="529" fill="#211c16">TOTAL USD</text><text x="386" y="529" text-anchor="end" fill="#211c16">$12,525.09</text></g>
-<g font-size="13"><text x="34" y="553" fill="#211c16">PRICE DATE</text><text x="386" y="553" text-anchor="end" fill="#211c16">2026-06-10 · LITELLM</text></g>
-<text x="210.0" y="573" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
-<text x="210.0" y="592" text-anchor="middle" font-size="12" fill="#211c16">THE LOGO LOOKS CALM.</text>
-<text x="210.0" y="611" text-anchor="middle" font-size="12" fill="#211c16">THE BILL DOES NOT.</text>
-<text x="210.0" y="633" text-anchor="middle" font-size="14" fill="#211c16"> ||||  |||||||||| | |||  ||||| ||||| |</text>
-<text x="210.0" y="649" text-anchor="middle" font-size="10" fill="#6b6256">MMC_20260610_89DA53</text>
-<text x="210.0" y="669" text-anchor="middle" font-size="12" fill="#211c16" font-weight="700">★ THANK YOU FOR VIBING ★</text>
-<text x="210.0" y="683" text-anchor="middle" font-size="9" fill="#6b6256">*grok stores no local token counts</text>
+<g font-size="13"><text x="34" y="155" fill="#211c16">STATEMENT #</text><text x="386" y="155" text-anchor="end" fill="#211c16">MMC_20260611_89DA53</text></g>
+<g font-size="13"><text x="34" y="174" fill="#211c16">ISSUED</text><text x="386" y="174" text-anchor="end" fill="#211c16">2026-06-11 01:26 UTC</text></g>
+<g font-size="13"><text x="34" y="193" fill="#211c16">BILLED TO</text><text x="386" y="193" text-anchor="end" fill="#211c16">MAX @MAXMONEYCASH</text></g>
+<g font-size="13"><text x="34" y="212" fill="#211c16">SERVED BY</text><text x="386" y="212" text-anchor="end" fill="#211c16">5 CODING AGENTS</text></g>
+<text x="210.0" y="231" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
+<g font-size="13" font-weight="700"><text x="34" y="250" fill="#211c16">ITEM</text><text x="386" y="250" text-anchor="end" fill="#211c16">TOKENS</text></g>
+<text x="210.0" y="269" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
+<g font-size="13"><text x="34" y="288" fill="#211c16">CODEX</text><text x="386" y="288" text-anchor="end" fill="#211c16">8.58B</text></g>
+<g font-size="13"><text x="34" y="307" fill="#211c16">CLAUDE CODE</text><text x="386" y="307" text-anchor="end" fill="#211c16">7.91B</text></g>
+<g font-size="13"><text x="34" y="326" fill="#211c16">  · OPUS 4.7</text><text x="386" y="326" text-anchor="end" fill="#211c16">7.36B</text></g>
+<g font-size="13"><text x="34" y="343" fill="#211c16">  · OPUS 4.8</text><text x="386" y="343" text-anchor="end" fill="#211c16">525.2M</text></g>
+<g font-size="13"><text x="34" y="360" fill="#211c16">  · FABLE 5</text><text x="386" y="360" text-anchor="end" fill="#211c16">13.7M</text></g>
+<g font-size="13"><text x="34" y="377" fill="#211c16">DROID</text><text x="386" y="377" text-anchor="end" fill="#211c16">1.01B</text></g>
+<g font-size="13"><text x="34" y="396" fill="#211c16">KIMI CODE</text><text x="386" y="396" text-anchor="end" fill="#211c16">419.0M</text></g>
+<g font-size="13"><text x="34" y="415" fill="#211c16">OPENCODE</text><text x="386" y="415" text-anchor="end" fill="#211c16">66.0M</text></g>
+<g font-size="13"><text x="34" y="434" fill="#211c16">GROK BUILD</text><text x="386" y="434" text-anchor="end" fill="#211c16">UNTRACKED*</text></g>
+<text x="210.0" y="453" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
+<g font-size="13" font-weight="700"><text x="34" y="472" fill="#211c16">SUBTOTAL</text><text x="386" y="472" text-anchor="end" fill="#211c16">18.0B TOK</text></g>
+<g font-size="13"><text x="34" y="491" fill="#211c16">CACHE READS</text><text x="386" y="491" text-anchor="end" fill="#211c16">17.3B (95.9%)</text></g>
+<g font-size="13"><text x="34" y="510" fill="#211c16">OUTPUT TOK</text><text x="386" y="510" text-anchor="end" fill="#211c16">57.7M</text></g>
+<text x="210.0" y="529" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
+<g font-size="13" font-weight="700"><text x="34" y="548" fill="#211c16">TOTAL USD</text><text x="386" y="548" text-anchor="end" fill="#211c16">$12,525.09</text></g>
+<g font-size="13"><text x="34" y="572" fill="#211c16">AVG / MONTH</text><text x="386" y="572" text-anchor="end" fill="#211c16">$1,391.68</text></g>
+<text x="210.0" y="592" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
+<text x="210.0" y="611" text-anchor="middle" font-size="12" fill="#211c16">18.0B TOKENS.</text>
+<text x="210.0" y="630" text-anchor="middle" font-size="12" fill="#211c16">ZERO REGRETS.</text>
+<text x="210.0" y="652" text-anchor="middle" font-size="14" fill="#211c16"> || |||  || |  |||||||||  ||||  || | |</text>
+<text x="210.0" y="668" text-anchor="middle" font-size="10" fill="#6b6256">MMC_20260611_89DA53</text>
+<text x="210.0" y="688" text-anchor="middle" font-size="12" fill="#211c16" font-weight="700">★ PAID IN FULL · NO REFUNDS ★</text>
+<text x="210.0" y="702" text-anchor="middle" font-size="9" fill="#6b6256">* grok build keeps no receipts</text>
 </svg>

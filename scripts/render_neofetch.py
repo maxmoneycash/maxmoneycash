@@ -109,17 +109,24 @@ def render(gh, tokens):
         ("PUBLIC REPOS", str(user["public_repos"]), t["value"]),
         ("FOLLOWERS", str(user["followers"]), APPLE_STRIPES[4]),
     ]
+    # Boxless stat row: big glowing numbers over letter-spaced labels, with a
+    # short accent tick above each and hairline dividers between columns.
     chip_svg = []
     for i, (label, value, color) in enumerate(chips):
         cx = 42 + i * (chip_w + gap)
+        mid = cx + chip_w / 2
         chip_svg.append(
-            f'<g><rect x="{cx}" y="{chips_y}" width="{chip_w}" height="{chip_h}" '
-            f'rx="10" fill="{t["panel"]}" stroke="{t["border"]}"/>'
-            f'<text x="{cx + chip_w / 2}" y="{chips_y + 38}" text-anchor="middle" '
-            f'font-size="26" font-weight="700" fill="{color}" filter="url(#soft)">{esc(value)}</text>'
-            f'<text x="{cx + chip_w / 2}" y="{chips_y + 62}" text-anchor="middle" '
-            f'font-size="10" letter-spacing="2" fill="{t["muted"]}">{esc(label)}</text></g>'
+            f'<g><rect x="{mid - 16}" y="{chips_y + 2}" width="32" height="3" rx="1.5" fill="{color}"/>'
+            f'<text x="{mid}" y="{chips_y + 44}" text-anchor="middle" '
+            f'font-size="32" font-weight="700" fill="{color}" filter="url(#soft)">{esc(value)}</text>'
+            f'<text x="{mid}" y="{chips_y + 66}" text-anchor="middle" '
+            f'font-size="10" letter-spacing="3" fill="{t["muted"]}">{esc(label)}</text></g>'
         )
+        if i:
+            chip_svg.append(
+                f'<line x1="{cx - gap / 2}" y1="{chips_y + 8}" x2="{cx - gap / 2}" '
+                f'y2="{chips_y + 62}" stroke="{t["border"]}"/>'
+            )
 
     H = chips_y + chip_h + 28
 

@@ -30,14 +30,17 @@ def _level(count, q):
 
 
 def render_year(year):
+    today = datetime.date.today()
+    to = (
+        f"{today.isoformat()}T23:59:59Z"
+        if year == today.year
+        else f"{year}-12-31T23:59:59Z"
+    )
     cal = gh_graphql(
         QUERY,
-        {
-            "login": LOGIN,
-            "from": f"{year}-01-01T00:00:00Z",
-            "to": f"{year}-12-31T23:59:59Z",
-        },
+        {"login": LOGIN, "from": f"{year}-01-01T00:00:00Z", "to": to},
     )["user"]["contributionsCollection"]["contributionCalendar"]
+    ytd = " · ytd" if year == today.year else ""
 
     counts = sorted(
         d["contributionCount"]
@@ -71,8 +74,8 @@ def render_year(year):
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
 <rect width="{W}" height="{H}" rx="10" fill="{THEME['bg']}" stroke="{THEME['border']}"/>
-<text x="{pad_x}" y="24" font-size="12" fill="{THEME['fg']}">
-  <tspan fill="{THEME['green']}" font-weight="700">{cal['totalContributions']:,}</tspan> contributions in {year}
+<text x="{pad_x}" y="24" font-size="13" fill="{THEME['fg']}">
+  <tspan fill="{THEME['green']}" font-weight="700">{cal['totalContributions']:,}</tspan> contributions in {year}{ytd}
 </text>
 {"".join(rects)}
 </svg>"""
@@ -81,5 +84,5 @@ def render_year(year):
 
 def render(gh=None, tokens=None):
     current = datetime.date.today().year
-    for year in range(current - 3, current):
+    for year in range(current - 4, current + 1):
         render_year(year)

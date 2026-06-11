@@ -1,0 +1,17 @@
+{
+  "type": "normal",
+  "fileName": "profile-terminal.svg",
+  "backgroundColor": "#070b10",
+  "foregroundColor": "#9fb2c8",
+  "strongColor": "#ffb454",
+  "weakColor": "#55657a",
+  "radarColor": "#16c79a",
+  "growingAnimation": true,
+  "contribColors": [
+    "#10171f",
+    "#0d4f43",
+    "#0f8a6e",
+    "#16c79a",
+    "#97fce4"
+  ]
+}
