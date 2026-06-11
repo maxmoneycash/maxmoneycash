@@ -35,10 +35,11 @@ def render(gh, tokens):
     parts = []
 
     # masthead
+    period = f"{first:%b %Y} — {last:%b %Y}".upper()
     parts.append(
         f'<text x="70" y="84" font-size="15" letter-spacing="6" fill="{t["muted"]}">MAXMONEYCASH · ANNUAL COMPUTE REPORT</text>'
         f'<text x="70" y="146" font-size="44" font-weight="700" fill="{t["fg"]}">YEAR IN <tspan fill="{t["phosphor"]}">TOKENS</tspan></text>'
-        f'<text x="{W - 70}" y="84" text-anchor="end" font-size="13" fill="{t["amber"]}">{first:%b %Y} — {last:%b %Y}</text>'.upper()
+        f'<text x="{W - 70}" y="84" text-anchor="end" font-size="13" fill="{t["amber"]}">{period}</text>'
     )
 
     # hero number
