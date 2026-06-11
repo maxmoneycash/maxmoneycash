@@ -10,10 +10,10 @@
 
 <br/><br/>
 
-<p align="center">
-<img src="./assets/receipt.svg" width="384" alt="all-time token receipt"/>
-<img src="./assets/token-ops.svg" width="384" alt="token ops dashboard"/>
-</p>
+<picture>
+<source media="(max-width: 768px)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/tokens-stack.svg"/>
+<img src="./assets/tokens-row.svg" width="100%" alt="all-time token receipt and token-ops dashboard"/>
+</picture>
 
 ## <samp>~ ❯ git log --graph --all</samp>
 
