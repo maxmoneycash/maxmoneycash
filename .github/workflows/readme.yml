@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: readme-cards
@@ -30,6 +31,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/update_readme.py
+
+      - name: Data freshness guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/check_freshness.py
+
+      - name: Rasterize wrapped card to PNG
+        run: |
+          sudo apt-get update -qq >/dev/null
+          sudo apt-get install -y -qq librsvg2-bin fonts-jetbrains-mono >/dev/null
+          rsvg-convert -w 1200 assets/wrapped.svg -o assets/wrapped.png
 
       - name: Commit and push
         run: |

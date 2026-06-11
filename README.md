@@ -33,6 +33,8 @@
 
 <img src="./assets/wrapped.svg" width="100%" alt="year in tokens — annual compute report"/>
 
+<sub><samp><a href="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/wrapped.png">download PNG for posting →</a></samp></sub>
+
 <br/>
 
 <sub><samp>rendered daily · cards by GitHub Actions · token data via launchd + ccusage on my mac · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
