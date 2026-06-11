@@ -53,9 +53,9 @@ P_GREEN = "#2c4a3b"
 P_RUST = "#c46a3d"
 P_INK = "#22302a"
 
-W, H = 940, 560
-HW, HH = 10, 5  # iso half-width / half-height
-X0, Y0 = 240, 252
+W, H = 940, 680
+HW, HH = 12, 5  # iso half-width / half-height
+X0, Y0 = 158, 125
 
 
 def _level(count, q):
@@ -68,7 +68,7 @@ def _level(count, q):
 
 
 def _poster(total, est_year):
-    x, y, w, h = 26, 372, 192, 164
+    x, y, w, h = 722, 92, 192, 164
     s = [
         f'<g filter="url(#drop)">',
         f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{P_CREAM}"/>',
@@ -275,7 +275,6 @@ def render(gh, tokens):
 </defs>
 <g clip-path="url(#card)">
   <image href="data:image/jpeg;base64,{bg64}" x="0" y="0" width="{W}" height="{H}" preserveAspectRatio="xMidYMax slice" filter="url(#lift)"/>
-  <rect x="0" y="{Y0 - 30}" width="{W}" height="{H - Y0 + 30}" fill="url(#seat)"/>
 </g>
 {"".join(axes)}
 {"".join(city)}
