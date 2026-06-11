@@ -11,8 +11,8 @@
 <br/><br/>
 
 <p align="center">
-<img src="./assets/receipt.svg" width="418" alt="all-time token receipt"/>
-<img src="./assets/token-ops.svg" width="418" alt="token ops dashboard"/>
+<img src="./assets/receipt.svg" width="384" alt="all-time token receipt"/>
+<img src="./assets/token-ops.svg" width="384" alt="token ops dashboard"/>
 </p>
 
 ## <samp>~ ❯ git log --graph --all</samp>
