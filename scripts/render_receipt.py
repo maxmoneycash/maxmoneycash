@@ -12,13 +12,14 @@ INK = "#211c16"
 FAINT = "#6b6256"
 MONO = "ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"
 
-# Canvas matches token-ops (560 wide) so the two cards keep the same
-# rendered height side by side on desktop and stacked on mobile.
+# Canvas matches token-ops (560 wide); the paper fills the full canvas so
+# both cards render at identical width and height.
 W = 560
-PAPER_W = 440
+PAPER_W = 556
 PAPER_X = (W - PAPER_W) // 2
-PAD = PAPER_X + 36
+PAD = PAPER_X + 40
 LH = 19
+RULE_CHARS = 35
 
 
 def _barcode(seed, width_chars):
@@ -55,7 +56,7 @@ class Paper:
                 ch = "━" if heavy else "─"
                 out.append(
                     f'<text x="{W / 2}" y="{y}" text-anchor="middle" font-size="13" '
-                    f'fill="{INK if heavy else FAINT}" xml:space="preserve">{ch * 27}</text>'
+                    f'fill="{INK if heavy else FAINT}" xml:space="preserve">{ch * RULE_CHARS}</text>'
                 )
                 y += gap
                 continue
