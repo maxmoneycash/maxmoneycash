@@ -139,44 +139,44 @@ def _build(tokens):
         agents.items(), key=lambda kv: -(kv[1]["totals"].get("totalTokens") or 0)
     )
     for name, a in ordered:
-        p.kv(AGENT_LABELS[name], compact(a["totals"].get("totalTokens") or 0))
+        p.kv(AGENT_LABELS[name], f"{a['totals'].get('totalTokens') or 0:,}")
         if name == "claude":
             for label, model in CLAUDE_SPLIT:
                 if model_tot.get(model):
-                    p.kv(label, compact(model_tot[model]), gap=17)
+                    p.kv(label, f"{model_tot[model]:,}", gap=17)
     p.kv("GROK BUILD", "0")
     p.rule()
-    p.kv("SUBTOTAL", f"{compact(totals['totalTokens'])} TOK", bold=True)
+    p.kv("SUBTOTAL", f"{totals['totalTokens']:,} TOK", bold=True)
 
     # ---- granular token ledger ------------------------------------------
     p.rule(heavy=True)
     p.kv("LEDGER", "READ vs WRITTEN", bold=True)
     p.rule()
     out_total = totals["outputTokens"]
-    p.kv("OUTPUT (WRITTEN)", compact(out_total), bold=True)
+    p.kv("OUTPUT (WRITTEN)", f"{out_total:,}", bold=True)
     for name, a in ordered:
         out_a = a["totals"].get("outputTokens") or 0
         pct = 100 * out_a / out_total if out_total else 0
-        p.kv(f"  · {AGENT_LABELS[name]}", f"{compact(out_a)} ({pct:.0f}%)", gap=17)
+        p.kv(f"  · {AGENT_LABELS[name]}", f"{out_a:,} ({pct:.0f}%)", gap=17)
     novels = out_total * 0.75 / 90_000
     p.kv("  ≈ NOVELS WRITTEN", f"{novels:,.0f}", gap=20, color=FAINT)
-    p.kv("FRESH INPUT (READ)", compact(totals["inputTokens"]))
-    p.kv("CACHE WRITES", compact(totals["cacheCreationTokens"]))
+    p.kv("FRESH INPUT (READ)", f"{totals['inputTokens']:,}")
+    p.kv("CACHE WRITES", f"{totals['cacheCreationTokens']:,}")
     cache_pct = 100 * totals["cacheReadTokens"] / totals["totalTokens"]
-    p.kv("CACHE READS", compact(totals["cacheReadTokens"]))
+    p.kv("CACHE READS", f"{totals['cacheReadTokens']:,}")
     p.kv("  · CONTEXT RE-READ", f"{cache_pct:.1f}% OF ALL TOK", gap=20, color=FAINT)
     reasoning = totals["totalTokens"] - sum(
         totals.get(c, 0)
         for c in ("inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens")
     )
     if reasoning > 100_000:
-        p.kv("REASONING (DROID)", compact(reasoning), gap=20)
+        p.kv("REASONING (DROID)", f"{reasoning:,}", gap=20)
     p.rule(heavy=True)
     p.kv("TOTAL USD", money(totals["totalCost"], cents=True), bold=True, gap=24)
     months_active = max(len(tokens["monthly"]), 1)
     p.kv("AVG / MONTH", money(totals["totalCost"] / months_active, cents=True), gap=20)
     p.rule()
-    p.center(f"{compact(totals['totalTokens'])} TOKENS.", 12, gap=LH)
+    p.center(f"{totals['totalTokens']:,} TOKENS.", 12, gap=LH)
     p.center("ZERO REGRETS.", 12, gap=22)
     p.center(_barcode(receipt_id, 38), 14, gap=16)
     p.center(receipt_id, 10, color=FAINT, gap=20)

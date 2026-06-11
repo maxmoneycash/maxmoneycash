@@ -181,10 +181,11 @@ def render(gh, tokens, target_h=None):
     # so both cards end up the same height.
     foot_y = max(d_y + d_h + 30, (target_h or 0) - 26)
     parts.append(
-        f'<text x="{LEFT}" y="{foot_y}" font-size="11" fill="{t["muted"]}">'
-        f'cache hit <tspan fill="{t["phosphor"]}">{cache_pct:.1f}%</tspan>'
-        f' · peak day <tspan fill="{t["amber"]}">{compact(peak["totalTokens"]) if peak else "-"}</tspan>'
-        f' · models all-time <tspan fill="{t["value"]}">{len(model_tot)}</tspan></text>'
+        f'<text x="{LEFT}" y="{foot_y}" font-size="10.5" fill="{t["muted"]}">'
+        f'Σ <tspan fill="{t["phosphor"]}" font-weight="700">{totals["totalTokens"]:,}</tspan> tok'
+        f' · cache <tspan fill="{t["phosphor"]}">{cache_pct:.1f}%</tspan>'
+        f' · peak <tspan fill="{t["amber"]}">{compact(peak["totalTokens"]) if peak else "-"}</tspan>'
+        f' · <tspan fill="{t["value"]}">{len(model_tot)}</tspan> models</text>'
     )
 
     H = foot_y + 26
