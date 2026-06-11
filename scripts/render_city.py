@@ -53,9 +53,9 @@ P_GREEN = "#2c4a3b"
 P_RUST = "#c46a3d"
 P_INK = "#22302a"
 
-W, H = 940, 640
-HW, HH = 8, 4  # iso half-width / half-height
-X0, Y0 = 270, 392
+W, H = 940, 560
+HW, HH = 10, 5  # iso half-width / half-height
+X0, Y0 = 240, 252
 
 
 def _level(count, q):
@@ -68,7 +68,7 @@ def _level(count, q):
 
 
 def _poster(total, est_year):
-    x, y, w, h = 26, 452, 192, 164
+    x, y, w, h = 26, 372, 192, 164
     s = [
         f'<g filter="url(#drop)">',
         f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{P_CREAM}"/>',
@@ -196,7 +196,7 @@ def render(gh, tokens):
                         f'opacity="{0.9 if lit2 else 0.45}"/>'
                     )
                 t += 7
-        if lvl == 4:
+        if lvl == 4 and (c * 31 + r * 17) % 9 > 5:
             city.append(
                 f'<line x1="{X}" y1="{yt - HH}" x2="{X}" y2="{yt - HH - 9}" '
                 f'stroke="#5a6b80" stroke-width="0.8"/>'
@@ -229,12 +229,14 @@ def render(gh, tokens):
         if d0.month != seen_month:
             seen_month = d0.month
             if c > 0:
-                X = X0 + c * HW
-                Y = Y0 + c * HH
+                X = X0 + (c - 6) * HW
+                Y = Y0 + (c + 6) * HH
                 mon = f"{d0:%b}".upper()
                 axes.append(
-                    f'<text x="{X + 4}" y="{Y - HH - 6}" font-size="8" fill="{MUTED}" '
-                    f'opacity="0.9">{mon}</text>'
+                    f'<line x1="{X}" y1="{Y + HH + 2}" x2="{X}" y2="{Y + HH + 8}" '
+                    f'stroke="{MUTED}" stroke-width="0.8" opacity="0.8"/>'
+                    f'<text x="{X}" y="{Y + HH + 19}" text-anchor="middle" font-size="8.5" '
+                    f'fill="{FG}" opacity="0.95">{mon}</text>'
                 )
     for r, day in ((1, "MON"), (3, "WED"), (5, "FRI")):
         X = X0 - r * HW
@@ -253,9 +255,16 @@ def render(gh, tokens):
   <clipPath id="card"><rect width="{W}" height="{H}" rx="14"/></clipPath>
   <linearGradient id="seat" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#070b10" stop-opacity="0"/>
-    <stop offset="0.55" stop-color="#070b10" stop-opacity="0.32"/>
-    <stop offset="1" stop-color="#070b10" stop-opacity="0.72"/>
+    <stop offset="0.6" stop-color="#070b10" stop-opacity="0.22"/>
+    <stop offset="1" stop-color="#070b10" stop-opacity="0.55"/>
   </linearGradient>
+  <filter id="lift">
+    <feComponentTransfer>
+      <feFuncR type="linear" slope="1.18" intercept="0.012"/>
+      <feFuncG type="linear" slope="1.18" intercept="0.012"/>
+      <feFuncB type="linear" slope="1.16" intercept="0.02"/>
+    </feComponentTransfer>
+  </filter>
   <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
     <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
   </filter>
@@ -265,8 +274,8 @@ def render(gh, tokens):
   </style>
 </defs>
 <g clip-path="url(#card)">
-  <image href="data:image/jpeg;base64,{bg64}" x="0" y="0" width="{W}" height="{H}" preserveAspectRatio="xMidYMid slice"/>
-  <rect x="0" y="{Y0 - 80}" width="{W}" height="{H - Y0 + 80}" fill="url(#seat)"/>
+  <image href="data:image/jpeg;base64,{bg64}" x="0" y="0" width="{W}" height="{H}" preserveAspectRatio="xMidYMax slice" filter="url(#lift)"/>
+  <rect x="0" y="{Y0 - 30}" width="{W}" height="{H - Y0 + 30}" fill="url(#seat)"/>
 </g>
 {"".join(axes)}
 {"".join(city)}
