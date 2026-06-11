@@ -6,7 +6,7 @@
 
 ## <samp>~ ❯ ccusage --all-time</samp>
 
-<sub>Live token telemetry across <b>Claude Code · Codex · Kimi Code · OpenCode · Droid</b> — pushed daily from my Mac (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a>) and rendered by GitHub Actions. Grok Build runs untracked: its CLI keeps no local token accounting.</sub>
+<sub>Live token telemetry across <b>Claude Code · Codex · Kimi Code · OpenCode · Droid</b> — pushed daily from my Mac (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a>) and rendered by GitHub Actions.</sub>
 
 <br/><br/>
 

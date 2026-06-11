@@ -144,7 +144,7 @@ def _build(tokens):
             for label, model in CLAUDE_SPLIT:
                 if model_tot.get(model):
                     p.kv(label, compact(model_tot[model]), gap=17)
-    p.kv("GROK BUILD", "UNTRACKED*")
+    p.kv("GROK BUILD", "0")
     p.rule()
     p.kv("SUBTOTAL", f"{compact(totals['totalTokens'])} TOK", bold=True)
 
@@ -181,7 +181,6 @@ def _build(tokens):
     p.center(_barcode(receipt_id, 38), 14, gap=16)
     p.center(receipt_id, 10, color=FAINT, gap=20)
     p.center("★ PAID IN FULL · NO REFUNDS ★", 12, bold=True, gap=14)
-    p.center("* grok build keeps no receipts", 9, color=FAINT, gap=10)
     return p
 
 

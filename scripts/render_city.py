@@ -1,14 +1,19 @@
-"""Isometric contribution city: a year of GitHub contributions as buildings
-with window skins, set against a San Francisco skyline at dusk.
+"""Isometric contribution city over a painted San Francisco dusk.
 
-Replaces yoshi389111/github-profile-3d-contrib so we control the scene.
-Still reads as a contribution graph: 53 weeks x 7 days, green intensity ramp.
+A year of GitHub contributions as window-skinned buildings rising out of
+the bay in front of the SF skyline artwork (assets/sf-bg.jpg, embedded).
+Still reads as a contribution graph: 53 weeks x 7 days, mint intensity
+ramp, month/weekday axes, peak-day pennant, streak highlights, and a
+WPA-park-poster legend.
 """
+import base64
 import datetime
+import pathlib
 
 from common import LOGIN, gh_graphql, write_svg
 
 MONO = "ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 QUERY = """
 query($login: String!, $from: DateTime!, $to: DateTime!) {
@@ -25,99 +30,32 @@ query($login: String!, $from: DateTime!, $to: DateTime!) {
 
 # top / left / right face colors per intensity level (mint ramp at dusk)
 FACES = [
-    ("#10171f", "#0d141b", "#0a1016"),
+    ("#141b25", "#10161e", "#0c1118"),
     ("#0d4f43", "#0a3a32", "#072a24"),
     ("#0f8a6e", "#0b6852", "#084d3d"),
     ("#16c79a", "#109573", "#0b6b53"),
     ("#97fce4", "#5fd9bd", "#3aa78f"),
 ]
-HEIGHTS = [2, 16, 30, 46, 64]
+HEIGHTS = [2, 14, 26, 40, 56]
 
-SKY_TOP = "#05080f"
-SKY_MID = "#0a1220"
-HORIZON = "#0e1a2b"
-SIL = "#121b29"      # skyline silhouette
-SIL_LIT = "#1a2334"  # lighter foreground silhouette
 WIN_LIT = "#ffd479"
 WIN_DARK = "#0a1119"
 AMBER = "#ffb454"
 MINT = "#16c79a"
 MINT_HI = "#97fce4"
 FG = "#9fb2c8"
-MUTED = "#55657a"
+MUTED = "#7d8da1"
 BORDER = "#1c2430"
 
-W, H = 940, 570
-HORIZON_Y = 196
+# WPA poster palette
+P_CREAM = "#ead9b0"
+P_GREEN = "#2c4a3b"
+P_RUST = "#c46a3d"
+P_INK = "#22302a"
 
-
-def _skyline():
-    """SF silhouette: Golden Gate, Sutro, Coit, Transamerica, Salesforce."""
-    s = []
-    base = HORIZON_Y
-
-    def box(x, w, h, color=SIL):
-        s.append(f'<rect x="{x}" y="{base - h}" width="{w}" height="{h}" fill="{color}"/>')
-
-    # Golden Gate bridge (left): deck, two towers with crossbars, cables
-    s.append(f'<rect x="18" y="{base - 36}" width="240" height="4" fill="{SIL_LIT}"/>')
-    for tx in (62, 188):
-        s.append(f'<rect x="{tx}" y="{base - 96}" width="7" height="96" fill="{SIL_LIT}"/>')
-        for cy in (base - 88, base - 66, base - 46):
-            s.append(f'<rect x="{tx - 4}" y="{cy}" width="15" height="3.5" fill="{SIL_LIT}"/>')
-    s.append(
-        f'<path d="M 18 {base - 60} Q 65 {base - 96} 125 {base - 50} '
-        f'Q 190 {base - 96} 258 {base - 58}" fill="none" stroke="{SIL_LIT}" stroke-width="2"/>'
-    )
-    for vx in range(34, 250, 16):
-        s.append(f'<line x1="{vx}" y1="{base - 36}" x2="{vx}" y2="{base - 72}" stroke="{SIL_LIT}" stroke-width="0.8" opacity="0.7"/>')
-
-    # mid-city boxes
-    box(286, 26, 38)
-    box(316, 20, 52)
-    box(340, 30, 30)
-    # Coit tower
-    s.append(f'<rect x="384" y="{base - 58}" width="10" height="58" fill="{SIL}"/>')
-    s.append(f'<rect x="381" y="{base - 64}" width="16" height="8" fill="{SIL}"/>')
-    box(402, 24, 34)
-    # Transamerica pyramid
-    s.append(f'<polygon points="452,{base} 464,{base - 110} 476,{base}" fill="{SIL}"/>')
-    s.append(f'<rect x="462" y="{base - 122}" width="4" height="14" fill="{SIL}"/>')
-    box(484, 28, 46)
-    box(516, 22, 64)
-    # Salesforce tower (rounded top)
-    s.append(
-        f'<path d="M 548 {base} L 548 {base - 124} Q 566 {base - 138} 584 {base - 124} '
-        f'L 584 {base} Z" fill="{SIL}"/>'
-    )
-    box(592, 26, 56)
-    box(622, 32, 40)
-    box(658, 22, 70)
-    box(684, 28, 48)
-    box(716, 24, 30)
-    # Sutro tower (right, on a hill)
-    s.append(f'<path d="M 760 {base} Q 810 {base - 40} 870 {base}" fill="{SIL}"/>')
-    for off in (-18, 0, 18):
-        s.append(
-            f'<line x1="{822 + off}" y1="{base - 30}" x2="{822 + off * 0.4:.0f}" '
-            f'y2="{base - 118}" stroke="{SIL_LIT}" stroke-width="3"/>'
-        )
-    s.append(f'<rect x="806" y="{base - 96}" width="33" height="4" fill="{SIL_LIT}"/>')
-    s.append(f'<rect x="810" y="{base - 70}" width="25" height="4" fill="{SIL_LIT}"/>')
-    box(880, 26, 36)
-    box(910, 18, 24)
-
-    # lit windows sprinkled on the towers (deterministic)
-    for i in range(90):
-        bx = (i * 137) % 900 + 20
-        byy = base - 8 - (i * 53) % 100
-        if 280 < bx < 740 and byy > base - 115:
-            lit = (i * 7) % 3 == 0
-            s.append(
-                f'<rect x="{bx}" y="{byy}" width="1.6" height="2.4" '
-                f'fill="{WIN_LIT if lit else "#243043"}" opacity="{0.9 if lit else 0.5}"/>'
-            )
-    return "".join(s)
+W, H = 940, 640
+HW, HH = 8, 4  # iso half-width / half-height
+X0, Y0 = 270, 392
 
 
 def _level(count, q):
@@ -129,6 +67,56 @@ def _level(count, q):
     return 4
 
 
+def _poster(total, est_year):
+    x, y, w, h = 26, 452, 192, 164
+    s = [
+        f'<g filter="url(#drop)">',
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{P_CREAM}"/>',
+        f'<rect x="{x + 5}" y="{y + 5}" width="{w - 10}" height="{h - 10}" rx="3" '
+        f'fill="none" stroke="{P_GREEN}" stroke-width="2"/>',
+        # header band
+        f'<rect x="{x + 5}" y="{y + 5}" width="{w - 10}" height="30" fill="{P_GREEN}"/>',
+        f'<text x="{x + w / 2}" y="{y + 17}" text-anchor="middle" font-size="8" '
+        f'letter-spacing="2" fill="{P_CREAM}">SAN FRANCISCO · CALIF.</text>',
+        f'<text x="{x + w / 2}" y="{y + 30}" text-anchor="middle" font-size="11" '
+        f'font-weight="700" letter-spacing="1.5" fill="{P_CREAM}">COMMIT DISTRICT</text>',
+        # WPA sunset motif: amber sun, rays, green hills
+        f'<clipPath id="postclip"><rect x="{x + 9}" y="{y + 39}" width="{w - 18}" height="56"/></clipPath>',
+        f'<g clip-path="url(#postclip)">',
+        f'<rect x="{x + 9}" y="{y + 39}" width="{w - 18}" height="56" fill="#d8b889"/>',
+        f'<circle cx="{x + w / 2}" cy="{y + 95}" r="26" fill="{AMBER}"/>',
+    ]
+    for i in range(7):
+        ang = -90 + i * 26 - 78
+        s.append(
+            f'<rect x="{x + w / 2 - 1.5}" y="{y + 50}" width="3" height="22" fill="{AMBER}" '
+            f'opacity="0.55" transform="rotate({ang} {x + w / 2} {y + 95})"/>'
+        )
+    s += [
+        f'<polygon points="{x + 9},{y + 95} {x + 60},{y + 70} {x + 110},{y + 95}" fill="{P_GREEN}"/>',
+        f'<polygon points="{x + 80},{y + 95} {x + 140},{y + 64} {x + w - 9},{y + 95}" fill="#3a5f4b"/>',
+        f'</g>',
+        # swatch legend
+        f'<text x="{x + 16}" y="{y + 116}" font-size="8" fill="{P_INK}">FEWER</text>',
+    ]
+    for i in range(5):
+        s.append(
+            f'<rect x="{x + 52 + i * 17}" y="{y + 107}" width="13" height="11" rx="2" '
+            f'fill="{FACES[i][0]}" stroke="{P_INK}" stroke-width="0.8"/>'
+        )
+    s += [
+        f'<text x="{x + 52 + 5 * 17 + 5}" y="{y + 116}" font-size="8" fill="{P_INK}">MORE</text>',
+        f'<line x1="{x + 16}" y1="{y + 128}" x2="{x + w - 16}" y2="{y + 128}" '
+        f'stroke="{P_INK}" stroke-width="0.8"/>',
+        f'<text x="{x + w / 2}" y="{y + 142}" text-anchor="middle" font-size="8" '
+        f'fill="{P_INK}">EST. {est_year} · COMMITS SERVED DAILY</text>',
+        f'<text x="{x + w / 2}" y="{y + 154}" text-anchor="middle" font-size="9" '
+        f'font-weight="700" fill="{P_RUST}">{total:,} THIS YEAR</text>',
+        f'</g>',
+    ]
+    return "".join(s)
+
+
 def render(gh, tokens):
     now = datetime.datetime.now(datetime.timezone.utc)
     frm = now - datetime.timedelta(days=364)
@@ -138,97 +126,156 @@ def render(gh, tokens):
     weeks = cal["weeks"][-53:]
     total = cal["totalContributions"]
 
-    nz = sorted(
-        d["contributionCount"] for w in weeks for d in w["contributionDays"]
-        if d["contributionCount"] > 0
-    )
+    days_flat = [d for w in weeks for d in w["contributionDays"]]
+    counts = [d["contributionCount"] for d in days_flat]
+    nz = sorted(c for c in counts if c > 0)
     q = [nz[int(len(nz) * p)] for p in (0.25, 0.5, 0.75)] if nz else [1, 2, 3]
 
-    hw, hh = 10, 5  # iso half-width / half-height
-    x0, y0 = 230, 240
+    # current streak cells (consecutive active days ending today)
+    streak = 0
+    for c in reversed(counts):
+        if c > 0:
+            streak += 1
+        else:
+            break
+    streak_dates = {d["date"] for d in days_flat[len(days_flat) - streak:]} if streak else set()
+    active = sum(1 for c in counts if c > 0)
+    peak_day = max(days_flat, key=lambda d: d["contributionCount"])
+
+    bg64 = base64.b64encode((ROOT / "assets" / "sf-bg.jpg").read_bytes()).decode()
 
     cells = []
     for c, w in enumerate(weeks):
         for r, d in enumerate(w["contributionDays"]):
-            cells.append((c + r, c, r, d["contributionCount"]))
-    cells.sort()
+            cells.append((c + r, c, r, d))
+    cells.sort(key=lambda t: t[0])
 
-    city = []
-    for depth, c, r, count in cells:
+    city, peak_pos = [], None
+    for depth, c, r, d in cells:
+        count = d["contributionCount"]
         lvl = _level(count, q)
-        X = x0 + (c - r) * hw
-        Y = y0 + (c + r) * hh
+        X = X0 + (c - r) * HW
+        Y = Y0 + (c + r) * HH
         top, left, right = FACES[lvl]
         h = HEIGHTS[lvl]
         if lvl >= 2:
-            h += (c * 31 + r * 17) % 9  # subtle skyline variation
+            h += (c * 31 + r * 17) % 7
         if lvl == 0:
             city.append(
-                f'<polygon points="{X},{Y - hh} {X + hw},{Y} {X},{Y + hh} {X - hw},{Y}" '
-                f'fill="{top}" stroke="#1a2330" stroke-width="0.4"/>'
+                f'<polygon points="{X},{Y - HH} {X + HW},{Y} {X},{Y + HH} {X - HW},{Y}" '
+                f'fill="{top}" fill-opacity="0.85" stroke="#1a2330" stroke-width="0.3"/>'
             )
             continue
         yt = Y - h
-        city.append(
-            f'<polygon points="{X - hw},{yt} {X},{yt + hh} {X},{Y + hh} {X - hw},{Y}" fill="{left}"/>'
-            f'<polygon points="{X},{yt + hh} {X + hw},{yt} {X + hw},{Y} {X},{Y + hh}" fill="{right}"/>'
-            f'<polygon points="{X},{yt - hh} {X + hw},{yt} {X},{yt + hh} {X - hw},{yt}" fill="{top}"/>'
+        if lvl >= 3:
+            city.append(
+                f'<ellipse cx="{X}" cy="{Y + 2}" rx="{HW + 6}" ry="4" fill="{MINT}" opacity="0.10"/>'
+            )
+        outline = (
+            f' stroke="{AMBER}" stroke-width="0.9"' if d["date"] in streak_dates else ""
         )
-        # building skin: window rows on both faces for mid+ towers
-        if h >= 26:
-            t = 6
-            while t < h - 6:
+        city.append(
+            f'<polygon points="{X - HW},{yt} {X},{yt + HH} {X},{Y + HH} {X - HW},{Y}" fill="{left}"/>'
+            f'<polygon points="{X},{yt + HH} {X + HW},{yt} {X + HW},{Y} {X},{Y + HH}" fill="{right}"/>'
+            f'<polygon points="{X},{yt - HH} {X + HW},{yt} {X},{yt + HH} {X - HW},{yt}" fill="{top}"{outline}/>'
+        )
+        if h >= 24:
+            t = 5
+            while t < h - 5:
                 for f in (0.3, 0.68):
-                    wy = yt + hh * f + t
                     lit = (c * 13 + r * 7 + t) % 5 < 2
                     city.append(
-                        f'<rect x="{X - hw + f * hw - 1:.1f}" y="{wy:.1f}" width="2" height="3" '
-                        f'fill="{WIN_LIT if lit else WIN_DARK}" opacity="{0.85 if lit else 0.6}"/>'
+                        f'<rect x="{X - HW + f * HW - 0.9:.1f}" y="{yt + HH * f + t:.1f}" '
+                        f'width="1.8" height="2.6" fill="{WIN_LIT if lit else WIN_DARK}" '
+                        f'opacity="{0.85 if lit else 0.55}"/>'
                     )
                     lit2 = (c * 7 + r * 11 + t) % 4 == 0
                     city.append(
-                        f'<rect x="{X + f * hw - 1:.1f}" y="{yt + hh - f * hh + t:.1f}" width="2" height="3" '
-                        f'fill="{WIN_LIT if lit2 else WIN_DARK}" opacity="{0.9 if lit2 else 0.5}"/>'
+                        f'<rect x="{X + f * HW - 0.9:.1f}" y="{yt + HH - f * HH + t:.1f}" '
+                        f'width="1.8" height="2.6" fill="{WIN_LIT if lit2 else WIN_DARK}" '
+                        f'opacity="{0.9 if lit2 else 0.45}"/>'
                     )
-                t += 8
+                t += 7
+        if lvl == 4:
+            city.append(
+                f'<line x1="{X}" y1="{yt - HH}" x2="{X}" y2="{yt - HH - 9}" '
+                f'stroke="#5a6b80" stroke-width="0.8"/>'
+                f'<circle cx="{X}" cy="{yt - HH - 10}" r="1.3" fill="#ff5f56" class="beacon" '
+                f'style="animation-delay:{(c * 7 + r) % 20 * 0.15:.2f}s"/>'
+            )
+        if d["date"] == peak_day["date"]:
+            peak_pos = (X, yt - HH, count, d["date"])
 
-    stars = "".join(
-        f'<circle cx="{(i * 97) % 900 + 20}" cy="{(i * 53) % 130 + 12}" r="0.8" '
-        f'fill="#cdd9e5" opacity="{0.15 + (i % 3) * 0.12:.2f}"/>'
-        for i in range(46)
-    )
+    # peak-day pennant
+    pennant = ""
+    if peak_pos:
+        px, py, pc, pdate = peak_pos
+        label = f"PEAK {pc} · {datetime.date.fromisoformat(pdate):%b %d}".upper()
+        lw = len(label) * 5.6 + 14
+        pennant = (
+            f'<line x1="{px}" y1="{py}" x2="{px}" y2="{py - 30}" stroke="{AMBER}" stroke-width="1"/>'
+            f'<polygon points="{px},{py - 30} {px + 16},{py - 26} {px},{py - 22}" fill="{AMBER}"/>'
+            f'<rect x="{px - lw / 2}" y="{py - 50}" width="{lw}" height="15" rx="3" '
+            f'fill="#070b10" fill-opacity="0.8" stroke="{AMBER}" stroke-width="0.6"/>'
+            f'<text x="{px}" y="{py - 39}" text-anchor="middle" font-size="9" '
+            f'fill="{AMBER}" font-weight="700">{label}</text>'
+        )
 
-    legend = "".join(
-        f'<rect x="{70 + i * 22}" y="{H - 30}" width="14" height="8" rx="2" fill="{FACES[i][0]}"/>'
-        for i in range(5)
+    # month labels along the top edge (r=0), weekday labels along the left (c=0)
+    axes = []
+    seen_month = None
+    for c, w in enumerate(weeks):
+        d0 = datetime.date.fromisoformat(w["contributionDays"][0]["date"])
+        if d0.month != seen_month:
+            seen_month = d0.month
+            if c > 0:
+                X = X0 + c * HW
+                Y = Y0 + c * HH
+                mon = f"{d0:%b}".upper()
+                axes.append(
+                    f'<text x="{X + 4}" y="{Y - HH - 6}" font-size="8" fill="{MUTED}" '
+                    f'opacity="0.9">{mon}</text>'
+                )
+    for r, day in ((1, "MON"), (3, "WED"), (5, "FRI")):
+        X = X0 - r * HW
+        Y = Y0 + r * HH
+        axes.append(
+            f'<text x="{X - HW - 6}" y="{Y + 3}" text-anchor="end" font-size="8" '
+            f'fill="{MUTED}" opacity="0.9">{day}</text>'
+        )
+
+    created = datetime.datetime.fromisoformat(
+        gh["user"]["created_at"].replace("Z", "+00:00")
     )
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
 <defs>
-  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="{SKY_TOP}"/>
-    <stop offset="0.32" stop-color="{SKY_MID}"/>
-    <stop offset="0.42" stop-color="{HORIZON}"/>
-    <stop offset="0.44" stop-color="#0a0f17"/>
-    <stop offset="1" stop-color="#070b10"/>
+  <clipPath id="card"><rect width="{W}" height="{H}" rx="14"/></clipPath>
+  <linearGradient id="seat" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#070b10" stop-opacity="0"/>
+    <stop offset="0.55" stop-color="#070b10" stop-opacity="0.32"/>
+    <stop offset="1" stop-color="#070b10" stop-opacity="0.72"/>
   </linearGradient>
-  <filter id="fog" x="-20%" y="-50%" width="140%" height="200%">
-    <feGaussianBlur stdDeviation="14"/>
+  <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
   </filter>
+  <style>
+    @keyframes beacon {{ 0%,100% {{ opacity: 1; }} 50% {{ opacity: 0.15; }} }}
+    .beacon {{ animation: beacon 2.6s ease-in-out infinite; }}
+  </style>
 </defs>
-<rect width="{W}" height="{H}" rx="14" fill="url(#sky)" stroke="{BORDER}"/>
-{stars}
-<circle cx="852" cy="52" r="14" fill="#e8eef5" opacity="0.85"/>
-<circle cx="846" cy="47" r="13" fill="{SKY_TOP}"/>
-{_skyline()}
-<ellipse cx="320" cy="{HORIZON_Y + 4}" rx="320" ry="16" fill="#9fb2c8" opacity="0.05" filter="url(#fog)"/>
+<g clip-path="url(#card)">
+  <image href="data:image/jpeg;base64,{bg64}" x="0" y="0" width="{W}" height="{H}" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="0" y="{Y0 - 80}" width="{W}" height="{H - Y0 + 80}" fill="url(#seat)"/>
+</g>
+{"".join(axes)}
 {"".join(city)}
-<text x="24" y="34" font-size="13" font-weight="700" fill="{MINT_HI}" letter-spacing="2">SAN FRANCISCO · CONTRIBUTION DISTRICT</text>
-<text x="24" y="54" font-size="10" fill="{MUTED}">53 WEEKS × 7 DAYS · EVERY BUILDING IS A DAY OF COMMITS</text>
-<text x="{W - 24}" y="34" text-anchor="end" font-size="12" fill="{AMBER}" font-weight="700">{total:,} CONTRIBUTIONS</text>
-<text x="{W - 24}" y="52" text-anchor="end" font-size="10" fill="{MUTED}">ROLLING 365 DAYS · {now:%Y-%m-%d}</text>
-<text x="24" y="{H - 22}" font-size="9" fill="{MUTED}">LESS</text>
-{legend}
-<text x="{70 + 5 * 22 + 8}" y="{H - 22}" font-size="9" fill="{MUTED}">MORE</text>
+{pennant}
+<text x="26" y="36" font-size="14" font-weight="700" fill="{MINT_HI}" letter-spacing="2">SAN FRANCISCO · CONTRIBUTION DISTRICT</text>
+<text x="26" y="56" font-size="10" fill="{FG}">53 WEEKS × 7 DAYS · EVERY BUILDING IS A DAY OF COMMITS · ROLLING 365D</text>
+<text x="{W - 26}" y="36" text-anchor="end" font-size="13" fill="{AMBER}" font-weight="700">{total:,} CONTRIBUTIONS</text>
+<text x="{W - 26}" y="56" text-anchor="end" font-size="10" fill="{FG}">ACTIVE {active}/365 · STREAK {streak}D · PEAK {peak_day['contributionCount']}</text>
+{_poster(total, created.year)}
+<rect width="{W}" height="{H}" rx="14" fill="none" stroke="{BORDER}"/>
 </svg>"""
     write_svg("city.svg", svg)

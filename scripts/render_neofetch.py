@@ -118,9 +118,9 @@ def render(gh, tokens):
         chip_svg.append(
             f'<g><rect x="{mid - 16}" y="{chips_y + 2}" width="32" height="3" rx="1.5" fill="{color}"/>'
             f'<text x="{mid}" y="{chips_y + 44}" text-anchor="middle" '
-            f'font-size="32" font-weight="700" fill="{color}" filter="url(#soft)">{esc(value)}</text>'
+            f'font-size="30" font-weight="700" fill="{color}">{esc(value)}</text>'
             f'<text x="{mid}" y="{chips_y + 66}" text-anchor="middle" '
-            f'font-size="10" letter-spacing="3" fill="{t["muted"]}">{esc(label)}</text></g>'
+            f'font-size="11" letter-spacing="1.5" fill="{t["fg"]}">{esc(label)}</text></g>'
         )
         if i:
             chip_svg.append(

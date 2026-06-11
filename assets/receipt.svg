@@ -1,16 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 986" width="560" font-family="ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 976" width="560" font-family="ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace">
 <defs>
   <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
     <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/>
   </filter>
 </defs>
-<polygon points="60,13 74,6 88,13 102,6 116,13 130,6 144,13 158,6 172,13 186,6 200,13 214,6 228,13 242,6 256,13 270,6 284,13 298,6 312,13 326,6 340,13 354,6 368,13 382,6 396,13 410,6 424,13 438,6 452,13 466,6 480,13 494,6 494,973 480,980 466,973 452,980 438,973 424,980 410,973 396,980 382,973 368,980 354,973 340,980 326,973 312,980 298,973 284,980 270,973 256,980 242,973 228,980 214,973 200,980 186,973 172,980 158,973 144,980 130,973 116,980 102,973 88,980 74,973 60,980" fill="#f7f3e9" filter="url(#drop)"/>
+<polygon points="60,13 74,6 88,13 102,6 116,13 130,6 144,13 158,6 172,13 186,6 200,13 214,6 228,13 242,6 256,13 270,6 284,13 298,6 312,13 326,6 340,13 354,6 368,13 382,6 396,13 410,6 424,13 438,6 452,13 466,6 480,13 494,6 494,963 480,970 466,963 452,970 438,963 424,970 410,963 396,970 382,963 368,970 354,963 340,970 326,963 312,970 298,963 284,970 270,963 256,970 242,963 228,970 214,963 200,970 186,963 172,970 158,963 144,970 130,963 116,970 102,963 88,970 74,963 60,970" fill="#f7f3e9" filter="url(#drop)"/>
 <text x="280.0" y="78" text-anchor="middle" font-size="17" fill="#211c16" font-weight="700">MAXMONEYCASH</text>
 <text x="280.0" y="102" text-anchor="middle" font-size="11" fill="#6b6256">AI COMPUTE STATEMENT</text>
 <text x="280.0" y="120" text-anchor="middle" font-size="11" fill="#6b6256">BILLING PERIOD: OCT 2025 — JUN 2026</text>
 <text x="280.0" y="140" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
 <g font-size="13"><text x="96" y="159" fill="#211c16">STATEMENT #</text><text x="464" y="159" text-anchor="end" fill="#211c16">MMC_20260611_B85029</text></g>
-<g font-size="13"><text x="96" y="178" fill="#211c16">ISSUED</text><text x="464" y="178" text-anchor="end" fill="#211c16">2026-06-11 02:41 UTC</text></g>
+<g font-size="13"><text x="96" y="178" fill="#211c16">ISSUED</text><text x="464" y="178" text-anchor="end" fill="#211c16">2026-06-11 03:07 UTC</text></g>
 <g font-size="13"><text x="96" y="197" fill="#211c16">BILLED TO</text><text x="464" y="197" text-anchor="end" fill="#211c16">MAX @MAXMONEYCASH</text></g>
 <g font-size="13"><text x="96" y="216" fill="#211c16">SERVED BY</text><text x="464" y="216" text-anchor="end" fill="#211c16">5 CODING AGENTS</text></g>
 <text x="280.0" y="235" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
@@ -24,7 +24,7 @@
 <g font-size="13"><text x="96" y="381" fill="#211c16">DROID</text><text x="464" y="381" text-anchor="end" fill="#211c16">1.01B</text></g>
 <g font-size="13"><text x="96" y="400" fill="#211c16">KIMI CODE</text><text x="464" y="400" text-anchor="end" fill="#211c16">419.0M</text></g>
 <g font-size="13"><text x="96" y="419" fill="#211c16">OPENCODE</text><text x="464" y="419" text-anchor="end" fill="#211c16">66.0M</text></g>
-<g font-size="13"><text x="96" y="438" fill="#211c16">GROK BUILD</text><text x="464" y="438" text-anchor="end" fill="#211c16">UNTRACKED*</text></g>
+<g font-size="13"><text x="96" y="438" fill="#211c16">GROK BUILD</text><text x="464" y="438" text-anchor="end" fill="#211c16">0</text></g>
 <text x="280.0" y="457" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────</text>
 <g font-size="13" font-weight="700"><text x="96" y="476" fill="#211c16">SUBTOTAL</text><text x="464" y="476" text-anchor="end" fill="#211c16">14.7B TOK</text></g>
 <text x="280.0" y="495" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
@@ -51,5 +51,4 @@
 <text x="280.0" y="896" text-anchor="middle" font-size="14" fill="#211c16"> || |||||||| | ||||||||| || ||||| ||| </text>
 <text x="280.0" y="912" text-anchor="middle" font-size="10" fill="#6b6256">MMC_20260611_B85029</text>
 <text x="280.0" y="932" text-anchor="middle" font-size="12" fill="#211c16" font-weight="700">★ PAID IN FULL · NO REFUNDS ★</text>
-<text x="280.0" y="946" text-anchor="middle" font-size="9" fill="#6b6256">* grok build keeps no receipts</text>
 </svg>
