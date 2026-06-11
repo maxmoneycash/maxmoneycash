@@ -104,7 +104,7 @@ def render(gh, tokens):
     chips_y = 432
     chip_w, chip_h, gap = 199, 80, 16
     chips = [
-        ("TOKENS ALL-TIME", compact(totals["totalTokens"]), t["phosphor"]),
+        ("TOKENS ALL-TIME", f"{totals['totalTokens']:,}", t["phosphor"]),
         ("COMPUTE BURNED", money(totals["totalCost"]), t["amber"]),
         ("PUBLIC REPOS", str(user["public_repos"]), t["value"]),
         ("FOLLOWERS", str(user["followers"]), APPLE_STRIPES[4]),
@@ -115,10 +115,11 @@ def render(gh, tokens):
     for i, (label, value, color) in enumerate(chips):
         cx = 42 + i * (chip_w + gap)
         mid = cx + chip_w / 2
+        size = 30 if len(value) <= 9 else 19
         chip_svg.append(
             f'<g><rect x="{mid - 16}" y="{chips_y + 2}" width="32" height="3" rx="1.5" fill="{color}"/>'
             f'<text x="{mid}" y="{chips_y + 44}" text-anchor="middle" '
-            f'font-size="30" font-weight="700" fill="{color}">{esc(value)}</text>'
+            f'font-size="{size}" font-weight="700" fill="{color}">{esc(value)}</text>'
             f'<text x="{mid}" y="{chips_y + 66}" text-anchor="middle" '
             f'font-size="11" letter-spacing="1.5" fill="{t["fg"]}">{esc(label)}</text></g>'
         )

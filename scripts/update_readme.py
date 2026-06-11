@@ -8,6 +8,7 @@ import render_city
 import render_heatmaps
 import render_market
 import render_neofetch
+import render_wrapped
 import render_receipt
 import render_tokens
 from common import LOGIN, gh_api, load_tokens
@@ -38,6 +39,7 @@ def main():
     render_heatmaps.render(gh, tokens)
     render_market.render(gh, tokens)
     render_city.render(gh, tokens)
+    render_wrapped.render(gh, tokens)
     print("all cards rendered")
 
 

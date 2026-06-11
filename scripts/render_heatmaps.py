@@ -3,7 +3,14 @@ import datetime
 
 from common import LOGIN, THEME, gh_graphql, write_svg
 
-PALETTE = ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"]
+# 9-step ramp: zero → GitHub greens → phosphor mint → white-hot, so heavy
+# 50-100-commit days don't flatten into the same shade as a 10-commit day.
+PALETTE = [
+    "#161b22", "#0a3a26", "#0e5230", "#15703c", "#229246",
+    "#39d353", "#5ce96f", "#97fce4", "#eafffa",
+]
+# nonzero percentile cuts for levels 1..8
+CUTS = (0.13, 0.27, 0.42, 0.57, 0.72, 0.85, 0.95)
 MONO = "ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"
 
 QUERY = """
@@ -26,7 +33,7 @@ def _level(count, q):
     for i, threshold in enumerate(q):
         if count <= threshold:
             return i + 1
-    return 4
+    return len(q) + 1
 
 
 def render_year(year):
@@ -49,9 +56,9 @@ def render_year(year):
         if d["contributionCount"] > 0
     )
     if counts:
-        q = [counts[int(len(counts) * p)] for p in (0.25, 0.5, 0.75)]
+        q = [counts[min(int(len(counts) * p), len(counts) - 1)] for p in CUTS]
     else:
-        q = [1, 2, 3]
+        q = list(range(1, len(CUTS) + 1))
 
     # Fixed 53-column grid so every year's card has identical dimensions
     # (the current year would otherwise be narrower and scale up larger).
@@ -96,6 +103,9 @@ def render_year(year):
 <text x="{pad_x}" y="24" font-size="13" fill="{THEME['fg']}">
   <tspan fill="{THEME['green']}" font-weight="700">{cal['totalContributions']:,}</tspan> contributions in {year}{ytd}
 </text>
+<text x="{W - pad_x - len(PALETTE) * 11 - 38}" y="23" text-anchor="end" font-size="9" fill="{THEME['muted']}">less</text>
+{"".join(f'<rect x="{W - pad_x - 30 - (len(PALETTE) - i) * 11}" y="14" width="8" height="8" rx="2" fill="{c}"/>' for i, c in enumerate(PALETTE))}
+<text x="{W - pad_x}" y="23" text-anchor="end" font-size="9" fill="{THEME['muted']}">more</text>
 {"".join(rects)}
 </svg>"""
     write_svg(f"heatmap-{year}.svg", svg)

@@ -29,6 +29,10 @@
 
 <img src="./assets/city.svg" width="100%" alt="contribution city — every building is a day of commits, SF skyline behind"/>
 
+## <samp>~ ❯ wrapped --share</samp>
+
+<img src="./assets/wrapped.svg" width="100%" alt="year in tokens — annual compute report"/>
+
 <br/>
 
 <sub><samp>rendered daily · cards by GitHub Actions · token data via launchd + ccusage on my mac · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>

@@ -33,6 +33,7 @@ AGENT_COLORS = {
     "droid": "#58a6ff",
     "kimi": "#a371f7",
     "opencode": "#f2cc60",
+    "cursor": "#e3e9f0",
 }
 
 AGENT_LABELS = {
