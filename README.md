@@ -10,12 +10,10 @@
 
 <br/><br/>
 
-<table>
-<tr>
-<td width="50%" align="center" valign="top"><img src="./assets/receipt.svg" width="100%" alt="all-time token receipt"/></td>
-<td width="50%" align="center" valign="top"><img src="./assets/token-ops.svg" width="100%" alt="token ops dashboard"/></td>
-</tr>
-</table>
+<p align="center">
+<img src="./assets/receipt.svg" width="418" alt="all-time token receipt"/>
+<img src="./assets/token-ops.svg" width="418" alt="token ops dashboard"/>
+</p>
 
 ## <samp>~ ❯ git log --graph --all</samp>
 
