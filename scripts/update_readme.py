@@ -4,6 +4,7 @@ import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import render_city
 import render_heatmaps
 import render_market
 import render_neofetch
@@ -31,10 +32,11 @@ def main():
     gh = fetch_github()
     tokens = load_tokens()
     render_neofetch.render(gh, tokens)
-    render_receipt.render(gh, tokens)
-    render_tokens.render(gh, tokens)
+    ops_h = render_tokens.render(gh, tokens)
+    render_receipt.render(gh, tokens, target_h=ops_h)
     render_heatmaps.render(gh, tokens)
     render_market.render(gh, tokens)
+    render_city.render(gh, tokens)
     print("all cards rendered")
 
 

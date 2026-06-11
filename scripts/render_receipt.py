@@ -9,8 +9,12 @@ INK = "#211c16"
 FAINT = "#6b6256"
 MONO = "ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"
 
-W = 420
-PAD = 34
+# Canvas matches token-ops (560 wide) so the two cards keep the same
+# rendered height side by side on desktop and stacked on mobile.
+W = 560
+PAPER_W = 440
+PAPER_X = (W - PAPER_W) // 2
+PAD = PAPER_X + 36
 LH = 19
 
 
@@ -71,15 +75,18 @@ class Paper:
             y += gap
         return "\n".join(out), y
 
+    def height(self, y0):
+        return self.render(y0)[1]
+
 
 def _paper_outline(h):
     """Receipt silhouette: zig-zag torn top and bottom edges."""
     step, amp = 14, 7
     top, bottom = [], []
-    x, up = 0, True
-    while x <= W:
-        top.append((x, amp if up else 0))
-        bottom.append((x, h - (amp if not up else 0)))
+    x, up = PAPER_X, True
+    while x <= PAPER_X + PAPER_W:
+        top.append((x, 6 + (amp if up else 0)))
+        bottom.append((x, h - 6 - (amp if not up else 0)))
         up = not up
         x += step
     pts = [f"{x},{y}" for x, y in top]
@@ -87,7 +94,7 @@ def _paper_outline(h):
     return " ".join(pts)
 
 
-def render(gh, tokens):
+def render(gh, tokens, target_h=None):
     totals = tokens["totals"]
     agents = tokens["agents"]
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -156,8 +163,19 @@ def render(gh, tokens):
     p.center("★ PAID IN FULL · NO REFUNDS ★", 12, bold=True, gap=14)
     p.center("* grok build keeps no receipts", 9, color=FAINT, gap=10)
 
+    # Stretch to target_h (token-ops height) by padding around the total
+    # block and before the barcode, so both cards share an aspect ratio.
+    if target_h:
+        natural = p.height(58) + 26
+        extra = max(target_h - natural, 0)
+        slots = [i for i, (kind, _) in enumerate(p.lines) if kind == "rule"]
+        if len(slots) >= 2 and extra:
+            a, b = slots[-2], slots[-1]
+            p.lines.insert(b + 1, ("space", extra / 2))
+            p.lines.insert(a, ("space", extra / 2))
+
     body, y_end = p.render(58)
-    H = y_end + 26
+    H = max(y_end + 26, target_h or 0)
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
 <defs>

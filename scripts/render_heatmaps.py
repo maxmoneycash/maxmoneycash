@@ -53,9 +53,12 @@ def render_year(year):
     else:
         q = [1, 2, 3]
 
+    # Fixed 53-column grid so every year's card has identical dimensions
+    # (the current year would otherwise be narrower and scale up larger).
+    COLS = 53
     cell, gap, pad_x, pad_y = 11, 3, 18, 40
-    weeks = cal["weeks"]
-    W = pad_x * 2 + len(weeks) * (cell + gap)
+    weeks = cal["weeks"][:COLS]
+    W = pad_x * 2 + COLS * (cell + gap)
     H = pad_y + 7 * (cell + gap) + 14
 
     rects = []

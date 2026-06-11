@@ -204,3 +204,4 @@ def render(gh, tokens):
 <rect width="{W}" height="{H}" rx="14" fill="url(#scan)"/>
 </svg>"""
     write_svg("token-ops.svg", svg)
+    return H
