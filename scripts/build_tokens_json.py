@@ -1,0 +1,123 @@
+"""Assemble data/tokens.json from ccusage outputs + the true codex counter.
+
+ccusage's codex adapter (v20.0.9–20.0.11) double-counts re-emitted
+token_count events (~+30% for this machine's logs), so codex numbers are
+replaced with scripts/codex_true_usage.py's cumulative-counter results.
+Unified months/totals are then rebuilt so everything sums exactly.
+
+Usage: python3 build_tokens_json.py <dir with monthly.json daily.json
+agent-*.json codex-true.json>  → corrected tokens.json on stdout.
+"""
+import datetime
+import json
+import pathlib
+import sys
+
+COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
+
+
+def load(d, name):
+    with open(d / name) as f:
+        return json.load(f)
+
+
+def main():
+    d = pathlib.Path(sys.argv[1])
+    unified = load(d, "monthly.json")
+    daily = load(d, "daily.json")
+    agents_raw = {
+        a: load(d, f"agent-{a}.json")
+        for a in ("claude", "codex", "droid", "kimi", "opencode")
+    }
+    codex_true = load(d, "codex-true.json")
+
+    codex_rep = {m["month"]: m for m in agents_raw["codex"].get("monthly") or []}
+    codex_tru = {m["month"]: m for m in codex_true["monthly"]}
+
+    def rep_models(rep):
+        # per-agent schema: models is a dict keyed by model name
+        return set((rep.get("models") or {}).keys()) | set(rep.get("modelsUsed") or [])
+
+    def rep_total(rep):
+        return rep.get("totalTokens") or sum(rep.get(c, 0) for c in COMPONENTS)
+
+    codex_cost = 0.0
+    monthly = []
+    for m in unified["monthly"]:
+        m = dict(m)
+        month = m["period"]
+        rep = codex_rep.get(month)
+        tru = codex_tru.get(month)
+        factor = 1.0
+        if rep and rep_total(rep):
+            tru_tot = tru["totalTokens"] if tru else 0
+            factor = tru_tot / rep_total(rep)
+            for c in COMPONENTS:
+                m[c] = m.get(c, 0) - rep.get(c, 0) + (tru.get(c, 0) if tru else 0)
+            m["totalTokens"] = m["totalTokens"] - rep_total(rep) + tru_tot
+        # Rescale codex-model breakdowns (cost is an estimate, pro-rated by
+        # the corrected token volume) and rebuild the month's cost.
+        codex_models = rep_models(rep or {})
+        breakdowns = []
+        total_cost = 0.0
+        for b in m.get("modelBreakdowns", []):
+            b = dict(b)
+            if b["modelName"] in codex_models and factor != 1.0:
+                for c in COMPONENTS + ["cost"]:
+                    if c in b and isinstance(b[c], (int, float)):
+                        b[c] = b[c] * factor
+                for c in COMPONENTS:
+                    b[c] = int(b[c])
+                codex_cost += b.get("cost", 0)
+            elif b["modelName"] in codex_models:
+                codex_cost += b.get("cost", 0)
+            total_cost += b.get("cost", 0)
+            breakdowns.append(b)
+        m["modelBreakdowns"] = breakdowns
+        m["totalCost"] = total_cost
+        monthly.append(m)
+
+    totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
+    totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
+    totals["totalCost"] = sum(m["totalCost"] for m in monthly)
+
+    agents = {}
+    for name, raw in agents_raw.items():
+        agents[name] = {"totals": raw.get("totals") or {}, "monthly": raw.get("monthly") or []}
+    # Replace codex with the true counts; keep ccusage's model lists.
+    models_used = {
+        m["month"]: sorted(rep_models(m)) for m in agents["codex"]["monthly"]
+    }
+    agents["codex"] = {
+        "totals": {**codex_true["totals"], "totalCost": codex_cost},
+        "monthly": [
+            {**m, "modelsUsed": models_used.get(m["month"], [])}
+            for m in codex_true["monthly"]
+        ],
+    }
+
+    out = {
+        "generated_at": datetime.datetime.now(datetime.timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
+        "totals": totals,
+        "monthly": monthly,
+        "daily": daily["daily"],
+        "agents": agents,
+        "corrections": {
+            "codexReemitBugAdjusted": True,
+            "codexReportedTotal": agents_raw["codex"].get("totals", {}).get("totalTokens"),
+            "codexTrueTotal": codex_true["totals"]["totalTokens"],
+            "note": (
+                "codex counted from cumulative total_token_usage deltas; "
+                "ccusage <=20.0.11 double-counts re-emitted token_count events. "
+                "codex model costs pro-rated by corrected volume. daily[] series "
+                "left as reported (relative shape only)."
+            ),
+        },
+    }
+    json.dump(out, sys.stdout)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,9 @@
-"""Thermal-paper receipt card for all-time token spend."""
+"""Thermal-paper receipt: the all-time AI compute bill, with a granular
+token ledger (output by agent, all four token buckets)."""
 import datetime
 import hashlib
+import re
+from collections import defaultdict
 
 from common import AGENT_LABELS, compact, esc, money, write_svg
 
@@ -32,8 +35,8 @@ class Paper:
     def center(self, text, size=13, bold=False, color=INK, gap=LH):
         self.lines.append(("center", (text, size, bold, color, gap)))
 
-    def kv(self, k, v, bold=False, gap=LH):
-        self.lines.append(("kv", (k, v, bold, gap)))
+    def kv(self, k, v, bold=False, gap=LH, color=INK):
+        self.lines.append(("kv", (k, v, bold, gap, color)))
 
     def rule(self, heavy=False, gap=LH):
         self.lines.append(("rule", (heavy, gap)))
@@ -65,12 +68,12 @@ class Paper:
                 )
                 y += gap
                 continue
-            k, v, bold, gap = p
+            k, v, bold, gap, color = p
             weight = ' font-weight="700"' if bold else ""
             out.append(
                 f'<g font-size="13"{weight}>'
-                f'<text x="{PAD}" y="{y}" fill="{INK}">{esc(k)}</text>'
-                f'<text x="{W - PAD}" y="{y}" text-anchor="end" fill="{INK}">{esc(v)}</text></g>'
+                f'<text x="{PAD}" y="{y}" fill="{color}">{esc(k)}</text>'
+                f'<text x="{W - PAD}" y="{y}" text-anchor="end" fill="{color}">{esc(v)}</text></g>'
             )
             y += gap
         return "\n".join(out), y
@@ -94,33 +97,15 @@ def _paper_outline(h):
     return " ".join(pts)
 
 
-def render(gh, tokens, target_h=None):
+def _build(tokens):
     totals = tokens["totals"]
     agents = tokens["agents"]
     now = datetime.datetime.now(datetime.timezone.utc)
     receipt_id = f"MMC_{now:%Y%m%d}_{hashlib.sha1(str(totals['totalTokens']).encode()).hexdigest()[:6].upper()}"
-
     first = datetime.datetime.strptime(tokens["monthly"][0]["period"], "%Y-%m")
     last = datetime.datetime.strptime(tokens["monthly"][-1]["period"], "%Y-%m")
 
-    p = Paper()
-    p.space(16)
-    p.center("MAXMONEYCASH", 17, bold=True, gap=24)
-    p.center("AI COMPUTE STATEMENT", 11, color=FAINT, gap=18)
-    p.center(f"BILLING PERIOD: {first:%b %Y} — {last:%b %Y}".upper(), 11, color=FAINT, gap=20)
-    p.rule()
-    p.kv("STATEMENT #", receipt_id)
-    p.kv("ISSUED", f"{now:%Y-%m-%d %H:%M} UTC")
-    p.kv("BILLED TO", "MAX @MAXMONEYCASH")
-    p.kv("SERVED BY", "5 CODING AGENTS")
-    p.rule(heavy=True)
-    p.kv("ITEM", "TOKENS", bold=True)
-    p.rule()
-
     # Unified per-model totals (for the Claude generation split).
-    import re
-    from collections import defaultdict
-
     model_tot = defaultdict(int)
     for m in tokens["monthly"]:
         for b in m["modelBreakdowns"]:
@@ -136,6 +121,20 @@ def render(gh, tokens, target_h=None):
         ("  · FABLE 5", "claude-fable-5"),
     ]
 
+    p = Paper()
+    p.space(20)
+    p.center("MAXMONEYCASH", 17, bold=True, gap=24)
+    p.center("AI COMPUTE STATEMENT", 11, color=FAINT, gap=18)
+    p.center(f"BILLING PERIOD: {first:%b %Y} — {last:%b %Y}".upper(), 11, color=FAINT, gap=20)
+    p.rule()
+    p.kv("STATEMENT #", receipt_id)
+    p.kv("ISSUED", f"{now:%Y-%m-%d %H:%M} UTC")
+    p.kv("BILLED TO", "MAX @MAXMONEYCASH")
+    p.kv("SERVED BY", "5 CODING AGENTS")
+    p.rule(heavy=True)
+    p.kv("ITEM", "TOKENS", bold=True)
+    p.rule()
+
     ordered = sorted(
         agents.items(), key=lambda kv: -(kv[1]["totals"].get("totalTokens") or 0)
     )
@@ -148,9 +147,30 @@ def render(gh, tokens, target_h=None):
     p.kv("GROK BUILD", "UNTRACKED*")
     p.rule()
     p.kv("SUBTOTAL", f"{compact(totals['totalTokens'])} TOK", bold=True)
+
+    # ---- granular token ledger ------------------------------------------
+    p.rule(heavy=True)
+    p.kv("LEDGER", "READ vs WRITTEN", bold=True)
+    p.rule()
+    out_total = totals["outputTokens"]
+    p.kv("OUTPUT (WRITTEN)", compact(out_total), bold=True)
+    for name, a in ordered:
+        out_a = a["totals"].get("outputTokens") or 0
+        pct = 100 * out_a / out_total if out_total else 0
+        p.kv(f"  · {AGENT_LABELS[name]}", f"{compact(out_a)} ({pct:.0f}%)", gap=17)
+    novels = out_total * 0.75 / 90_000
+    p.kv("  ≈ NOVELS WRITTEN", f"{novels:,.0f}", gap=20, color=FAINT)
+    p.kv("FRESH INPUT (READ)", compact(totals["inputTokens"]))
+    p.kv("CACHE WRITES", compact(totals["cacheCreationTokens"]))
     cache_pct = 100 * totals["cacheReadTokens"] / totals["totalTokens"]
-    p.kv("CACHE READS", f"{compact(totals['cacheReadTokens'])} ({cache_pct:.1f}%)")
-    p.kv("OUTPUT TOK", compact(totals["outputTokens"]))
+    p.kv("CACHE READS", compact(totals["cacheReadTokens"]))
+    p.kv("  · CONTEXT RE-READ", f"{cache_pct:.1f}% OF ALL TOK", gap=20, color=FAINT)
+    reasoning = totals["totalTokens"] - sum(
+        totals.get(c, 0)
+        for c in ("inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens")
+    )
+    if reasoning > 100_000:
+        p.kv("REASONING (DROID)", compact(reasoning), gap=20)
     p.rule(heavy=True)
     p.kv("TOTAL USD", money(totals["totalCost"], cents=True), bold=True, gap=24)
     months_active = max(len(tokens["monthly"]), 1)
@@ -162,11 +182,20 @@ def render(gh, tokens, target_h=None):
     p.center(receipt_id, 10, color=FAINT, gap=20)
     p.center("★ PAID IN FULL · NO REFUNDS ★", 12, bold=True, gap=14)
     p.center("* grok build keeps no receipts", 9, color=FAINT, gap=10)
+    return p
+
+
+def natural_height(gh, tokens):
+    return _build(tokens).height(58) + 30
+
+
+def render(gh, tokens, target_h=None):
+    p = _build(tokens)
 
     # Stretch to target_h (token-ops height) by padding around the total
     # block and before the barcode, so both cards share an aspect ratio.
     if target_h:
-        natural = p.height(58) + 26
+        natural = p.height(58) + 30
         extra = max(target_h - natural, 0)
         slots = [i for i, (kind, _) in enumerate(p.lines) if kind == "rule"]
         if len(slots) >= 2 and extra:
@@ -175,7 +204,7 @@ def render(gh, tokens, target_h=None):
             p.lines.insert(a, ("space", extra / 2))
 
     body, y_end = p.render(58)
-    H = max(y_end + 26, target_h or 0)
+    H = max(y_end + 30, target_h or 0)
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
 <defs>

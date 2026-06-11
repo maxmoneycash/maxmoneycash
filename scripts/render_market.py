@@ -271,11 +271,20 @@ def render(gh, tokens):
         f'<text x="{ob_x + ob_w - 14}" y="{ob_y + 24}" text-anchor="end" font-size="9" '
         f'fill="{C["muted"]}">AGENTS × LANGS</text>'
     )
-    asks = sorted(agents.items(), key=lambda kv: kv[1]["totals"].get("totalCost") or 0)
-    amax = max((a[1]["totals"].get("totalCost") or 1) for a in asks)
+    # ccusage's per-agent codex report carries no cost (null); attribute the
+    # unified-total residual to agents with missing cost so the book is honest.
+    costs = {n: a["totals"].get("totalCost") for n, a in agents.items()}
+    known = sum(c for c in costs.values() if c)
+    missing = [n for n, c in costs.items() if not c]
+    residual = max(tokens["totals"]["totalCost"] - known, 0)
+    for n in missing:
+        costs[n] = residual / len(missing)
+
+    asks = sorted(agents.items(), key=lambda kv: costs[kv[0]])
+    amax = max(costs.values()) or 1
     ay = ob_y + 38
     for name, a in asks:
-        cost = a["totals"].get("totalCost") or 0
+        cost = costs[name]
         tok = a["totals"].get("totalTokens") or 0
         bw = (ob_w - 28) * cost / amax
         parts.append(

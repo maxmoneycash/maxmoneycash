@@ -47,7 +47,7 @@ def tokens_of(b):
             + b.get("cacheCreationTokens", 0) + b.get("cacheReadTokens", 0))
 
 
-def render(gh, tokens):
+def render(gh, tokens, target_h=None):
     t = THEME
     months = tokens["monthly"][-9:]
     daily = tokens["daily"][-30:]
@@ -177,7 +177,9 @@ def render(gh, tokens):
 
     peak = max(tokens["daily"], key=lambda d: d["totalTokens"], default=None)
     cache_pct = 100 * totals["cacheReadTokens"] / totals["totalTokens"]
-    foot_y = d_y + d_h + 30
+    # If the receipt next door is naturally taller, anchor the footer lower
+    # so both cards end up the same height.
+    foot_y = max(d_y + d_h + 30, (target_h or 0) - 26)
     parts.append(
         f'<text x="{LEFT}" y="{foot_y}" font-size="11" fill="{t["muted"]}">'
         f'cache hit <tspan fill="{t["phosphor"]}">{cache_pct:.1f}%</tspan>'
