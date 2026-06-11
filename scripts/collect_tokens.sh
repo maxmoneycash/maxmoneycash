@@ -26,9 +26,21 @@ done
 
 # True codex counts (ccusage <=20.0.11 double-counts re-emitted events)
 python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$TMP/codex-true.json"
-python3 "$REPO_DIR/scripts/build_tokens_json.py" "$TMP" > data/tokens.json
+# Cursor dashboard usage; fall back to the committed cache on any failure
+if python3 "$REPO_DIR/scripts/cursor_usage.py" > "$TMP/cursor.json.new" 2>&1; then
+  mv "$TMP/cursor.json.new" "$TMP/cursor.json"
+  cp "$TMP/cursor.json" data/cursor-cache.json
+elif [ -f data/cursor-cache.json ]; then
+  echo "cursor fetch failed; using cached data/cursor-cache.json" >&2
+  cp data/cursor-cache.json "$TMP/cursor.json"
+else
+  echo '{"totals":{},"monthly":[]}' > "$TMP/cursor.json"
+fi
+# Atomic write so a failed build can never truncate data/tokens.json
+python3 "$REPO_DIR/scripts/build_tokens_json.py" "$TMP" > "$TMP/tokens.out"
+mv "$TMP/tokens.out" data/tokens.json
 
-git add data/tokens.json
+git add data/tokens.json data/cursor-cache.json
 if git diff --cached --quiet; then
   echo "tokens.json unchanged; nothing to push"
   exit 0

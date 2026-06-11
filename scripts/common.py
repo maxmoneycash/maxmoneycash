@@ -41,6 +41,7 @@ AGENT_LABELS = {
     "droid": "DROID",
     "kimi": "KIMI CODE",
     "opencode": "OPENCODE",
+    "cursor": "CURSOR",
 }
 
 

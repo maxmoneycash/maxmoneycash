@@ -40,7 +40,7 @@ query($login: String!, $from: DateTime!, $to: DateTime!) {
 
 AGENT_TICKERS = {
     "claude": "CLAUDE", "codex": "CODEX", "droid": "DROID",
-    "kimi": "KIMI", "opencode": "OPENCODE",
+    "kimi": "KIMI", "opencode": "OPENCODE", "cursor": "CURSOR",
 }
 
 LANG_TICKER = {
@@ -83,7 +83,7 @@ def fetch_fills():
             {"repo": e["repo"]["name"].split("/")[-1],
              "n": e["payload"].get("size", 1) or 1, "ago": ago}
         )
-        if len(fills) == 4:
+        if len(fills) == 3:
             break
     return fills
 

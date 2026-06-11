@@ -30,6 +30,10 @@ def main():
         for a in ("claude", "codex", "droid", "kimi", "opencode")
     }
     codex_true = load(d, "codex-true.json")
+    try:
+        cursor = load(d, "cursor.json")
+    except FileNotFoundError:
+        cursor = {"totals": {}, "monthly": []}
 
     codex_rep = {m["month"]: m for m in agents_raw["codex"].get("monthly") or []}
     codex_tru = {m["month"]: m for m in codex_true["monthly"]}
@@ -77,6 +81,40 @@ def main():
         m["totalCost"] = total_cost
         monthly.append(m)
 
+    # Merge cursor months (dashboard API; token accounting exists from
+    # 2025-07 onward — earlier Cursor usage was request-based, no tokens).
+    by_period = {m["period"]: m for m in monthly}
+    for cm in cursor.get("monthly") or []:
+        m = by_period.get(cm["month"])
+        if m is None:
+            m = {
+                "period": cm["month"], "agent": "all",
+                "inputTokens": 0, "outputTokens": 0, "cacheCreationTokens": 0,
+                "cacheReadTokens": 0, "totalTokens": 0, "totalCost": 0.0,
+                "modelsUsed": [], "modelBreakdowns": [],
+                "metadata": {"agents": ["cursor"]},
+            }
+            by_period[cm["month"]] = m
+            monthly.append(m)
+        else:
+            m.setdefault("metadata", {}).setdefault("agents", []).append("cursor")
+        for c in COMPONENTS:
+            m[c] = m.get(c, 0) + cm.get(c, 0)
+        m["totalTokens"] += cm["totalTokens"]
+        m["totalCost"] += cm.get("totalCost", 0)
+        for model, mm in (cm.get("models") or {}).items():
+            m["modelBreakdowns"].append({
+                "modelName": model,
+                "inputTokens": mm.get("inputTokens", 0),
+                "outputTokens": mm.get("outputTokens", 0),
+                "cacheCreationTokens": mm.get("cacheCreationTokens", 0),
+                "cacheReadTokens": mm.get("cacheReadTokens", 0),
+                "cost": mm.get("cost", 0),
+            })
+            if model not in m.get("modelsUsed", []):
+                m.setdefault("modelsUsed", []).append(model)
+    monthly.sort(key=lambda m: m["period"])
+
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
     totals["totalCost"] = sum(m["totalCost"] for m in monthly)
@@ -94,6 +132,10 @@ def main():
             {**m, "modelsUsed": models_used.get(m["month"], [])}
             for m in codex_true["monthly"]
         ],
+    }
+    agents["cursor"] = {
+        "totals": cursor.get("totals") or {},
+        "monthly": cursor.get("monthly") or [],
     }
 
     out = {
