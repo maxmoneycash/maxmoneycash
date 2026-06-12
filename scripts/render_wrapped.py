@@ -90,7 +90,7 @@ def render(gh, tokens):
     stats = [
         ("OUTPUT WRITTEN", compact(totals["outputTokens"]), f"≈ {novels:,.0f} novels"),
         ("CACHE HIT RATE", f"{cache_pct:.1f}%", "context re-reads"),
-        ("MODELS USED", str(n_models), "claude · gpt · kimi · glm +"),
+        ("MODELS USED", str(n_models), "claude · fable · gpt · kimi +"),
         ("AVG / MONTH", money(totals["totalCost"] / max(len(tokens["monthly"]), 1)), "every month, all year"),
     ]
     col_w = (W - 140) / 4
