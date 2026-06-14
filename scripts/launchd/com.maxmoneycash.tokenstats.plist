@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template for the tokenstats launchd agent. Do NOT load this file directly:
+  __REPO_DIR__ and __HOME__ are placeholders. Run scripts/install_launchd.sh,
+  which renders this with real paths into ~/Library/LaunchAgents/ and loads it.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.maxmoneycash.tokenstats</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO_DIR__/scripts/collect_tokens.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_DIR__</string>
+
+  <!-- Run shortly after load/login so a fresh boot pushes today's stats. -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Periodic catch-up every 6h. This is the real fix: unlike
+       StartCalendarInterval, if the Mac was asleep across an interval launchd
+       fires this ONCE on wake, so sleeping through the scheduled window can no
+       longer silently skip the daily push. collect_tokens.sh no-ops when the
+       data is unchanged, so frequent runs are cheap. -->
+  <key>StartInterval</key>
+  <integer>21600</integer>
+
+  <!-- Keep the original twice-daily wall-clock cadence as well. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>20</integer></dict>
+    <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>20</integer></dict>
+  </array>
+
+  <!-- launchd hands jobs a minimal PATH; mirror collect_tokens.sh so bun and
+       homebrew binaries resolve. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/tokenstats.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/tokenstats.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
