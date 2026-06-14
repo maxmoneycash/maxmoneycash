@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/claude_session_hook.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
