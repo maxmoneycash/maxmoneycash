@@ -48,9 +48,16 @@ BODY = {
     "terra":  ("#e8b79a", "#c08560", "#6e5a54"),
 }
 BODY_KEYS = list(BODY)
-PYRAMID = ("#eef0ea", "#cdd0cb", "#7e8487")
-SALES   = ("#cfe0ec", "#94b3cb", "#586a82")
-COIT    = ("#e9ddc2", "#c4b288", "#7a6f5f")
+PYRAMID = ("#eef0ea", "#cdd0cb", "#7e8487")   # Transamerica: white quartz
+SALES   = ("#cfe0ec", "#94b3cb", "#586a82")   # Salesforce: blue glass
+COIT    = ("#e9ddc2", "#c4b288", "#7a6f5f")   # Coit: bare concrete
+BOFA    = ("#6a4450", "#4c2c34", "#2c181d")   # 555 California: red granite
+FREMONT = ("#cdd9e4", "#93a7bd", "#586679")   # 181 Fremont: cool glass
+FERRY   = ("#ece3cf", "#cfc2a4", "#8f8366")   # Ferry Building: Beaux-Arts stone
+STONE   = ("#e9e1cf", "#cdc3a8", "#8d8268")   # City Hall: granite
+GOLD    = ("#f2d06a", "#cf9f34", "#8a6a22")   # City Hall: gilded dome
+SUTRO_O = "#e4572e"        # Sutro Tower international orange
+SUTRO_W = "#f1efe8"        # Sutro Tower white
 ROOF    = ("#9c4a3c", "#7d3a30", "#552a25")
 
 WIN_LIT = "#ffd884"
@@ -179,53 +186,294 @@ def _tower(c, r, h, seed, glassy):
 
 
 def _rowhouse(c, r, h, seed):
+    """Painted-Lady Victorian: steep gable, projecting bay window, white trim,
+    a pastel palette per house."""
     X, Y = _iso(c, r)
     pal = BODY[BODY_KEYS[seed % len(BODY_KEYS)]]
     bw = HW - 1
-    body, yt, tw = _seg(X, Y, h, bw, bw * 0.96, pal, seed, False, c + r)
-    apex = yt - 9
-    roof = (
-        f'<polygon points="{X-bw},{yt} {X},{yt+bw*HH/HW} {X},{apex}" fill="{ROOF[1]}"/>'
-        f'<polygon points="{X},{yt+bw*HH/HW} {X+bw},{yt} {X},{apex}" fill="{ROOF[0]}"/>'
+    cn = _corners(X, Y, h, bw, bw)
+    yt = cn["yt"]
+    out = [_faces(cn, pal, c + r)]
+    bhh = bw * HH / HW
+    # white trim line under the eaves
+    out.append(
+        f'<line x1="{X-bw}" y1="{yt}" x2="{X}" y2="{yt+bhh:.1f}" stroke="{PYRAMID[0]}" stroke-width="0.8" opacity="0.7"/>'
+        f'<line x1="{X}" y1="{yt+bhh:.1f}" x2="{X+bw}" y2="{yt}" stroke="{PYRAMID[0]}" stroke-width="0.8" opacity="0.7"/>'
     )
-    return body + roof, apex
+    # projecting bay window on the lit front-left face
+    bx = _lerp(cn["L"], cn["F"], 0.5)
+    out.append(
+        f'<rect x="{bx[0]-2:.1f}" y="{bx[1]-h*0.55:.1f}" width="4" height="{h*0.45:.1f}" '
+        f'rx="0.8" fill="{WIN_LIT}" opacity="0.55"/>'
+    )
+    # steep Queen-Anne gable
+    apex = yt - 14
+    top, left, right = ROOF
+    out.append(
+        _poly([(X - bw, yt), (X, yt + bhh), (X, apex)], left)
+        + _poly([(X, yt + bhh), (X + bw, yt), (X, apex)], top)
+        + f'<line x1="{X}" y1="{yt+bhh:.1f}" x2="{X}" y2="{apex}" stroke="{WARM_HI}" stroke-width="0.5" opacity="0.5"/>'
+    )
+    return "".join(out), apex
 
 
-def _pyramid(c, r):
-    X, Y = _iso(c, r)
-    bw, bh = HW - 1, (HW - 1) * HH / HW
-    apex = Y - 150
-    return (
-        f'<polygon points="{X-bw},{Y} {X},{Y+bh} {X},{apex}" fill="{PYRAMID[1]}"/>'
-        f'<polygon points="{X},{Y+bh} {X+bw},{Y} {X},{apex}" fill="{PYRAMID[0]}"/>'
-        f'<line x1="{X}" y1="{Y+bh}" x2="{X}" y2="{apex}" stroke="{WARM_HI}" stroke-width="0.8" opacity="0.65"/>'
-        f'<line x1="{X}" y1="{apex}" x2="{X}" y2="{apex-18}" stroke="{PYRAMID[0]}" stroke-width="1.5"/>'
-        f'<circle cx="{X}" cy="{apex-18}" r="1.3" fill="{AMBER}" class="beacon"/>'
-    ), apex - 18
+def _corners(X, yb, h, bw, tw):
+    bhh, thh, yt = bw * HH / HW, tw * HH / HW, yb - h
+    return {
+        "L": (X - bw, yb), "F": (X, yb + bhh), "R": (X + bw, yb),
+        "Lp": (X - tw, yt), "Fp": (X, yt + thh), "Rp": (X + tw, yt),
+        "Bp": (X, yt - thh), "yt": yt,
+    }
 
+
+def _poly(pts, fill, extra=""):
+    p = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    return f'<polygon points="{p}" fill="{fill}" {extra}/>'
+
+
+def _faces(cn, pal, depth, sheen=True):
+    top, left, right = _hz(pal, depth)
+    s = (
+        _poly([cn["L"], cn["F"], cn["Fp"], cn["Lp"]], left)
+        + _poly([cn["F"], cn["R"], cn["Rp"], cn["Fp"]], right)
+        + _poly([cn["Lp"], cn["Fp"], cn["Rp"], cn["Bp"]], top)
+    )
+    if sheen:
+        s += _poly([cn["L"], cn["F"], cn["Fp"], cn["Lp"]], "url(#sheen)", 'opacity="0.5"')
+    return s
+
+
+# --- the famous ten -------------------------------------------------------
 
 def _salesforce(c, r):
+    """#1 Salesforce Tower: obelisk, rounded glass corners tapering inward,
+    transparent latticework crown that dissolves into the sky."""
     X, Y = _iso(c, r)
-    h = 196
-    body, yt, tw = _seg(X, Y, h, HW - 3, (HW - 3) * 0.42, SALES, c + r + 5, True, c + r)
-    crown = (
-        f'<ellipse cx="{X}" cy="{yt-2}" rx="{tw+1}" ry="3" fill="{SALES[0]}"/>'
-        f'<ellipse cx="{X}" cy="{yt-9}" rx="{tw-1}" ry="9" fill="{SALES[0]}" opacity="0.92"/>'
-        f'<ellipse cx="{X}" cy="{yt-13}" rx="4" ry="5" fill="{WARM_HI}" opacity="0.95" class="beacon"/>'
-        f'<ellipse cx="{X}" cy="{yt-13}" rx="8" ry="9" fill="{WARM_HI}" opacity="0.16" class="beacon"/>'
+    h = 212
+    cn = _corners(X, Y, h, HW - 2, (HW - 2) * 0.56)
+    out = [_faces(cn, SALES, c + r)]
+    out.append(_facegrid(cn["L"], cn["F"], cn["Lp"], cn["Fp"], int(h / 8), c + r, True))
+    out.append(_facegrid(cn["F"], cn["R"], cn["Fp"], cn["Rp"], int(h / 8), c + r + 3, True))
+    yt, tw = cn["yt"], (HW - 2) * 0.56
+    # lattice crown: thin verticals fanning past the top floor, fading up
+    for k in range(-2, 3):
+        x = X + k * tw / 2.4
+        out.append(
+            f'<line x1="{x:.1f}" y1="{yt:.1f}" x2="{X:.1f}" y2="{yt-24:.1f}" '
+            f'stroke="{PYRAMID[0]}" stroke-width="0.7" opacity="0.5"/>'
+        )
+    out.append(
+        f'<circle cx="{X}" cy="{yt-22}" r="2.6" fill="{WARM_HI}" class="beacon"/>'
+        f'<circle cx="{X}" cy="{yt-22}" r="6" fill="{WARM_HI}" opacity="0.18" class="beacon"/>'
     )
-    return body + crown, yt - 13
+    return "".join(out), yt - 24
+
+
+def _transamerica(c, r):
+    """#2 Transamerica Pyramid: 4-sided white pyramid, two flank wings for the
+    elevator/stair shafts, capped by a tall aluminum spire."""
+    X, Y = _iso(c, r)
+    bw, bh = HW - 1, (HW - 1) * HH / HW
+    apex = Y - 178
+    top, left, right = PYRAMID
+    out = [
+        _poly([(X - bw, Y), (X, Y + bh), (X, apex)], left),
+        _poly([(X, Y + bh), (X + bw, Y), (X, apex)], right),
+        f'<line x1="{X}" y1="{Y+bh}" x2="{X}" y2="{apex}" stroke="{WARM_HI}" stroke-width="0.7" opacity="0.6"/>',
+    ]
+    # the two wings: vertical fins that flank the spire on the upper shaft and
+    # stand proud of the narrowing pyramid (its distinctive shoulders)
+    yb_w, yt_w = Y - 178 * 0.40, Y - 178 * 0.92
+    fin = PYRAMID[2]
+    out.append(_poly([(X - 5.5, yb_w), (X - 2.6, yb_w), (X - 1.4, yt_w), (X - 3.2, yt_w)], fin))
+    out.append(_poly([(X + 2.6, yb_w), (X + 5.5, yb_w), (X + 3.2, yt_w), (X + 1.4, yt_w)], fin))
+    out.append(f'<line x1="{X-3.9:.1f}" y1="{yb_w:.1f}" x2="{X-2.3:.1f}" y2="{yt_w:.1f}" stroke="{left}" stroke-width="0.5" opacity="0.6"/>')
+    out.append(
+        f'<line x1="{X}" y1="{apex}" x2="{X}" y2="{apex-26}" stroke="{MUTED}" stroke-width="1.4"/>'
+        f'<circle cx="{X}" cy="{apex-26}" r="1.4" fill="{AMBER}" class="beacon"/>'
+    )
+    return "".join(out), apex - 26
+
+
+def _sutro(c, r):
+    """#3 Sutro Tower: orange-and-white three-legged lattice antenna that
+    splits into a trident of prongs."""
+    X, Y = _iso(c, r)
+    sp = HW - 3                      # leg spread
+    plat = Y - 118                   # platform where legs meet
+    top = Y - 196                    # prong tips
+    O, Wt = SUTRO_O, SUTRO_W
+    out = []
+    # three splayed legs (two front + center) meeting at the platform
+    for lx in (X - sp, X, X + sp):
+        out.append(
+            f'<line x1="{lx:.1f}" y1="{Y:.1f}" x2="{X:.1f}" y2="{plat:.1f}" '
+            f'stroke="{O}" stroke-width="2.2"/>'
+        )
+    # lattice cross-bracing on the legs (white)
+    for f in (0.25, 0.5, 0.75):
+        y = Y + (plat - Y) * f
+        x1 = X + (X - sp - X) * (1 - f)
+        x2 = X + (X + sp - X) * (1 - f)
+        out.append(
+            f'<line x1="{x1:.1f}" y1="{y:.1f}" x2="{x2:.1f}" y2="{y:.1f}" '
+            f'stroke="{Wt}" stroke-width="0.8" opacity="0.85"/>'
+        )
+    out.append(f'<rect x="{X-sp*0.7:.1f}" y="{plat-2:.1f}" width="{sp*1.4:.1f}" height="3" fill="{O}"/>')
+    # trident: three prongs rising from the platform
+    for px in (X - 5, X, X + 5):
+        out.append(
+            f'<line x1="{px:.1f}" y1="{plat:.1f}" x2="{px:.1f}" y2="{top:.1f}" '
+            f'stroke="{O}" stroke-width="1.8"/>'
+        )
+        for yy in range(int(top), int(plat), 7):
+            out.append(f'<line x1="{px-1.5:.1f}" y1="{yy}" x2="{px+1.5:.1f}" y2="{yy+3}" stroke="{Wt}" stroke-width="0.5" opacity="0.8"/>')
+    out.append(f'<circle cx="{X}" cy="{top}" r="1.3" fill="{AMBER}" class="beacon"/>')
+    return "".join(out), top
+
+
+def _fremont(c, r):
+    """#4 181 Fremont: tapered faceted shaft wrapped in a diagonal mega-brace
+    exoskeleton, topped by a slender spire."""
+    X, Y = _iso(c, r)
+    h = 168
+    cn = _corners(X, Y, h, HW - 3, (HW - 3) * 0.55)
+    out = [_faces(cn, FREMONT, c + r)]
+    # diagonal mega-brace exoskeleton: two crossing zig-zags per visible face
+    for A, B, Ap, Bp in ((cn["L"], cn["F"], cn["Lp"], cn["Fp"]),
+                         (cn["F"], cn["R"], cn["Fp"], cn["Rp"])):
+        n = 4
+        for flip in (0, 1):
+            pts = []
+            for i in range(n + 1):
+                g = i / n
+                lo, hi = _lerp(A, B, g), _lerp(Ap, Bp, g)
+                pts.append(hi if (i % 2) == flip else lo)
+            path = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+            out.append(f'<polyline points="{path}" fill="none" stroke="{PYRAMID[0]}" stroke-width="1.0" opacity="0.8"/>')
+    yt = cn["yt"]
+    out.append(
+        f'<line x1="{X}" y1="{yt}" x2="{X}" y2="{yt-22}" stroke="{PYRAMID[0]}" stroke-width="1.2"/>'
+        f'<circle cx="{X}" cy="{yt-22}" r="1.2" fill="{AMBER}" class="beacon"/>'
+    )
+    return "".join(out), yt - 22
+
+
+def _bofa(c, r):
+    """#5 555 California: dark red-granite monolith, faceted bronze bay-window
+    facade, corners rising past a set-back centre crown."""
+    X, Y = _iso(c, r)
+    h = 158
+    bw = HW - 2
+    cn = _corners(X, Y, h, bw, bw)            # near-vertical monolith
+    out = [_faces(cn, BOFA, c + r)]
+    # faceted bay windows: vertical ridges with lit glass on both faces
+    for A, B, Ap, Bp, seed in ((cn["L"], cn["F"], cn["Lp"], cn["Fp"], 1),
+                              (cn["F"], cn["R"], cn["Fp"], cn["Rp"], 4)):
+        for k in range(1, 7):
+            g = k / 7
+            pb, pt = _lerp(A, B, g), _lerp(Ap, Bp, g)
+            lit = (seed + k) % 3 == 0
+            out.append(
+                f'<line x1="{pb[0]:.1f}" y1="{pb[1]:.1f}" x2="{pt[0]:.1f}" y2="{pt[1]:.1f}" '
+                f'stroke="{"#d8a878" if lit else "#23131a"}" stroke-width="1.1" '
+                f'opacity="{0.5 if lit else 0.5}"/>'
+            )
+    # set-back centre: the four corners rise as short piers above a recessed
+    # middle parapet (555's notched crown)
+    yt = cn["yt"]
+    out.append(f'<rect x="{X-bw:.1f}" y="{yt-1:.1f}" width="{2*bw:.1f}" height="3" fill="{BOFA[2]}"/>')
+    for cx in (cn["Lp"], cn["Fp"], cn["Rp"]):
+        out.append(f'<rect x="{cx[0]-1.6:.1f}" y="{cx[1]-5:.1f}" width="3.2" height="6" fill="{BOFA[0]}"/>')
+    return "".join(out), yt - 5
 
 
 def _coit(c, r):
+    """#6 Coit Tower: plain fluted concrete column, arched observation deck
+    near the top, almost no taper."""
     X, Y = _iso(c, r)
-    h = 92
-    body, yt, tw = _seg(X, Y, h, HW - 4, (HW - 4) * 0.9, COIT, c + r, False, c + r)
-    crown = (
-        f'<rect x="{X-tw}" y="{yt-5}" width="{2*tw}" height="6" fill="{COIT[1]}"/>'
-        f'<ellipse cx="{X}" cy="{yt-5}" rx="{tw}" ry="2" fill="{COIT[0]}"/>'
+    h, rad = 86, HW - 4
+    ry = rad * HH / HW
+    top, mid, dark = COIT
+    yt = Y - h
+    out = [
+        f'<rect x="{X-rad:.1f}" y="{yt:.1f}" width="{2*rad:.1f}" height="{h:.1f}" fill="{mid}"/>',
+        _poly([(X - rad, Y), (X + rad, Y), (X + rad, Y + ry), (X - rad, Y + ry)], mid),
+        f'<ellipse cx="{X}" cy="{Y+ry:.1f}" rx="{rad:.1f}" ry="{ry:.1f}" fill="{mid}"/>',
+        f'<rect x="{X-rad:.1f}" y="{yt:.1f}" width="{rad*0.5:.1f}" height="{h:.1f}" fill="{dark}" opacity="0.35"/>',
+    ]
+    for k in range(-3, 4):           # flutes
+        x = X + k * rad / 3.4
+        out.append(f'<line x1="{x:.1f}" y1="{yt+3:.1f}" x2="{x:.1f}" y2="{Y:.1f}" stroke="{dark}" stroke-width="0.5" opacity="0.4"/>')
+    # arched observation openings near the top
+    for k in (-1, 0, 1):
+        ax = X + k * rad * 0.55
+        out.append(f'<rect x="{ax-1.3:.1f}" y="{yt+5:.1f}" width="2.6" height="7" rx="1.3" fill="{dark}" opacity="0.65"/>')
+    # cap
+    out.append(
+        f'<rect x="{X-rad-1:.1f}" y="{yt-3:.1f}" width="{2*rad+2:.1f}" height="4" fill="{mid}"/>'
+        f'<ellipse cx="{X}" cy="{yt-3:.1f}" rx="{rad+1:.1f}" ry="{ry+0.5:.1f}" fill="{top}"/>'
     )
-    return body + crown, yt - 5
+    return "".join(out), yt - 3
+
+
+def _ferry(c, r):
+    """#7 Ferry Building: long arcaded hall with a central Giralda-style clock
+    tower crowned by a pyramidal spire."""
+    X, Y = _iso(c, r)
+    bw = HW - 1
+    # low arcaded base
+    base = _faces(_corners(X, Y, 26, bw, bw), FERRY, c + r)
+    # clock tower rising from the centre
+    tw = bw * 0.42
+    cn = _corners(X, Y - 22, 96, tw, tw)
+    top, left, right = FERRY
+    out = [base, _faces(cn, FERRY, c + r)]
+    yt = cn["yt"]
+    # clock face high on the front edge
+    cy = yt + 24
+    out.append(
+        f'<circle cx="{X}" cy="{cy:.1f}" r="3.4" fill="#f3efe2" stroke="{right}" stroke-width="0.6"/>'
+        f'<line x1="{X}" y1="{cy:.1f}" x2="{X}" y2="{cy-2.4:.1f}" stroke="#2a2018" stroke-width="0.6"/>'
+        f'<line x1="{X}" y1="{cy:.1f}" x2="{X+2:.1f}" y2="{cy:.1f}" stroke="#2a2018" stroke-width="0.6"/>'
+    )
+    # pyramidal spire + cupola
+    out.append(
+        f'<rect x="{X-tw-1:.1f}" y="{yt-2:.1f}" width="{2*tw+2:.1f}" height="3" fill="{left}"/>'
+        + _poly([(X - tw, yt - 2), (X + tw, yt - 2), (X, yt - 20)], top)
+        + f'<circle cx="{X}" cy="{yt-20:.1f}" r="1.1" fill="{AMBER}" class="beacon"/>'
+    )
+    return "".join(out), yt - 20
+
+
+def _cityhall(c, r):
+    """#8 City Hall: Beaux-Arts mass crowned by an enormous gilded dome,
+    lantern and finial."""
+    X, Y = _iso(c, r)
+    bw = HW - 1
+    out = [_faces(_corners(X, Y, 40, bw, bw), STONE, c + r)]
+    by = Y - 40
+    # colonnade hint on the lit face
+    for k in range(1, 6):
+        g = k / 6
+        p = _lerp((X - bw, by), (X, by + bw * HH / HW), g)
+        out.append(f'<line x1="{p[0]:.1f}" y1="{p[1]:.1f}" x2="{p[0]:.1f}" y2="{p[1]+8:.1f}" stroke="{STONE[2]}" stroke-width="0.6" opacity="0.5"/>')
+    # drum
+    dr = bw * 0.5
+    out.append(f'<rect x="{X-dr:.1f}" y="{by-12:.1f}" width="{2*dr:.1f}" height="12" fill="{STONE[1]}"/>')
+    # gilded dome
+    gt, gm, gd = GOLD
+    out.append(
+        f'<path d="M {X-dr:.1f} {by-12:.1f} Q {X-dr:.1f} {by-34:.1f} {X:.1f} {by-34:.1f} '
+        f'Q {X+dr:.1f} {by-34:.1f} {X+dr:.1f} {by-12:.1f} Z" fill="{gm}"/>'
+        f'<path d="M {X-dr:.1f} {by-12:.1f} Q {X-dr:.1f} {by-34:.1f} {X:.1f} {by-34:.1f} '
+        f'L {X:.1f} {by-12:.1f} Z" fill="{gt}"/>'
+        # lantern + finial
+        f'<rect x="{X-2:.1f}" y="{by-40:.1f}" width="4" height="6" fill="{gm}"/>'
+        f'<line x1="{X}" y1="{by-40:.1f}" x2="{X}" y2="{by-46:.1f}" stroke="{gd}" stroke-width="1"/>'
+        f'<circle cx="{X}" cy="{by-46:.1f}" r="1.4" fill="{WARM_HI}" class="beacon"/>'
+    )
+    return "".join(out), by - 46
 
 
 def _street(c, r, paint):
@@ -283,14 +531,25 @@ def render(gh, tokens):
             cells.append((c, r, d))
     cells.sort(key=lambda t: (t[0] + t[1], t[0]))
 
+    # The famous ten: tall hero towers crown the busiest days; the shorter
+    # civic icons sit on mid-tier days spread across the year so their height
+    # still reads sensibly.
     lvl4 = sorted(
         (d["contributionCount"], c, r) for c, r, d in cells
         if _level(d["contributionCount"], q) == 4
     )
-    landmarks, icons = {}, [_pyramid, _salesforce, _coit]
+    landmarks = {}
+    heroes = [_salesforce, _sutro, _transamerica, _fremont, _bofa]
     for i, (_, c, r) in enumerate(reversed(lvl4)):
-        if i < 5:
-            landmarks[(c, r)] = icons[i % 3]
+        if i < len(heroes):
+            landmarks[(c, r)] = heroes[i]
+    mids = [(c, r) for c, r, d in cells
+            if _level(d["contributionCount"], q) in (2, 3) and (c, r) not in landmarks]
+    for fn, col in zip((_cityhall, _ferry, _coit), (13, 26, 40)):
+        if mids:
+            best = min(mids, key=lambda cr: abs(cr[0] - col))
+            landmarks[best] = fn
+            mids.remove(best)
 
     shadows, ground, city = [], [], []
     peak_pos = None
@@ -306,7 +565,7 @@ def render(gh, tokens):
             continue
 
         h = HEIGHTS[lvl] + (seed % 14 if lvl >= 2 else seed % 5)
-        shadows.append(_shadow(c, r, h if (c, r) not in landmarks else 150))
+        shadows.append(_shadow(c, r, h if (c, r) not in landmarks else 130))
 
         if (c, r) in landmarks:
             svg, top_y = landmarks[(c, r)](c, r)
@@ -397,12 +656,13 @@ def render(gh, tokens):
 </g>
 {"".join(axes)}
 <text x="26" y="36" font-size="14" font-weight="700" fill="{WARM_HI}" letter-spacing="2">SAN FRANCISCO · CONTRIBUTION DISTRICT</text>
-<text x="26" y="56" font-size="10" fill="{FG}">EVERY DAY A LOT · ROW HOUSES TO HIGH-RISES AS COMMITS RISE · ROLLING 365D</text>
+<text x="26" y="56" font-size="10" fill="{FG}">EVERY DAY A LOT · PAINTED LADIES TO HIGH-RISES AS COMMITS RISE · PEAKS BECOME LANDMARKS · ROLLING 365D</text>
 <text x="{W-26}" y="36" text-anchor="end" font-size="13" fill="{AMBER}" font-weight="700">{total:,} CONTRIBUTIONS</text>
 <text x="{W-26}" y="56" text-anchor="end" font-size="10" fill="{FG}">ACTIVE {active}/365 · STREAK {streak}D · PEAK {peak_day['contributionCount']}</text>
 <text x="40" y="{legend_y-6}" font-size="8" fill="{MUTED}">QUIET</text>
 {swatches}
 <text x="{40+5*16+6}" y="{legend_y+8}" font-size="8" fill="{MUTED}">BUSY · EST. {created.year}</text>
+<text x="{W-26}" y="{H-14}" text-anchor="end" font-size="8" fill="{MUTED}" letter-spacing="0.5">LANDMARKS · SALESFORCE · TRANSAMERICA · SUTRO · 181 FREMONT · 555 CALIFORNIA · COIT · FERRY · CITY HALL</text>
 <rect width="{W}" height="{H}" rx="14" fill="none" stroke="{BORDER}"/>
 </svg>"""
     write_svg("city.svg", svg)
