@@ -30,16 +30,19 @@ query($login: String!, $from: DateTime!, $to: DateTime!) {
 """
 
 # ---- dusk lighting -------------------------------------------------------
-# (top, left, right): warm sun-lit roof, mid fill face, cool bay-shadow face.
+# (top, left, right): sun-lit roof, mid fill face, cool shadow face.
+# Tower stock: muted SF concrete + glass, no rainbow. `g` marks glass.
 GLASS = {
-    "steel":  ("#cfd8e6", "#8ea2bd", "#46506a"),
-    "teal":   ("#bfe0dd", "#7fb0ac", "#3f5d62"),
-    "amberg": ("#f0d8a8", "#c39f6b", "#6b5a4c"),
-    "rose":   ("#eccbd2", "#bd8d97", "#5f4f60"),
-    "indigo": ("#c4cbe8", "#8388b8", "#454868"),
+    "concrete":  ("#e3dccb", "#c2baa7", "#827b6d"),
+    "palestone": ("#dcd9d1", "#bab7ad", "#767168"),
+    "sandstone": ("#e1d2b6", "#c1aa88", "#776b58"),
+    "glassblue": ("#cdd9e3", "#9fb2c4", "#5c6a7c"),
+    "glassteal": ("#c6d6d2", "#95afaa", "#556661"),
+    "darkconc":  ("#aaa093", "#857769", "#4b4137"),
 }
 GLASS_KEYS = list(GLASS)
-BODY = {
+GLASSY = {"glassblue", "glassteal"}
+BODY = {                                       # Painted-Lady Victorians
     "cream":  ("#f0dcc0", "#cf9f81", "#7d6a6f"),
     "rose":   ("#f1c9c4", "#cf938f", "#74616c"),
     "sage":   ("#cfdcc2", "#9aae8c", "#5f6566"),
@@ -60,7 +63,7 @@ SUTRO_O = "#e4572e"        # Sutro Tower international orange
 SUTRO_W = "#f1efe8"        # Sutro Tower white
 ROOF    = ("#9c4a3c", "#7d3a30", "#552a25")
 
-WIN_LIT = "#ffd884"
+WIN_LIT = "#f4d99a"        # soft warm interior light
 AMBER = "#ffb454"
 WARM_HI = "#ffe6b0"
 FG = "#cdd8e6"
@@ -112,24 +115,32 @@ def _hz(pal, depth):
 
 
 def _facegrid(A, B, Ap, Bp, floors, seed, lit):
-    """Floor lines + scattered lit windows across a tapered face A-B (bottom)
-    to Ap-Bp (top)."""
+    """Clean regular curtain wall: subtle floor reveals, a couple of vertical
+    piers, and a sparse scatter of warm-lit windows. A-B is the bottom edge,
+    Ap-Bp the top."""
     out = []
+    cols = (0.22, 0.42, 0.62, 0.82)
+    every = 7 if lit else 15            # glass glows more than concrete
     for i in range(1, floors):
         f = i / floors
         p1, p2 = _lerp(A, Ap, f), _lerp(B, Bp, f)
         out.append(
             f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
-            f'stroke="#0b0f17" stroke-width="0.4" opacity="0.35"/>'
+            f'stroke="#1a1e25" stroke-width="0.35" opacity="0.14"/>'
         )
-        for k in range(1, 5):
-            if (seed * 17 + i * 7 + k * 5) % 6 < (3 if lit else 1):
-                g = k / 5
+        for j, g in enumerate(cols):
+            if (seed * 13 + i * 7 + j * 5) % every == 0:
                 w = _lerp(p1, p2, g)
                 out.append(
-                    f'<rect x="{w[0]-0.7:.1f}" y="{w[1]-1.0:.1f}" width="1.4" height="1.8" '
-                    f'fill="{WIN_LIT}" opacity="0.85"/>'
+                    f'<rect x="{w[0]-0.6:.1f}" y="{w[1]-0.9:.1f}" width="1.2" height="1.4" '
+                    f'fill="{WIN_LIT}" opacity="0.7"/>'
                 )
+    for g in (0.34, 0.66):              # vertical piers
+        b, t = _lerp(A, B, g), _lerp(Ap, Bp, g)
+        out.append(
+            f'<line x1="{b[0]:.1f}" y1="{b[1]:.1f}" x2="{t[0]:.1f}" y2="{t[1]:.1f}" '
+            f'stroke="#ffffff" stroke-width="0.4" opacity="0.06"/>'
+        )
     return "".join(out)
 
 
@@ -146,41 +157,47 @@ def _seg(X, yb, h, bw, tw, pal, seed, lit, depth=30):
         f'<polygon points="{L[0]:.1f},{L[1]:.1f} {F[0]:.1f},{F[1]:.1f} {Fp[0]:.1f},{Fp[1]:.1f} {Lp[0]:.1f},{Lp[1]:.1f}" fill="{left}"/>'
         f'<polygon points="{F[0]:.1f},{F[1]:.1f} {R[0]:.1f},{R[1]:.1f} {Rp[0]:.1f},{Rp[1]:.1f} {Fp[0]:.1f},{Fp[1]:.1f}" fill="{right}"/>'
         f'<polygon points="{Lp[0]:.1f},{Lp[1]:.1f} {Fp[0]:.1f},{Fp[1]:.1f} {Rp[0]:.1f},{Rp[1]:.1f} {Bp[0]:.1f},{Bp[1]:.1f}" fill="{top}"/>'
-        # glass sheen on the lit left face
-        f'<polygon points="{L[0]:.1f},{L[1]:.1f} {F[0]:.1f},{F[1]:.1f} {Fp[0]:.1f},{Fp[1]:.1f} {Lp[0]:.1f},{Lp[1]:.1f}" fill="url(#sheen)" opacity="0.5"/>'
     )
-    floors = max(2, int(h / 7))
+    if lit:        # subtle reflection only on glass towers; concrete stays matte
+        svg += f'<polygon points="{L[0]:.1f},{L[1]:.1f} {F[0]:.1f},{F[1]:.1f} {Fp[0]:.1f},{Fp[1]:.1f} {Lp[0]:.1f},{Lp[1]:.1f}" fill="url(#sheen)" opacity="0.22"/>'
+    floors = max(2, int(h / 5))
     svg += _facegrid(L, F, Lp, Fp, floors, seed, lit)
     svg += _facegrid(F, R, Fp, Rp, floors, seed + 3, lit)
     return svg, yt, tw
 
 
 def _tower(c, r, h, seed, glassy):
-    """Tapered high-rise, with a setback for tall ones + a rooftop crown."""
+    """Clean SF high-rise: near-straight concrete or glass shaft, a slight
+    setback when tall, finished with a flat parapet + rooftop mechanicals."""
     X, Y = _iso(c, r)
-    pal = (GLASS if glassy else BODY)[(GLASS_KEYS if glassy else BODY_KEYS)[seed % 5]]
+    mat = GLASS_KEYS[seed % len(GLASS_KEYS)]
+    pal, glass = GLASS[mat], mat in GLASSY
     bw = HW - 2
     dep = c + r
     out = []
-    if h > 90:                       # stepped setback tower
-        h1 = h * 0.62
-        s1, yt1, tw1 = _seg(X, Y, h1, bw, bw * 0.82, pal, seed, glassy, dep)
-        s2, yt2, tw2 = _seg(X, yt1, h - h1, bw * 0.78, bw * 0.5, pal, seed + 1, glassy, dep)
+    if h > 90:                       # gently stepped setback tower
+        h1 = h * 0.66
+        s1, yt1, tw1 = _seg(X, Y, h1, bw, bw * 0.92, pal, seed, glass, dep)
+        s2, yt2, tw2 = _seg(X, yt1, h - h1, bw * 0.86, bw * 0.74, pal, seed + 1, glass, dep)
         out += [s1, s2]
         topx, topy, topw = X, yt2, tw2
     else:
-        s1, yt1, tw1 = _seg(X, Y, h, bw, bw * 0.7, pal, seed, glassy, dep)
+        s1, yt1, tw1 = _seg(X, Y, h, bw, bw * 0.88, pal, seed, glass, dep)
         out.append(s1)
         topx, topy, topw = X, yt1, tw1
-    # rooftop crown: parapet box + antenna for the tallest
+    thh = topw * HH / HW
+    top, _, right = _hz(pal, dep)
+    # flat parapet cap (the roof slab) + a small rooftop mechanical penthouse
     out.append(
-        f'<polygon points="{topx},{topy-topw*HH/HW-2} {topx+topw},{topy-2} '
-        f'{topx},{topy+topw*HH/HW-2} {topx-topw},{topy-2}" fill="{WARM_HI}" opacity="0.35"/>'
+        f'<polygon points="{topx},{topy-thh:.1f} {topx+topw:.1f},{topy} '
+        f'{topx},{topy+thh:.1f} {topx-topw:.1f},{topy}" fill="{top}"/>'
     )
-    if h > 120:
+    if seed % 3 == 0:
+        mw = topw * 0.5
+        out.append(_seg(topx, topy + thh * 0.4, 6, mw, mw, pal, seed, False, dep)[0])
+    if h > 120:                       # slim rooftop antenna, no glow
         out.append(
-            f'<line x1="{topx}" y1="{topy}" x2="{topx}" y2="{topy-16}" stroke="{MUTED}" stroke-width="1"/>'
-            f'<circle cx="{topx}" cy="{topy-16}" r="1.2" fill="{AMBER}" class="beacon"/>'
+            f'<line x1="{topx}" y1="{topy}" x2="{topx}" y2="{topy-14}" stroke="{MUTED}" stroke-width="0.9"/>'
         )
     return "".join(out), topy
 
@@ -616,7 +633,7 @@ def render(gh, tokens):
     legend_y = H - 70
     swatches = "".join(
         f'<rect x="{40+i*16}" y="{legend_y}" width="12" height="10" rx="1.5" '
-        f'fill="{(STREET, BODY["cream"][0], BODY["sky"][0], GLASS["steel"][0], PYRAMID[0])[i]}" '
+        f'fill="{(STREET, BODY["cream"][0], GLASS["concrete"][0], GLASS["glassblue"][0], PYRAMID[0])[i]}" '
         f'stroke="#0a0e16" stroke-width="0.6"/>'
         for i in range(5)
     )
