@@ -46,12 +46,24 @@ if git diff --cached --quiet; then
   exit 0
 fi
 git commit -m "chore: daily token stats $(date -u +%Y-%m-%d)"
-# The readme/3d workflows also commit to main; rebase-and-retry around them.
+
+# The readme/3d workflows also commit to main. Rebase our generated-data commit
+# onto theirs, preferring OUR data on conflict (it's the freshest), and ALWAYS
+# abort a failed rebase so a half-finished rebase can never wedge every future
+# run — that left-behind .git/rebase-merge froze pushes for days in June 2026.
+clear_rebase() {
+  git rebase --abort 2>/dev/null || true
+  rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
+}
+clear_rebase  # heal any pre-existing stuck rebase before we start
 for i in 1 2 3 4 5; do
-  git pull --rebase origin main && git push origin main && {
+  if git fetch -q origin main \
+     && git rebase -X theirs origin/main \
+     && git push origin main; then
     echo "pushed token stats $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     exit 0
-  }
+  fi
+  clear_rebase
   sleep 5
 done
 echo "failed to push after 5 attempts" >&2
