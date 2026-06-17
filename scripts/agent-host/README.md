@@ -17,10 +17,19 @@ require metered API ($$$), which this box deliberately avoids by never setting
 `ANTHROPIC_API_KEY`.
 
 ## Provision (≈10 min)
-1. Create a **Hetzner Cloud CAX11** (2 vCPU ARM, 4 GB RAM, ~€3.79/mo), image
-   **Ubuntu 24.04**, add your SSH key. (Any 4 GB+ Ubuntu VPS works; 4 GB is the
-   Claude Code minimum.)
-2. SSH in, then:
+Any **4 GB+ RAM Ubuntu 22.04/24.04** box works (4 GB is the Claude Code minimum) —
+the steps below are identical on every provider. Easiest options:
+
+- **DigitalOcean (recommended):** Create Droplet → Ubuntu 24.04 → Basic / Regular
+  / 4 GB ($24/mo). Use the in-browser **Console** so you don't need SSH keys/terminal.
+- **AWS:** use **Lightsail** (not raw EC2) → Linux/Ubuntu → 4 GB plan (~$24/mo),
+  also has a browser SSH console.
+- **GCP:** Compute Engine → `e2-medium` (2 vCPU, 4 GB), Ubuntu 24.04. New accounts
+  usually get $300/90-day free credit.
+- **Not Cloudflare:** no persistent always-on Linux VM / SSH box — wrong shape.
+
+1. Create the box (above), open its web console or SSH in.
+2. Then:
    ```bash
    git clone https://github.com/maxmoneycash/maxmoneycash.git
    bash maxmoneycash/scripts/agent-host/bootstrap.sh
