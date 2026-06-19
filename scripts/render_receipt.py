@@ -145,7 +145,6 @@ def _build(tokens):
             for label, model in CLAUDE_SPLIT:
                 if model_tot.get(model):
                     p.kv(label, f"{model_tot[model]:,}", gap=17)
-    p.kv("GROK BUILD", "0")
     p.rule()
     p.kv("SUBTOTAL", f"{totals['totalTokens']:,} TOK", bold=True)
 

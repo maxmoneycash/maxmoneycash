@@ -34,6 +34,7 @@ AGENT_COLORS = {
     "kimi": "#a371f7",
     "opencode": "#f2cc60",
     "cursor": "#e3e9f0",
+    "grok": "#1d9bf0",
 }
 
 AGENT_LABELS = {
@@ -43,6 +44,7 @@ AGENT_LABELS = {
     "kimi": "KIMI CODE",
     "opencode": "OPENCODE",
     "cursor": "CURSOR",
+    "grok": "GROK BUILD",
 }
 
 

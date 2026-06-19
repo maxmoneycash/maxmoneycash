@@ -36,11 +36,14 @@ elif [ -f data/cursor-cache.json ]; then
 else
   echo '{"totals":{},"monthly":[]}' > "$TMP/cursor.json"
 fi
+# Grok Build usage (parses ~/.grok logs; maintains its own committed cache)
+python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$TMP/grok-true.json" \
+  || echo '{"totals":{},"monthly":[]}' > "$TMP/grok-true.json"
 # Atomic write so a failed build can never truncate data/tokens.json
 python3 "$REPO_DIR/scripts/build_tokens_json.py" "$TMP" > "$TMP/tokens.out"
 mv "$TMP/tokens.out" data/tokens.json
 
-git add data/tokens.json data/cursor-cache.json
+git add data/tokens.json data/cursor-cache.json data/grok-cache.json
 if git diff --cached --quiet; then
   echo "tokens.json unchanged; nothing to push"
   exit 0
