@@ -14,7 +14,8 @@ RUNLOG="$HOME/agent-runner.log"; touch "$RUNLOG"
 WORKLIST="$HOME/work/maxmoneycash/scripts/agent-host/worklist.md"
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
-  exec tmux attach -t "$SESSION"
+  echo "dash already exists — attach with: tmux attach -t dash"
+  exit 0
 fi
 
 # Window 1 "agents": one pane per agent log; fall back to the single runner log
