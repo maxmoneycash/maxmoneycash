@@ -27,8 +27,6 @@
 
 <img src="./assets/market.svg" width="100%" alt="contribution candles, agent order book"/>
 
-<img src="./assets/city.svg" width="100%" alt="contribution city — every building is a day of commits, SF skyline behind"/>
-
 ## <samp>~ ❯ wrapped --share</samp>
 
 <img src="./assets/wrapped.svg" width="100%" alt="year in tokens — annual compute report"/>
