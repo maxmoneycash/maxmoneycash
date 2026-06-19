@@ -1,0 +1,21 @@
+# Web terminal for the agent dashboard. Install as a systemd --user service:
+#   cp ttyd.service ~/.config/systemd/user/ttyd.service
+#   systemctl --user enable --now ttyd
+#
+# SECURITY: binds to localhost only. Never expose 7681 on the public IP.
+# Reach it from your phone privately via Tailscale:
+#   tailscale up            # one-time, on the box (and install Tailscale on your phone)
+#   tailscale serve --bg 7681   # serves localhost:7681 to your tailnet over HTTPS
+# Then open the printed https URL on your phone (Add to Home Screen = app icon).
+[Unit]
+Description=ttyd web terminal -> tmux 'dash' (localhost only)
+After=network-online.target
+
+[Service]
+ExecStartPre=/usr/bin/env PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin bash %h/work/maxmoneycash/scripts/agent-host/dashboard.sh
+ExecStart=/usr/bin/env PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin ttyd -p 7681 -i 127.0.0.1 -W -t fontSize=14 -t 'theme={"background":"#0d1117"}' tmux new -A -s dash
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
