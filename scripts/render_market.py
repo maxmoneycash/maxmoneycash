@@ -40,7 +40,7 @@ query($login: String!, $from: DateTime!, $to: DateTime!) {
 
 AGENT_TICKERS = {
     "claude": "CLAUDE", "codex": "CODEX", "droid": "DROID",
-    "kimi": "KIMI", "opencode": "OPENCODE", "cursor": "CURSOR",
+    "kimi": "KIMI", "opencode": "OPENCODE", "cursor": "CURSOR", "grok": "GROK",
 }
 
 LANG_TICKER = {
@@ -290,7 +290,7 @@ def render(gh, tokens):
         parts.append(
             f'<rect x="{ob_x + ob_w - 14 - bw:.1f}" y="{ay}" width="{bw:.1f}" height="{row_h - 5}" '
             f'fill="{C["red"]}" opacity="0.16"/>'
-            f'<text x="{ob_x + 14}" y="{ay + 12}" font-size="10" fill="{C["red"]}">{AGENT_TICKERS[name]}</text>'
+            f'<text x="{ob_x + 14}" y="{ay + 12}" font-size="10" fill="{C["red"]}">{AGENT_TICKERS.get(name, name.upper())}</text>'
             f'<text x="{ob_x + ob_w - 14}" y="{ay + 12}" text-anchor="end" font-size="10" '
             f'fill="{C["fg"]}">{money(cost)} <tspan fill="{C["muted"]}">· {compact(tok)}</tspan></text>'
         )

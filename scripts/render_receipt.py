@@ -131,7 +131,7 @@ def _build(tokens):
     p.kv("STATEMENT #", receipt_id)
     p.kv("ISSUED", f"{now:%Y-%m-%d %H:%M} UTC")
     p.kv("BILLED TO", "MAX @MAXMONEYCASH")
-    p.kv("SERVED BY", "6 CODING AGENTS")
+    p.kv("SERVED BY", "7 CODING AGENTS")
     p.rule(heavy=True)
     p.kv("ITEM", "TOKENS", bold=True)
     p.rule()
