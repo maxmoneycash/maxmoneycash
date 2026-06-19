@@ -6,7 +6,7 @@
 
 ## <samp>~ ❯ ccusage --all-time</samp>
 
-<sub>Live token telemetry across <b>Claude Code · Codex · Cursor · Kimi Code · OpenCode · Droid</b> — pushed daily from my Mac (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a> + custom counters) and rendered by GitHub Actions.</sub>
+<sub>Live token telemetry across <b>Claude Code · Codex · Cursor · Grok Build · Kimi Code · OpenCode · Droid</b> — pushed daily from my Mac (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a> + custom counters) and rendered by GitHub Actions.</sub>
 
 <br/><br/>
 
