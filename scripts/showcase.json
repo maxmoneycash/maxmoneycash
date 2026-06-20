@@ -3,6 +3,7 @@
   "holdings": [
     { "repo": "commit-markets", "url": "", "link": "https://github.com/maxmoneycash/commit-markets" },
     { "repo": "cash.trading", "owner": "seammoney", "url": "", "link": "https://cash.trading" },
+    { "repo": "cash-orderbook", "owner": "seammoney", "url": "", "link": "https://github.com/seammoney/cash-orderbook" },
     { "repo": "datacenter-globe", "url": "https://datacenter-globe.vercel.app" },
     { "repo": "terminal-portfolio", "url": "https://terminal-portfolio-eight-chi.vercel.app" },
     { "repo": "options-payoff-motion", "url": "https://cipher-payoff-atlas.vercel.app" },
