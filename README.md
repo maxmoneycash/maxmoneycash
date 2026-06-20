@@ -27,6 +27,20 @@
 
 <img src="./assets/market.svg" width="100%" alt="contribution candles, agent order book"/>
 
+## <samp>~ ❯ ls ~/projects --holdings</samp>
+
+<sub>Live deploy screenshots (auto-captured daily) + 52-week commit velocity per repo — click any to open the app.</sub>
+
+<p align="center">
+<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg" width="400" alt="datacenter-globe"/></a>
+<a href="https://github.com/maxmoneycash/commit-markets"><img src="./assets/holding-commit-markets.svg" width="400" alt="commit-markets"/></a>
+<a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg" width="400" alt="terminal-portfolio"/></a>
+<a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg" width="400" alt="options-payoff-motion"/></a>
+<a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg" width="400" alt="ohlone-unicode"/></a>
+<a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg" width="400" alt="decibel-evolution"/></a>
+<a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg" width="400" alt="NIPAHSCAN"/></a>
+</p>
+
 ## <samp>~ ❯ wrapped --share</samp>
 
 <img src="./assets/wrapped.svg" width="100%" alt="year in tokens — annual compute report"/>

@@ -6,6 +6,7 @@ import pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import render_heatmaps
+import render_holdings
 import render_market
 import render_neofetch
 import render_wrapped
@@ -73,6 +74,7 @@ def main():
     build_token_combos()
     render_heatmaps.render(gh, tokens)
     render_market.render(gh, tokens)
+    render_holdings.render(gh, tokens)
     render_wrapped.render(gh, tokens)
     print("all cards rendered")
 

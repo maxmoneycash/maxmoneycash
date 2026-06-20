@@ -1,0 +1,12 @@
+{
+  "_comment": "Curated holdings showcase. url = live deploy to screenshot + link; empty url = no live preview (banner-less card, links to repo). Single source of truth for render_holdings.py and screenshot_apps.mjs.",
+  "holdings": [
+    { "repo": "datacenter-globe", "url": "https://datacenter-globe.vercel.app" },
+    { "repo": "commit-markets", "url": "" },
+    { "repo": "terminal-portfolio", "url": "https://terminal-portfolio-eight-chi.vercel.app" },
+    { "repo": "options-payoff-motion", "url": "https://cipher-payoff-atlas.vercel.app" },
+    { "repo": "ohlone-unicode", "url": "https://ohlone-unicode.vercel.app" },
+    { "repo": "decibel-evolution", "url": "https://decibel-presentation.vercel.app" },
+    { "repo": "NIPAHSCAN", "url": "https://nipahscan.vercel.app" }
+  ]
+}
