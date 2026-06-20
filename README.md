@@ -31,15 +31,19 @@
 
 <sub>Live deploy screenshots (auto-captured daily) + 52-week commit velocity per repo — click any to open the app.</sub>
 
+<!-- HOLDINGS:START -->
 <p align="center">
-<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg" width="400" alt="datacenter-globe"/></a>
 <a href="https://github.com/maxmoneycash/commit-markets"><img src="./assets/holding-commit-markets.svg" width="400" alt="commit-markets"/></a>
+<a href="https://cash.trading"><img src="./assets/holding-cash.trading.svg" width="400" alt="cash.trading"/></a>
+<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg" width="400" alt="datacenter-globe"/></a>
 <a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg" width="400" alt="terminal-portfolio"/></a>
 <a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg" width="400" alt="options-payoff-motion"/></a>
+<a href="https://peat-ui.vercel.app"><img src="./assets/holding-peat-ui.svg" width="400" alt="peat-ui"/></a>
 <a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg" width="400" alt="ohlone-unicode"/></a>
 <a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg" width="400" alt="decibel-evolution"/></a>
 <a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg" width="400" alt="NIPAHSCAN"/></a>
 </p>
+<!-- HOLDINGS:END -->
 
 ## <samp>~ ❯ wrapped --share</samp>
 

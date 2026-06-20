@@ -1,10 +1,12 @@
 {
-  "_comment": "Curated holdings showcase. url = live deploy to screenshot + link; empty url = no live preview (banner-less card, links to repo). Single source of truth for render_holdings.py and screenshot_apps.mjs.",
+  "_comment": "Curated holdings showcase — single source of truth for render_holdings.py, the README block it generates, and screenshot_apps.sh. Fields: repo (required); owner (default maxmoneycash); url (live deploy to AUTO-screenshot + default link; empty = no auto-shot, use the manual assets/shots/<repo>.jpg and never overwrite it); link (where the card click goes; defaults to url, else the repo). Drop a manual shot at assets/shots/<repo>.jpg to set/override a banner.",
   "holdings": [
+    { "repo": "commit-markets", "url": "", "link": "https://github.com/maxmoneycash/commit-markets" },
+    { "repo": "cash.trading", "owner": "seammoney", "url": "", "link": "https://cash.trading" },
     { "repo": "datacenter-globe", "url": "https://datacenter-globe.vercel.app" },
-    { "repo": "commit-markets", "url": "" },
     { "repo": "terminal-portfolio", "url": "https://terminal-portfolio-eight-chi.vercel.app" },
     { "repo": "options-payoff-motion", "url": "https://cipher-payoff-atlas.vercel.app" },
+    { "repo": "peat-ui", "url": "", "link": "https://peat-ui.vercel.app" },
     { "repo": "ohlone-unicode", "url": "https://ohlone-unicode.vercel.app" },
     { "repo": "decibel-evolution", "url": "https://decibel-presentation.vercel.app" },
     { "repo": "NIPAHSCAN", "url": "https://nipahscan.vercel.app" }
