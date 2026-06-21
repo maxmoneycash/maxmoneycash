@@ -29,7 +29,7 @@
 
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
 
-<sub>Live deploy screenshots (auto-captured daily) + 52-week commit velocity per repo — click any to open the app.</sub>
+<sub>Hand-picked deploy screenshots + 52-week commit velocity per repo — click any to open the live app.</sub>
 
 <!-- HOLDINGS:START -->
 <p align="center">

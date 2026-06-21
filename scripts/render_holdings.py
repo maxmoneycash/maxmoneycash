@@ -72,69 +72,88 @@ def render_card(h):
     desc = (r.get("description") or "").strip()
     weekly = weekly_commits(owner, repo)
     commits52 = sum(weekly)
+    ticker = "$" + "".join(c for c in repo.upper() if c.isalnum())[:7]
+    label = link_of(h).replace("https://", "").replace("http://", "").rstrip("/")
+    if len(label) > 36:
+        label = label[:35] + "…"
 
     shot = SHOTS / f"{repo}.jpg"
-    has_shot = shot.exists()
-    banner_h = 150 if has_shot else 0
-    H = banner_h + 168
+    banner_h = 172
+    H = banner_h + 130
+    cx = W // 2
 
     parts = []
-    if has_shot:
+    # ---- banner: live screenshot, or a generated placeholder so it never looks broken ----
+    if shot.exists():
         b64 = base64.b64encode(shot.read_bytes()).decode()
-        label = link_of(h).replace("https://", "").replace("http://", "")
-        if len(label) > 34:
-            label = label[:33] + "…"
         parts.append(
-            f'<clipPath id="bclip"><rect x="0" y="0" width="{W}" height="{banner_h}" rx="12"/></clipPath>'
             f'<image href="data:image/jpeg;base64,{b64}" x="0" y="0" width="{W}" height="{banner_h}" '
             f'preserveAspectRatio="xMidYMid slice" clip-path="url(#bclip)"/>'
-            f'<rect x="0" y="{banner_h - 40}" width="{W}" height="40" fill="url(#fade)"/>'
-            f'<rect x="0" y="0" width="{W}" height="{banner_h}" rx="12" fill="none" stroke="{t["border"]}"/>'
-            f'<text x="{W - 12}" y="{banner_h - 12}" text-anchor="end" font-size="9" '
-            f'fill="#cdd9e5" opacity="0.85">{esc(label)} ↗</text>'
         )
-    py = banner_h + 30
-
-    ticker = "$" + "".join(c for c in repo.upper() if c.isalnum())[:6]
+    else:
+        parts.append(
+            f'<rect x="0" y="0" width="{W}" height="{banner_h}" fill="url(#ph)" clip-path="url(#bclip)"/>'
+            f'<text x="{cx}" y="{banner_h // 2 + 15}" text-anchor="middle" font-size="46" font-weight="800" '
+            f'fill="{lang_color}" opacity="0.15">{ticker}</text>'
+            f'<text x="{cx}" y="{banner_h - 24}" text-anchor="middle" font-size="9.5" fill="{t["muted"]}" '
+            f'letter-spacing="2.5">LIVE PREVIEW SOON</text>'
+        )
+    # bottom scrim + url label + language accent bar
     parts.append(
-        f'<text x="20" y="{py}" font-size="17" font-weight="700" fill="{t["phosphor"]}">{esc(repo)}</text>'
-        f'<text x="{20 + len(repo) * 10.5 + 12}" y="{py}" font-size="10" fill="{t["muted"]}">{ticker}</text>'
-        f'<g><rect x="{W - 20 - (len(lang) * 7 + 26)}" y="{py - 15}" width="{len(lang) * 7 + 26}" height="20" rx="10" '
-        f'fill="{t["panel"]}" stroke="{lang_color}" stroke-opacity="0.6"/>'
-        f'<circle cx="{W - 20 - (len(lang) * 7 + 26) + 13}" cy="{py - 5}" r="4" fill="{lang_color}"/>'
-        f'<text x="{W - 26}" y="{py - 1}" text-anchor="end" font-size="10" fill="{t["fg"]}">{esc(lang)}</text></g>'
+        f'<rect x="0" y="{banner_h - 48}" width="{W}" height="48" fill="url(#fade)" clip-path="url(#bclip)"/>'
+        f'<text x="{W - 14}" y="{banner_h - 13}" text-anchor="end" font-size="9.5" fill="#dbe6f0" opacity="0.9">{esc(label)} ↗</text>'
+        f'<rect x="0" y="{banner_h - 2}" width="{W}" height="2" fill="{lang_color}" opacity="0.9"/>'
+    )
+
+    # ---- title + ticker + language pill ----
+    ty = banner_h + 32
+    pill_w = len(lang) * 7 + 28
+    parts.append(
+        f'<text x="22" y="{ty}" font-size="18" font-weight="700" fill="{t["phosphor"]}">{esc(repo)}</text>'
+        f'<text x="22" y="{ty + 17}" font-size="9.5" fill="{t["muted"]}" letter-spacing="1.5">{ticker}</text>'
+        f'<rect x="{W - 22 - pill_w}" y="{ty - 15}" width="{pill_w}" height="21" rx="10.5" '
+        f'fill="#161b22" stroke="{lang_color}" stroke-opacity="0.5"/>'
+        f'<circle cx="{W - 22 - pill_w + 13}" cy="{ty - 4.5}" r="4" fill="{lang_color}"/>'
+        f'<text x="{W - 29}" y="{ty - 0.5}" text-anchor="end" font-size="10" fill="{t["fg"]}">{esc(lang)}</text>'
     )
     if desc:
-        if len(desc) > 64:
-            desc = desc[:61] + "..."
-        parts.append(f'<text x="20" y="{py + 22}" font-size="11.5" fill="{t["fg"]}">{esc(desc)}</text>')
+        if len(desc) > 60:
+            desc = desc[:57] + "…"
+        parts.append(f'<text x="22" y="{ty + 37}" font-size="11.5" fill="#9fb0c0">{esc(desc)}</text>')
 
-    sx, sy, sh_, sw = 20, py + 38, 38, W - 40
+    # ---- 52-week commit sparkline with end-dot ----
+    sx, sy, sh_, sw = 22, ty + 51, 28, W - 44
     wmax = max(max(weekly), 1)
-    pts = " ".join(f"{sx + i * sw / 51:.1f},{sy + sh_ - sh_ * v / wmax:.1f}" for i, v in enumerate(weekly))
+    coords = [(sx + i * sw / 51, sy + sh_ - sh_ * v / wmax) for i, v in enumerate(weekly)]
+    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+    ex, ey = coords[-1]
     parts.append(
         f'<polygon points="{sx},{sy + sh_} {pts} {sx + sw},{sy + sh_}" fill="url(#spk)"/>'
-        f'<polyline points="{pts}" fill="none" stroke="{t["phosphor"]}" stroke-width="1.4"/>'
-        f'<text x="{sx}" y="{sy + sh_ + 15}" font-size="9" fill="{t["muted"]}">52-WEEK COMMIT FLOW</text>'
-        f'<text x="{W - 20}" y="{sy + sh_ + 15}" text-anchor="end" font-size="11" fill="{t["fg"]}">'
-        f'<tspan fill="{t["phosphor"]}" font-weight="700">{commits52}</tspan> commits/52w'
-        f'  ·  ★ {r.get("stargazers_count", 0)}  ·  {ago(r["pushed_at"])}</text>'
+        f'<polyline points="{pts}" fill="none" stroke="{t["phosphor"]}" stroke-width="1.5"/>'
+        f'<circle cx="{ex:.1f}" cy="{ey:.1f}" r="2.6" fill="{t["phosphor"]}"/>'
+        f'<text x="{sx}" y="{sy + sh_ + 17}" font-size="8.5" fill="{t["muted"]}" letter-spacing="1.5">52-WEEK COMMITS</text>'
+        f'<text x="{W - 22}" y="{sy + sh_ + 17}" text-anchor="end" font-size="10.5" fill="#9fb0c0">'
+        f'<tspan fill="{t["phosphor"]}" font-weight="700">{commits52}</tspan> commits  ·  ★ {r.get("stargazers_count", 0)}  ·  {ago(r["pushed_at"])}</text>'
     )
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
 <defs>
+  <clipPath id="bclip"><path d="M0,12 Q0,0 12,0 H{W - 12} Q{W},0 {W},12 V{banner_h} H0 Z"/></clipPath>
   <linearGradient id="cbg" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#0d1117"/><stop offset="1" stop-color="#0a0f16"/>
+  </linearGradient>
+  <linearGradient id="ph" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#11161d"/><stop offset="1" stop-color="{lang_color}" stop-opacity="0.12"/>
   </linearGradient>
   <linearGradient id="spk" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="{THEME['phosphor']}" stop-opacity="0.35"/>
     <stop offset="1" stop-color="{THEME['phosphor']}" stop-opacity="0.02"/>
   </linearGradient>
   <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#0d1117" stop-opacity="0"/><stop offset="1" stop-color="#0d1117" stop-opacity="0.85"/>
+    <stop offset="0" stop-color="#0d1117" stop-opacity="0"/><stop offset="1" stop-color="#0d1117" stop-opacity="0.9"/>
   </linearGradient>
 </defs>
-<rect width="{W}" height="{H}" rx="12" fill="url(#cbg)" stroke="{THEME['border']}"/>
+<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="12" fill="url(#cbg)" stroke="{THEME['border']}"/>
 {"".join(parts)}
 </svg>"""
     write_svg(f"holding-{repo}.svg", svg)
