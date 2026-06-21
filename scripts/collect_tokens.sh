@@ -54,6 +54,8 @@ git commit -m "chore: daily token stats $(date -u +%Y-%m-%d)"
 # onto theirs, preferring OUR data on conflict (it's the freshest), and ALWAYS
 # abort a failed rebase so a half-finished rebase can never wedge every future
 # run — that left-behind .git/rebase-merge froze pushes for days in June 2026.
+# --autostash stashes any unrelated WIP in the working tree (e.g. uncommitted
+# scripts/agent-host/ edits) so a dirty tree can't block the daily push either.
 clear_rebase() {
   git rebase --abort 2>/dev/null || true
   rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
@@ -61,7 +63,7 @@ clear_rebase() {
 clear_rebase  # heal any pre-existing stuck rebase before we start
 for i in 1 2 3 4 5; do
   if git fetch -q origin main \
-     && git rebase -X theirs origin/main \
+     && git rebase -X theirs --autostash origin/main \
      && git push origin main; then
     echo "pushed token stats $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     exit 0
