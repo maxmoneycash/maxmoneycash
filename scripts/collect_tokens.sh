@@ -30,17 +30,21 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$LOCK" "$TMP"' EXIT
 
-# --- collect every source IN PARALLEL; each writes its own file and falls back
-#     to a safe stub so one slow/failed source can't fail the whole run ---
-log "collecting (parallel)…"
-( $CCUSAGE monthly --json --offline --timezone UTC > "$TMP/monthly.json" 2>/dev/null \
-    || : > "$TMP/monthly.json" ) &
-( $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$TMP/daily.json" 2>/dev/null \
-    || : > "$TMP/daily.json" ) &
+# --- collect ccusage sources SEQUENTIALLY. Parallel bunx/ccusage invocations
+#     race on the package cache and produced empty/partial JSON (the root cause
+#     of the 2026-06-21/22 collection failures). The python true counters can
+#     still run in parallel because they don't touch bunx.
+log "collecting ccusage…"
+$CCUSAGE monthly --json --offline --timezone UTC > "$TMP/monthly.json" 2>/dev/null \
+    || echo '{"monthly":[]}' > "$TMP/monthly.json"
+$CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$TMP/daily.json" 2>/dev/null \
+    || echo '{"daily":[]}' > "$TMP/daily.json"
 for agent in claude codex droid kimi opencode; do
-  ( $CCUSAGE "$agent" monthly --json --offline --breakdown > "$TMP/agent-$agent.json" 2>/dev/null \
-      || echo '{"monthly":[],"totals":{}}' > "$TMP/agent-$agent.json" ) &
+  $CCUSAGE "$agent" monthly --json --offline --breakdown > "$TMP/agent-$agent.json" 2>/dev/null \
+      || echo '{"monthly":[],"totals":{}}' > "$TMP/agent-$agent.json"
 done
+
+log "collecting true counters…"
 ( python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$TMP/codex-true.json" 2>/dev/null \
     || echo '{"totals":{},"monthly":[]}' > "$TMP/codex-true.json" ) &
 ( python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$TMP/grok-true.json" 2>/dev/null \
