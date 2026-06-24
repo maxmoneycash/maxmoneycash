@@ -47,13 +47,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/
+          # render_holdings.py rewrites the README holdings block in addition to
+          # the assets/ SVGs, so both must be staged.
+          git add assets/ README.md
           if git diff --cached --quiet; then
             echo "no changes"
             exit 0
           fi
           git commit -m "chore: render README cards"
           for i in 1 2 3 4 5; do
-            git push && break
-            git pull --rebase
+            git fetch origin main
+            # --autostash lets us recover if another push (e.g. token stats)
+            # lands between commit and push, mirroring scripts/collect_tokens.sh.
+            git rebase -X theirs --autostash origin/main && git push && break
+            git rebase --abort 2>/dev/null || true
+            sleep 5
           done
