@@ -37,11 +37,9 @@
 <a href="https://cash.trading"><img src="./assets/holding-cash.trading.svg" width="400" alt="cash.trading"/></a>
 <a href="https://github.com/seammoney/cash-orderbook"><img src="./assets/holding-cash-orderbook.svg" width="400" alt="cash-orderbook"/></a>
 <a href="https://aptos-polymarket.vercel.app/polymarket"><img src="./assets/holding-aptos-polymarket.svg" width="400" alt="aptos-polymarket"/></a>
-<a href="https://aptos-consensus-visualizer.vercel.app"><img src="./assets/holding-aptos-consensus-visualizer.svg" width="400" alt="aptos-consensus-visualizer"/></a>
 <a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg" width="400" alt="datacenter-globe"/></a>
 <a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg" width="400" alt="terminal-portfolio"/></a>
 <a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg" width="400" alt="options-payoff-motion"/></a>
-<a href="https://peat-ui.vercel.app"><img src="./assets/holding-peat-ui.svg" width="400" alt="peat-ui"/></a>
 <a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg" width="400" alt="ohlone-unicode"/></a>
 <a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg" width="400" alt="decibel-evolution"/></a>
 <a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg" width="400" alt="NIPAHSCAN"/></a>
