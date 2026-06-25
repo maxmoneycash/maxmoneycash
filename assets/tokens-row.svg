@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1148 1048" width="1148" font-family="ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"><g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1148 1067" width="1148" font-family="ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"><g>
 <defs>
   <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
     <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/>
   </filter>
 </defs>
-<polygon points="2,13 16,6 30,13 44,6 58,13 72,6 86,13 100,6 114,13 128,6 142,13 156,6 170,13 184,6 198,13 212,6 226,13 240,6 254,13 268,6 282,13 296,6 310,13 324,6 338,13 352,6 366,13 380,6 394,13 408,6 422,13 436,6 450,13 464,6 478,13 492,6 506,13 520,6 534,13 548,6 548,1035 534,1042 520,1035 506,1042 492,1035 478,1042 464,1035 450,1042 436,1035 422,1042 408,1035 394,1042 380,1035 366,1042 352,1035 338,1042 324,1035 310,1042 296,1035 282,1042 268,1035 254,1042 240,1035 226,1042 212,1035 198,1042 184,1035 170,1042 156,1035 142,1042 128,1035 114,1042 100,1035 86,1042 72,1035 58,1042 44,1035 30,1042 16,1035 2,1042" fill="#f7f3e9" filter="url(#drop)"/>
+<polygon points="2,13 16,6 30,13 44,6 58,13 72,6 86,13 100,6 114,13 128,6 142,13 156,6 170,13 184,6 198,13 212,6 226,13 240,6 254,13 268,6 282,13 296,6 310,13 324,6 338,13 352,6 366,13 380,6 394,13 408,6 422,13 436,6 450,13 464,6 478,13 492,6 506,13 520,6 534,13 548,6 548,1054 534,1061 520,1054 506,1061 492,1054 478,1061 464,1054 450,1061 436,1054 422,1061 408,1054 394,1061 380,1054 366,1061 352,1054 338,1061 324,1054 310,1061 296,1054 282,1061 268,1054 254,1061 240,1054 226,1061 212,1054 198,1061 184,1054 170,1061 156,1054 142,1061 128,1054 114,1061 100,1054 86,1061 72,1054 58,1061 44,1054 30,1061 16,1054 2,1061" fill="#f7f3e9" filter="url(#drop)"/>
 <text x="280.0" y="78" text-anchor="middle" font-size="17" fill="#211c16" font-weight="700">MAXMONEYCASH</text>
 <text x="280.0" y="102" text-anchor="middle" font-size="11" fill="#6b6256">AI COMPUTE STATEMENT</text>
 <text x="280.0" y="120" text-anchor="middle" font-size="11" fill="#6b6256">BILLING PERIOD: JUL 2025 — JUN 2026</text>
@@ -64,7 +64,7 @@
     <rect width="4" height="2" fill="#000" opacity="0.14"/>
   </pattern>
 </defs>
-<rect width="560" height="1048" rx="14" fill="url(#bg)" stroke="#30363d"/>
+<rect width="560" height="1067" rx="14" fill="url(#bg)" stroke="#30363d"/>
 <circle cx="24" cy="24" r="6" fill="#ff5f56"/><circle cx="44" cy="24" r="6" fill="#ffbd2e"/><circle cx="64" cy="24" r="6" fill="#27c93f"/>
 <text x="280.0" y="28" text-anchor="middle" font-size="12" fill="#8b949e">token-ops</text>
 <line x1="0" y1="42" x2="560" y2="42" stroke="#30363d"/>

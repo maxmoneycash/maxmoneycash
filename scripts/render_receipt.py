@@ -133,6 +133,7 @@ def _build(tokens):
     p.rule()
     p.kv("STATEMENT #", receipt_id)
     p.kv("ISSUED", f"{now:%Y-%m-%d %H:%M} UTC")
+    p.kv("DATA AS OF", tokens.get("generated_at", "unknown").replace("T", " ").replace("Z", " UTC"))
     p.kv("BILLED TO", "MAX @MAXMONEYCASH")
     p.kv("SERVED BY", "7 AGENTS + 8-HEAD CLOUD SWARM")
     p.kv("FLEET", f"local {compact(local_total)} · cloud {compact(cloud_total)}")

@@ -92,6 +92,7 @@ python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" > "$TMP/tokens.out"
 # --- safety: all-time totals only ever grow; a drop = a collection glitch.
 #     Refuse to overwrite good data with a >2% regression. ---
 OLD=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['totals']['totalTokens'])" 2>/dev/null || echo 0)
+OLD_TIME=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['generated_at'])" 2>/dev/null || echo "")
 NEW=$(python3 -c "import json;print(json.load(open('$TMP/tokens.out'))['totals']['totalTokens'])")
 if [ "$NEW" -lt "$((OLD * 98 / 100))" ]; then
   log "ERROR: new total $NEW < 98% of old $OLD — glitch, keeping previous tokens.json"; exit 1
@@ -104,6 +105,30 @@ if git diff --cached --quiet; then
   exit 0
 fi
 git commit -q -m "chore: token stats $(date -u +%Y-%m-%dT%H:%MZ)"
+
+# Real-time cadence with noise guard: push immediately on meaningful token
+# burn, but batch tiny changes so we don't spam commits every 15 minutes.
+THRESHOLD=${TOKENSTATS_PUSH_THRESHOLD:-25000000}
+MAX_AGE_SEC=${TOKENSTATS_MAX_AGE_SEC:-3600}
+DELTA=$((NEW - OLD))
+FORCE_AGE=false
+if [ -n "$OLD_TIME" ]; then
+  OLD_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "${OLD_TIME%%Z}" "+%s" 2>/dev/null || echo 0)
+  NOW_EPOCH=$(date -u +%s)
+  AGE=$((NOW_EPOCH - OLD_EPOCH))
+  if [ "$AGE" -ge "$MAX_AGE_SEC" ]; then
+    FORCE_AGE=true
+  fi
+fi
+if [ "$DELTA" -lt "$THRESHOLD" ] && [ "$FORCE_AGE" = false ]; then
+  log "delta ${DELTA} < ${THRESHOLD}; committing locally, skipping push"
+  exit 0
+fi
+if [ "$FORCE_AGE" = true ]; then
+  log "age ${AGE}s >= ${MAX_AGE_SEC}s; forcing push"
+else
+  log "delta ${DELTA} >= ${THRESHOLD}; pushing"
+fi
 
 # The readme/3d workflows also commit to main. Rebase our generated-data commit
 # onto theirs, preferring OUR data on conflict (it's the freshest), and ALWAYS

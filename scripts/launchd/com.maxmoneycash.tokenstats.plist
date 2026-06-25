@@ -23,15 +23,15 @@
   <key>RunAtLoad</key>
   <true/>
 
-  <!-- Periodic catch-up every 6h. This is the real fix: unlike
-       StartCalendarInterval, if the Mac was asleep across an interval launchd
-       fires this ONCE on wake, so sleeping through the scheduled window can no
-       longer silently skip the daily push. collect_tokens.sh no-ops when the
-       data is unchanged, so frequent runs are cheap. -->
+  <!-- Periodic catch-up every 15 min. collect_tokens.sh no-ops when the
+       data is unchanged, and it also refuses to push micro-changes (noise
+       threshold), so frequent runs are cheap while keeping the README near
+       real-time. -->
   <key>StartInterval</key>
-  <integer>21600</integer>
+  <integer>900</integer>
 
-  <!-- Keep the original twice-daily wall-clock cadence as well. -->
+  <!-- Force a push at least twice daily even when usage is idle, so the
+       cards don't look abandoned. -->
   <key>StartCalendarInterval</key>
   <array>
     <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>20</integer></dict>
