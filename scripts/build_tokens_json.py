@@ -1,15 +1,13 @@
 """Assemble data/tokens.json from ccusage outputs + true counters.
 
-ccusage's codex adapter (v20.0.9–20.0.11) double-counts re-emitted
-token_count events (~+30% for this machine's logs), so codex numbers are
-replaced with scripts/codex_true_usage.py's cumulative-counter results.
-ccusage's kimi adapter reads ~/.kimi/user-history (user prompts only) and
-misses token metadata, so kimi numbers are replaced with
+Codex numbers come straight from ccusage (the raw session logs are treated as
+authoritative). Kimi is corrected because ccusage reads ~/.kimi/user-history
+(user prompts only) and misses token metadata; we replace it with
 scripts/kimi_true_usage.py's wire.jsonl parsing.
 Unified months/totals are then rebuilt so everything sums exactly.
 
 Usage: python3 build_tokens_json.py <dir with monthly.json daily.json
-agent-*.json codex-true.json kimi-true.json>  → corrected tokens.json on stdout.
+agent-*.json codex-true.json kimi-true.json>  → tokens.json on stdout.
 """
 import datetime
 import json
@@ -49,8 +47,6 @@ def main():
     except FileNotFoundError:
         kimi_true = {"totals": {}, "monthly": []}
 
-    codex_rep = {m["month"]: m for m in agents_raw["codex"].get("monthly") or []}
-    codex_tru = {m["month"]: m for m in codex_true["monthly"]}
     kimi_rep = {m["month"]: m for m in agents_raw["kimi"].get("monthly") or []}
     kimi_tru = {m["month"]: m for m in kimi_true["monthly"]}
 
@@ -61,22 +57,10 @@ def main():
     def rep_total(rep):
         return rep.get("totalTokens") or sum(rep.get(c, 0) for c in COMPONENTS)
 
-    codex_cost = 0.0
     monthly = []
     for m in unified["monthly"]:
         m = dict(m)
         month = m["period"]
-
-        # Correct codex (double-counted by ccusage).
-        rep = codex_rep.get(month)
-        tru = codex_tru.get(month)
-        factor = 1.0
-        if rep and rep_total(rep):
-            tru_tot = tru["totalTokens"] if tru else 0
-            factor = tru_tot / rep_total(rep)
-            for c in COMPONENTS:
-                m[c] = m.get(c, 0) - rep.get(c, 0) + (tru.get(c, 0) if tru else 0)
-            m["totalTokens"] = m["totalTokens"] - rep_total(rep) + tru_tot
 
         # Correct kimi (ccusage reads user-history, missing token metadata).
         krep = kimi_rep.get(month)
@@ -87,24 +71,12 @@ def main():
                 m[c] = m.get(c, 0) - krep.get(c, 0) + (ktru.get(c, 0) if ktru else 0)
             m["totalTokens"] = m["totalTokens"] - rep_total(krep) + ktru_tot
 
-        # Rescale codex-model breakdowns (cost is an estimate, pro-rated by
-        # the corrected token volume) and rebuild the month's cost.
-        codex_models = rep_models(rep or {})
+        # Rebuild the month's cost from the (possibly corrected) model rows.
         breakdowns = []
         total_cost = 0.0
         for b in m.get("modelBreakdowns", []):
-            b = dict(b)
-            if b["modelName"] in codex_models and factor != 1.0:
-                for c in COMPONENTS + ["cost"]:
-                    if c in b and isinstance(b[c], (int, float)):
-                        b[c] = b[c] * factor
-                for c in COMPONENTS:
-                    b[c] = int(b[c])
-                codex_cost += b.get("cost", 0)
-            elif b["modelName"] in codex_models:
-                codex_cost += b.get("cost", 0)
             total_cost += b.get("cost", 0)
-            breakdowns.append(b)
+            breakdowns.append(dict(b))
         m["modelBreakdowns"] = breakdowns
         m["totalCost"] = total_cost
         monthly.append(m)
@@ -160,11 +132,8 @@ def main():
         m["month"]: sorted(rep_models(m)) for m in agents["codex"]["monthly"]
     }
     agents["codex"] = {
-        "totals": {**codex_true["totals"], "totalCost": codex_cost},
-        "monthly": [
-            {**m, "modelsUsed": models_used.get(m["month"], [])}
-            for m in codex_true["monthly"]
-        ],
+        "totals": agents_raw["codex"].get("totals") or {},
+        "monthly": agents_raw["codex"].get("monthly") or [],
     }
     agents["cursor"] = {
         "totals": cursor.get("totals") or {},

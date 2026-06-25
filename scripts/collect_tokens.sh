@@ -1,11 +1,10 @@
 #!/bin/bash
-# Collects AI-agent token usage via ccusage -> data/tokens.json, then commits &
-# pushes so the GitHub Action re-renders the README cards. Runs locally (the
-# usage logs only exist on this machine) and is safe to run often (hourly):
-#   - PARALLEL collection (fast: all sources run at once, not one-by-one)
-#   - single-run LOCK (safe: two runs can never race the git push)
-#   - monotonic GUARD (safe: a transient glitch can't push near-empty stats)
-#   - skips when nothing changed (clean: no empty commits on idle hours)
+# Collects AI-agent token usage from this Mac + the cloud agent-host, merges
+# them, builds data/tokens.json, and pushes so GitHub Actions re-renders the
+# README cards. Safe to run often (hourly):
+#   - single-run LOCK (two runs can never race the git push)
+#   - monotonic GUARD (a transient glitch can't push near-empty stats)
+#   - skips when nothing changed (no empty commits on idle hours)
 #   - push survives a dirty tree + interleaving Action commits (autostash + rebase)
 set -euo pipefail
 
@@ -28,46 +27,63 @@ if ! mkdir "$LOCK" 2>/dev/null; then
   fi
 fi
 TMP=$(mktemp -d)
+LOCAL="$TMP/local"
+CLOUD="$TMP/cloud"
+MERGED="$TMP/merged"
+mkdir -p "$LOCAL" "$CLOUD" "$MERGED"
 trap 'rm -rf "$LOCK" "$TMP"' EXIT
 
-# --- collect ccusage sources SEQUENTIALLY. Parallel bunx/ccusage invocations
+# --- collect local ccusage sources SEQUENTIALLY. Parallel bunx/ccusage invocations
 #     race on the package cache and produced empty/partial JSON (the root cause
 #     of the 2026-06-21/22 collection failures). The python true counters can
 #     still run in parallel because they don't touch bunx.
-log "collecting ccusage…"
-$CCUSAGE monthly --json --offline --timezone UTC > "$TMP/monthly.json" 2>/dev/null \
-    || echo '{"monthly":[]}' > "$TMP/monthly.json"
-$CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$TMP/daily.json" 2>/dev/null \
-    || echo '{"daily":[]}' > "$TMP/daily.json"
+log "collecting local ccusage…"
+$CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>/dev/null \
+    || echo '{"monthly":[]}' > "$LOCAL/monthly.json"
+$CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>/dev/null \
+    || echo '{"daily":[]}' > "$LOCAL/daily.json"
 for agent in claude codex droid kimi opencode; do
-  $CCUSAGE "$agent" monthly --json --offline --breakdown > "$TMP/agent-$agent.json" 2>/dev/null \
-      || echo '{"monthly":[],"totals":{}}' > "$TMP/agent-$agent.json"
+  $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>/dev/null \
+      || echo '{"monthly":[],"totals":{}}' > "$LOCAL/agent-$agent.json"
 done
 
-log "collecting true counters…"
-( python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$TMP/codex-true.json" 2>/dev/null \
-    || echo '{"totals":{},"monthly":[]}' > "$TMP/codex-true.json" ) &
-( python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$TMP/kimi-true.json" 2>/dev/null \
-    || echo '{"totals":{},"monthly":[]}' > "$TMP/kimi-true.json" ) &
-( python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$TMP/grok-true.json" 2>/dev/null \
-    || echo '{"totals":{},"monthly":[]}' > "$TMP/grok-true.json" ) &
+log "collecting local true counters…"
+( python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>/dev/null \
+    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
+( python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>/dev/null \
+    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+( python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>/dev/null \
+    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/grok-true.json" ) &
 # Cursor dashboard (network); fall back to the committed cache on any failure
-( if python3 "$REPO_DIR/scripts/cursor_usage.py" > "$TMP/cursor.json" 2>/dev/null && [ -s "$TMP/cursor.json" ]; then
-    cp "$TMP/cursor.json" "$REPO_DIR/data/cursor-cache.json"
+( if python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>/dev/null && [ -s "$LOCAL/cursor.json" ]; then
+    cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
   elif [ -f "$REPO_DIR/data/cursor-cache.json" ]; then
-    cp "$REPO_DIR/data/cursor-cache.json" "$TMP/cursor.json"
-  else echo '{"totals":{},"monthly":[]}' > "$TMP/cursor.json"; fi ) &
+    cp "$REPO_DIR/data/cursor-cache.json" "$LOCAL/cursor.json"
+  else echo '{"totals":{},"monthly":[]}' > "$LOCAL/cursor.json"; fi ) &
 wait
-log "collected"
+log "local collected"
+
+# --- collect from the cloud agent-host. Best-effort: if the box is offline or
+#     unreachable, we still publish the local stats.
+if bash "$REPO_DIR/scripts/collect_cloud_tokens.sh" "$CLOUD" >>"$TMP/cloud.log" 2>&1; then
+  log "cloud collected"
+  SOURCES=("$LOCAL" "$CLOUD")
+else
+  log "WARNING: cloud collection failed (see $TMP/cloud.log); using local only"
+  SOURCES=("$LOCAL")
+fi
+
+# --- merge local + cloud sources into a single combined input directory
+python3 "$REPO_DIR/scripts/merge_token_sources.py" "$MERGED" "${SOURCES[@]}"
 
 # --- safety: ccusage monthly is the backbone; if it came back empty/invalid,
 #     abort rather than build (and push) a near-empty tokens.json ---
-if ! python3 -c "import json,sys; d=json.load(open('$TMP/monthly.json')); sys.exit(0 if d.get('monthly') else 1)" 2>/dev/null; then
-  log "ERROR: ccusage monthly empty/invalid — aborting, keeping previous tokens.json"; exit 1
+if ! python3 -c "import json,sys; d=json.load(open('$MERGED/monthly.json')); sys.exit(0 if d.get('monthly') else 1)" 2>/dev/null; then
+  log "ERROR: merged monthly empty/invalid — aborting, keeping previous tokens.json"; exit 1
 fi
 
 # Atomic write so a failed build can never truncate data/tokens.json
-python3 "$REPO_DIR/scripts/build_tokens_json.py" "$TMP" > "$TMP/tokens.out"
+python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" > "$TMP/tokens.out"
 
 # --- safety: all-time totals only ever grow; a drop = a collection glitch.
 #     Refuse to overwrite good data with a >2% regression. ---
