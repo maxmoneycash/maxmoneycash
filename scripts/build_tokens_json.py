@@ -46,6 +46,10 @@ def main():
         kimi_true = load(d, "kimi-true.json")
     except FileNotFoundError:
         kimi_true = {"totals": {}, "monthly": []}
+    try:
+        sources = load(d, "sources.json")
+    except FileNotFoundError:
+        sources = []
 
     kimi_rep = {m["month"]: m for m in agents_raw["kimi"].get("monthly") or []}
     kimi_tru = {m["month"]: m for m in kimi_true["monthly"]}
@@ -135,6 +139,9 @@ def main():
         "totals": agents_raw["codex"].get("totals") or {},
         "monthly": agents_raw["codex"].get("monthly") or [],
     }
+    # models_used was kept for codex correction display; no longer needed but
+    # harmless to leave empty.
+    models_used = {}
     agents["cursor"] = {
         "totals": cursor.get("totals") or {},
         "monthly": cursor.get("monthly") or [],
@@ -156,20 +163,16 @@ def main():
         "monthly": monthly,
         "daily": daily["daily"],
         "agents": agents,
+        "sources": sources,
         "corrections": {
-            "codexReemitBugAdjusted": True,
-            "codexReportedTotal": agents_raw["codex"].get("totals", {}).get("totalTokens"),
-            "codexTrueTotal": codex_true["totals"]["totalTokens"],
             "kimiWireAdjusted": True,
             "kimiReportedTotal": agents_raw["kimi"].get("totals", {}).get("totalTokens"),
             "kimiTrueTotal": kimi_true["totals"].get("totalTokens"),
             "note": (
-                "codex counted from cumulative total_token_usage deltas; "
-                "ccusage <=20.0.11 double-counts re-emitted token_count events. "
+                "codex numbers come straight from ccusage. "
                 "kimi counted from ~/.kimi/sessions/**/wire.jsonl StatusUpdate "
                 "token_usage; ccusage reads user-history and undercounts. "
-                "codex model costs pro-rated by corrected volume. daily[] series "
-                "left as reported (relative shape only)."
+                "daily[] series left as reported (relative shape only)."
             ),
         },
     }

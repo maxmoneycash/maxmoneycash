@@ -186,12 +186,30 @@ def merge_true(sources):
 
 def main():
     if len(sys.argv) < 3:
-        print("usage: merge_token_sources.py <out_dir> <src_dir> [<src_dir> ...]", file=sys.stderr)
+        print("usage: merge_token_sources.py <out_dir> <label>:<src_dir> [<label>:<src_dir> ...]", file=sys.stderr)
         sys.exit(1)
 
     out_dir = pathlib.Path(sys.argv[1])
-    src_dirs = [pathlib.Path(p) for p in sys.argv[2:]]
+    labels, src_dirs = [], []
+    for arg in sys.argv[2:]:
+        if ":" in arg:
+            label, path = arg.split(":", 1)
+        else:
+            label, path = f"source-{len(labels) + 1}", arg
+        labels.append(label)
+        src_dirs.append(pathlib.Path(path))
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save per-source totals so renderers can show local vs cloud split.
+    sources = []
+    for label, d in zip(labels, src_dirs):
+        try:
+            monthly = load(d, "monthly.json")
+            totals = monthly.get("totals", {})
+        except FileNotFoundError:
+            totals = {}
+        sources.append({"label": label, "totals": totals})
+    (out_dir / "sources.json").write_text(json.dumps(sources))
 
     # monthly
     monthly_sources = [load(d, "monthly.json") for d in src_dirs]

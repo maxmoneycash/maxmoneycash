@@ -101,6 +101,9 @@ def _paper_outline(h):
 def _build(tokens):
     totals = tokens["totals"]
     agents = tokens["agents"]
+    sources = {s["label"]: s.get("totals", {}) for s in tokens.get("sources", [])}
+    cloud_total = sources.get("cloud", {}).get("totalTokens", 0)
+    local_total = sources.get("local", {}).get("totalTokens", 0)
     now = datetime.datetime.now(datetime.timezone.utc)
     receipt_id = f"MMC_{now:%Y%m%d}_{hashlib.sha1(str(totals['totalTokens']).encode()).hexdigest()[:6].upper()}"
     first = datetime.datetime.strptime(tokens["monthly"][0]["period"], "%Y-%m")
@@ -131,7 +134,8 @@ def _build(tokens):
     p.kv("STATEMENT #", receipt_id)
     p.kv("ISSUED", f"{now:%Y-%m-%d %H:%M} UTC")
     p.kv("BILLED TO", "MAX @MAXMONEYCASH")
-    p.kv("SERVED BY", "7 CODING AGENTS")
+    p.kv("SERVED BY", "7 AGENTS + 8-HEAD CLOUD SWARM")
+    p.kv("FLEET", f"local {compact(local_total)} · cloud {compact(cloud_total)}")
     p.rule(heavy=True)
     p.kv("ITEM", "TOKENS", bold=True)
     p.rule()

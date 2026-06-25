@@ -74,7 +74,11 @@ else
 fi
 
 # --- merge local + cloud sources into a single combined input directory
-python3 "$REPO_DIR/scripts/merge_token_sources.py" "$MERGED" "${SOURCES[@]}"
+if [ ${#SOURCES[@]} -eq 2 ]; then
+  python3 "$REPO_DIR/scripts/merge_token_sources.py" "$MERGED" "local:${SOURCES[0]}" "cloud:${SOURCES[1]}"
+else
+  python3 "$REPO_DIR/scripts/merge_token_sources.py" "$MERGED" "local:${SOURCES[0]}"
+fi
 
 # --- safety: ccusage monthly is the backbone; if it came back empty/invalid,
 #     abort rather than build (and push) a near-empty tokens.json ---

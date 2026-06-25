@@ -56,6 +56,10 @@ def render(gh, tokens):
 
     totals = tokens["totals"]
     agents = tokens["agents"]
+    sources = {s["label"]: s.get("totals", {}) for s in tokens.get("sources", [])}
+    cloud_total = sources.get("cloud", {}).get("totalTokens", 0)
+    local_total = sources.get("local", {}).get("totalTokens", 0)
+    cloud_pct = 100 * cloud_total / totals["totalTokens"] if totals["totalTokens"] else 0
 
     W = 940
     ascii_x, ascii_y, line_h = 42, 92, 15
@@ -63,15 +67,16 @@ def render(gh, tokens):
     info_x = 370
     info_lh = 19
     info_y = 88
+    swarm_line = f"zsh + 7 local agents + 8-head cloud swarm"
     kv = [
         ("OS", "macOS arm64 (Darwin 25.2)"),
         ("Host", "github.com/maxmoneycash"),
         ("Kernel", "vibe-driven development"),
         ("Uptime", f"{uptime} on GitHub"),
         ("Packages", f"{user['public_repos']} repos (gh), {gh['stars']} stars"),
-        ("Shell", "zsh + 7 coding agents"),
+        ("Shell", swarm_line),
         ("Agents", "claude / codex / kimi / opencode / droid / cursor / grok"),
-        ("CPU", f"Claude (Anthropic) — {compact(agents['claude']['totals']['totalTokens'])} tok"),
+        ("CPU", f"Claude swarm — {compact(agents['claude']['totals']['totalTokens'])} tok ({cloud_pct:.0f}% cloud)"),
         ("GPU", f"Codex (OpenAI) — {compact(agents['codex']['totals']['totalTokens'])} tok"),
         ("Memory", f"{compact(totals['cacheReadTokens'])} cache-read tokens"),
         ("Disk", f"{compact(totals['totalTokens'])} tokens all-time"),
