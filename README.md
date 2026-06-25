@@ -25,7 +25,7 @@
 
 ## <samp>~ ❯ gh contrib --terminal</samp>
 
-<a href="https://commit-markets.vercel.app/maxmoneycash"><img src="https://commit-markets.vercel.app/api/badge?handle=maxmoneycash&style=candles" width="100%" alt="commit-markets — $MAXMONEYCASH 52-week candles"/></a>
+<a href="https://commit-markets.vercel.app/maxmoneycash"><img src="./assets/market.svg" width="100%" alt="commit-markets style contribution candles"/></a>
 
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
 
