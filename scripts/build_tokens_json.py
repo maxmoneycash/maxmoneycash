@@ -1,12 +1,15 @@
-"""Assemble data/tokens.json from ccusage outputs + the true codex counter.
+"""Assemble data/tokens.json from ccusage outputs + true counters.
 
 ccusage's codex adapter (v20.0.9–20.0.11) double-counts re-emitted
 token_count events (~+30% for this machine's logs), so codex numbers are
 replaced with scripts/codex_true_usage.py's cumulative-counter results.
+ccusage's kimi adapter reads ~/.kimi/user-history (user prompts only) and
+misses token metadata, so kimi numbers are replaced with
+scripts/kimi_true_usage.py's wire.jsonl parsing.
 Unified months/totals are then rebuilt so everything sums exactly.
 
 Usage: python3 build_tokens_json.py <dir with monthly.json daily.json
-agent-*.json codex-true.json>  → corrected tokens.json on stdout.
+agent-*.json codex-true.json kimi-true.json>  → corrected tokens.json on stdout.
 """
 import datetime
 import json
@@ -18,7 +21,10 @@ COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTo
 
 def load(d, name):
     with open(d / name) as f:
-        return json.load(f)
+        text = f.read()
+    if not text.strip():
+        raise FileNotFoundError(d / name)
+    return json.loads(text)
 
 
 def main():
@@ -38,9 +44,15 @@ def main():
         grok = load(d, "grok-true.json")
     except FileNotFoundError:
         grok = {"totals": {}, "monthly": []}
+    try:
+        kimi_true = load(d, "kimi-true.json")
+    except FileNotFoundError:
+        kimi_true = {"totals": {}, "monthly": []}
 
     codex_rep = {m["month"]: m for m in agents_raw["codex"].get("monthly") or []}
     codex_tru = {m["month"]: m for m in codex_true["monthly"]}
+    kimi_rep = {m["month"]: m for m in agents_raw["kimi"].get("monthly") or []}
+    kimi_tru = {m["month"]: m for m in kimi_true["monthly"]}
 
     def rep_models(rep):
         # per-agent schema: models is a dict keyed by model name
@@ -54,6 +66,8 @@ def main():
     for m in unified["monthly"]:
         m = dict(m)
         month = m["period"]
+
+        # Correct codex (double-counted by ccusage).
         rep = codex_rep.get(month)
         tru = codex_tru.get(month)
         factor = 1.0
@@ -63,6 +77,16 @@ def main():
             for c in COMPONENTS:
                 m[c] = m.get(c, 0) - rep.get(c, 0) + (tru.get(c, 0) if tru else 0)
             m["totalTokens"] = m["totalTokens"] - rep_total(rep) + tru_tot
+
+        # Correct kimi (ccusage reads user-history, missing token metadata).
+        krep = kimi_rep.get(month)
+        ktru = kimi_tru.get(month)
+        if krep and rep_total(krep):
+            ktru_tot = ktru["totalTokens"] if ktru else 0
+            for c in COMPONENTS:
+                m[c] = m.get(c, 0) - krep.get(c, 0) + (ktru.get(c, 0) if ktru else 0)
+            m["totalTokens"] = m["totalTokens"] - rep_total(krep) + ktru_tot
+
         # Rescale codex-model breakdowns (cost is an estimate, pro-rated by
         # the corrected token volume) and rebuild the month's cost.
         codex_models = rep_models(rep or {})
@@ -150,6 +174,10 @@ def main():
         "totals": grok.get("totals") or {},
         "monthly": grok.get("monthly") or [],
     }
+    agents["kimi"] = {
+        "totals": kimi_true.get("totals") or {},
+        "monthly": kimi_true.get("monthly") or [],
+    }
 
     out = {
         "generated_at": datetime.datetime.now(datetime.timezone.utc)
@@ -163,9 +191,14 @@ def main():
             "codexReemitBugAdjusted": True,
             "codexReportedTotal": agents_raw["codex"].get("totals", {}).get("totalTokens"),
             "codexTrueTotal": codex_true["totals"]["totalTokens"],
+            "kimiWireAdjusted": True,
+            "kimiReportedTotal": agents_raw["kimi"].get("totals", {}).get("totalTokens"),
+            "kimiTrueTotal": kimi_true["totals"].get("totalTokens"),
             "note": (
                 "codex counted from cumulative total_token_usage deltas; "
                 "ccusage <=20.0.11 double-counts re-emitted token_count events. "
+                "kimi counted from ~/.kimi/sessions/**/wire.jsonl StatusUpdate "
+                "token_usage; ccusage reads user-history and undercounts. "
                 "codex model costs pro-rated by corrected volume. daily[] series "
                 "left as reported (relative shape only)."
             ),

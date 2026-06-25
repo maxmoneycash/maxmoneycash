@@ -47,6 +47,8 @@ done
 log "collecting true counters…"
 ( python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$TMP/codex-true.json" 2>/dev/null \
     || echo '{"totals":{},"monthly":[]}' > "$TMP/codex-true.json" ) &
+( python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$TMP/kimi-true.json" 2>/dev/null \
+    || echo '{"totals":{},"monthly":[]}' > "$TMP/kimi-true.json" ) &
 ( python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$TMP/grok-true.json" 2>/dev/null \
     || echo '{"totals":{},"monthly":[]}' > "$TMP/grok-true.json" ) &
 # Cursor dashboard (network); fall back to the committed cache on any failure
