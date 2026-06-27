@@ -43,6 +43,11 @@ jobs:
           sudo apt-get install -y -qq librsvg2-bin fonts-jetbrains-mono >/dev/null
           rsvg-convert -w 1200 assets/wrapped.svg -o assets/wrapped.png
 
+      - name: Cache-bust README image URLs
+        env:
+          README_CACHE_VER: ${{ github.run_id }}
+        run: python scripts/cachebust_readme.py
+
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
