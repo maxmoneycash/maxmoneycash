@@ -139,8 +139,14 @@ fi
 clear_rebase() {
   git rebase --abort 2>/dev/null || true
   rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
+  # A git process that crashed mid-commit leaves .git/index.lock behind, which
+  # then makes EVERY future run die with "Unable to create index.lock". Our
+  # single-run tokenstats.lock guarantees no other collector is running, so any
+  # leftover index.lock here is stale by definition — froze the push for 72h in
+  # June 2026 until it was cleared by hand.
+  rm -f .git/index.lock 2>/dev/null || true
 }
-clear_rebase  # heal any pre-existing stuck rebase before we start
+clear_rebase  # heal any pre-existing stuck rebase/lock before we start
 for i in 1 2 3 4 5; do
   if git fetch -q origin main \
      && git rebase -X theirs --autostash origin/main \
