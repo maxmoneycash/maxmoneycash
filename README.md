@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://github.com/maxmoneycash/maxmoneycash"><img src="./assets/neofetch.svg?v=28318178351" width="100%" alt="neofetch — maxmoneycash@github"/></a>
+<a href="https://github.com/maxmoneycash/maxmoneycash"><img src="./assets/neofetch.svg?v=28320960406" width="100%" alt="neofetch — maxmoneycash@github"/></a>
 
 <br/>
 
@@ -11,21 +11,21 @@
 <br/><br/>
 
 <picture>
-<source media="(max-width: 768px)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/tokens-stack.svg?v=28318178351"/>
-<img src="./assets/tokens-row.svg?v=28318178351" width="100%" alt="all-time token receipt and token-ops dashboard"/>
+<source media="(max-width: 768px)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/tokens-stack.svg?v=28320960406"/>
+<img src="./assets/tokens-row.svg?v=28320960406" width="100%" alt="all-time token receipt and token-ops dashboard"/>
 </picture>
 
 ## <samp>~ ❯ git log --graph --all</samp>
 
-<a href="https://github.com/maxmoneycash?tab=overview&from=2026-01-01&to=2026-12-31"><img src="./assets/heatmap-2026.svg?v=28318178351" width="100%" alt="2026 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2025-01-01&to=2025-12-31"><img src="./assets/heatmap-2025.svg?v=28318178351" width="100%" alt="2025 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2024-01-01&to=2024-12-31"><img src="./assets/heatmap-2024.svg?v=28318178351" width="100%" alt="2024 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg?v=28318178351" width="100%" alt="2023 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg?v=28318178351" width="100%" alt="2022 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2026-01-01&to=2026-12-31"><img src="./assets/heatmap-2026.svg?v=28320960406" width="100%" alt="2026 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2025-01-01&to=2025-12-31"><img src="./assets/heatmap-2025.svg?v=28320960406" width="100%" alt="2025 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2024-01-01&to=2024-12-31"><img src="./assets/heatmap-2024.svg?v=28320960406" width="100%" alt="2024 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg?v=28320960406" width="100%" alt="2023 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg?v=28320960406" width="100%" alt="2022 contributions"/></a>
 
 ## <samp>~ ❯ gh contrib --terminal</samp>
 
-<a href="https://commit-markets.vercel.app/maxmoneycash"><img src="./assets/market.svg?v=28318178351" width="100%" alt="commit-markets style contribution candles"/></a>
+<a href="https://commit-markets.vercel.app/maxmoneycash"><img src="./assets/market.svg?v=28320960406" width="100%" alt="commit-markets style contribution candles"/></a>
 
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
 
@@ -33,24 +33,24 @@
 
 <!-- HOLDINGS:START -->
 <p align="center">
-<a href="https://github.com/maxmoneycash/commit-markets"><img src="./assets/holding-commit-markets.svg?v=28318178351" width="400" alt="commit-markets"/></a>
-<a href="https://cash.trading"><img src="./assets/holding-cash.trading.svg?v=28318178351" width="400" alt="cash.trading"/></a>
-<a href="https://github.com/seammoney/cash-orderbook"><img src="./assets/holding-cash-orderbook.svg?v=28318178351" width="400" alt="cash-orderbook"/></a>
-<a href="https://aptos-polymarket.vercel.app/polymarket"><img src="./assets/holding-aptos-polymarket.svg?v=28318178351" width="400" alt="aptos-polymarket"/></a>
-<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg?v=28318178351" width="400" alt="datacenter-globe"/></a>
-<a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg?v=28318178351" width="400" alt="terminal-portfolio"/></a>
-<a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg?v=28318178351" width="400" alt="options-payoff-motion"/></a>
-<a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg?v=28318178351" width="400" alt="ohlone-unicode"/></a>
-<a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg?v=28318178351" width="400" alt="decibel-evolution"/></a>
-<a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg?v=28318178351" width="400" alt="NIPAHSCAN"/></a>
+<a href="https://github.com/maxmoneycash/commit-markets"><img src="./assets/holding-commit-markets.svg?v=28320960406" width="400" alt="commit-markets"/></a>
+<a href="https://cash.trading"><img src="./assets/holding-cash.trading.svg?v=28320960406" width="400" alt="cash.trading"/></a>
+<a href="https://github.com/seammoney/cash-orderbook"><img src="./assets/holding-cash-orderbook.svg?v=28320960406" width="400" alt="cash-orderbook"/></a>
+<a href="https://aptos-polymarket.vercel.app/polymarket"><img src="./assets/holding-aptos-polymarket.svg?v=28320960406" width="400" alt="aptos-polymarket"/></a>
+<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg?v=28320960406" width="400" alt="datacenter-globe"/></a>
+<a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg?v=28320960406" width="400" alt="terminal-portfolio"/></a>
+<a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg?v=28320960406" width="400" alt="options-payoff-motion"/></a>
+<a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg?v=28320960406" width="400" alt="ohlone-unicode"/></a>
+<a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg?v=28320960406" width="400" alt="decibel-evolution"/></a>
+<a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg?v=28320960406" width="400" alt="NIPAHSCAN"/></a>
 </p>
 <!-- HOLDINGS:END -->
 
 ## <samp>~ ❯ wrapped --share</samp>
 
-<img src="./assets/wrapped.svg?v=28318178351" width="100%" alt="year in tokens — annual compute report"/>
+<img src="./assets/wrapped.svg?v=28320960406" width="100%" alt="year in tokens — annual compute report"/>
 
-<sub><samp><a href="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/wrapped.png?v=28318178351">download PNG for posting →</a></samp></sub>
+<sub><samp><a href="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/wrapped.png?v=28320960406">download PNG for posting →</a></samp></sub>
 
 <br/>
 
