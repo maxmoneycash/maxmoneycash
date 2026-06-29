@@ -1,244 +1,36 @@
-"""Commit-markets style contribution candle chart.
+"""Commit-markets card for the README.
 
-Renders a 52-week candlestick chart from GitHub contribution data, styled like
-https://commit-markets.vercel.app — dark terminal look, dotted grid, green/red
-weekly candles with wicks, current-price marker, and a stats header/footer.
+Instead of re-implementing the chart in Python (which always drifts from the live
+site), pull the app's OWN badge SVG — the canonical `card` style from
+commit-markets/web/src/lib/badges (same candle renderer, color tokens, and stats
+as commit-markets.vercel.app). The result is committed to assets/market.svg so the
+card stays self-contained and Camo-cache-busted by update_readme's ?v= stamp, and
+so a momentary app outage can never blank the README (we keep the last good card).
 """
-import datetime
+import urllib.request
 
-from common import LOGIN, compact, esc, gh_api, gh_graphql, money, write_svg
+from common import LOGIN, write_svg
 
-
-def momentum(daily, alpha=0.25, scale=100):
-    """EWMA of the daily commit series -> the smooth, trending velocity index
-    used as the "price" line. Ported verbatim from commit-markets' github.ts so
-    this card matches the live site (numbers, shape, scale) instead of the old
-    7-day rolling SUM, which produced a single blow-out spike and dead space."""
-    m = 0.0
-    out = []
-    for d in daily:
-        m = alpha * d + (1 - alpha) * m
-        out.append(round(m * scale, 2))
-    return out
-
-MONO = "ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"
-
-C = {
-    "bg": "#0a0c0b",
-    "panel": "#0a0c0b",
-    "border": "#26292b",
-    "grid": "#202624",
-    "dot": "#202624",
-    "fg": "#e8eae9",
-    "muted": "#5c625f",
-    "green": "#22c55e",
-    "red": "#e5484d",
-    "amber": "#f59e0b",
-}
-
-QUERY = """
-query($login: String!, $from: DateTime!, $to: DateTime!) {
-  user(login: $login) {
-    contributionsCollection(from: $from, to: $to) {
-      contributionCalendar {
-        totalContributions
-        weeks { contributionDays { date contributionCount } }
-      }
-    }
-  }
-}
-"""
-
-
-def fetch_calendar():
-    now = datetime.datetime.now(datetime.timezone.utc)
-    frm = now - datetime.timedelta(days=364)
-    cal = gh_graphql(
-        QUERY,
-        {"login": LOGIN, "from": frm.isoformat(), "to": now.isoformat()},
-    )["user"]["contributionsCollection"]["contributionCalendar"]
-    return cal
-
-
-def streaks(counts):
-    cur = peak = run = 0
-    for c in counts:
-        run = run + 1 if c > 0 else 0
-        peak = max(peak, run)
-    for c in reversed(counts):
-        if c > 0:
-            cur += 1
-        else:
-            break
-    return cur, peak
+BADGE_URL = (
+    f"https://commit-markets.vercel.app/api/badge"
+    f"?handle={LOGIN}&style=card&theme=dark"
+)
 
 
 def render(gh, tokens):
-    cal = fetch_calendar()
-    total = cal["totalContributions"]
-    days = [d for w in cal["weeks"] for d in w["contributionDays"]]
-    counts = [d["contributionCount"] for d in days]
+    try:
+        req = urllib.request.Request(BADGE_URL, headers={"User-Agent": LOGIN})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            svg = resp.read().decode("utf-8")
+    except Exception as e:  # network blip, 5xx, timeout — keep last good card
+        print(f"market: badge fetch failed ({e}); keeping existing market.svg")
+        return
 
-    # EWMA momentum = the "price" line (same as the live site); candles are the
-    # weekly OHLC of it, volume is the weekly raw-commit sum.
-    price = momentum(counts)
-    candles, idx = [], 0
-    for w in cal["weeks"]:
-        k = len(w["contributionDays"])
-        seg = price[idx:idx + k]
-        if seg:
-            candles.append(
-                {
-                    "o": seg[0],
-                    "c": seg[-1],
-                    "h": max(seg),
-                    "l": min(seg),
-                    "v": sum(counts[idx:idx + k]),
-                    "start": w["contributionDays"][0]["date"],
-                }
-            )
-        idx += k
-    candles = candles[-52:]
+    # Guard against an error/fallback card overwriting the real one: the badge
+    # endpoint returns a tiny "temporarily unavailable" SVG on failure (<800 B,
+    # no candle <rect> bars). Only commit a card that actually drew candles.
+    if not svg.lstrip().startswith("<svg") or "<rect" not in svg or len(svg) < 2000:
+        print(f"market: badge looked like a fallback ({len(svg)} B); keeping existing")
+        return
 
-    W, H = 940, 420
-    pad = 34
-    head_h = 64
-    foot_h = 42
-    chart_x = pad
-    chart_y = head_h + 16
-    chart_w = W - pad * 2
-    chart_h = H - chart_y - foot_h - 16
-
-    parts = []
-
-    # ---- header ----------------------------------------------------------
-    # 30d change of the momentum price, matching the site's "▲ % 30d" badge.
-    last_px = price[-1] if price else 0
-    ago = price[-30] if len(price) >= 30 else (price[0] if price else 1)
-    delta = 100 * (last_px - ago) / (ago or 1)
-    dcol = C["green"] if delta >= 0 else C["red"]
-
-    parts.append(
-        f'<text x="{pad}" y="36" font-size="21" font-weight="700" fill="{C["fg"]}">'
-        f'$MAXMONEYCASH</text>'
-        f'<text x="{pad}" y="54" font-size="11" fill="{C["muted"]}">'
-        f'{LOGIN} · github</text>'
-        f'<text x="{W - pad}" y="36" text-anchor="end" font-size="26" font-weight="700" fill="{C["fg"]}">'
-        f'{last_px:,.2f}</text>'
-        f'<rect x="{W - pad - 104}" y="42" width="104" height="20" rx="10" fill="{dcol}" fill-opacity="0.14"/>'
-        f'<text x="{W - pad - 52}" y="56" text-anchor="middle" font-size="12" font-weight="600" fill="{dcol}">'
-        f'{"▲" if delta >= 0 else "▼"} {abs(delta):.1f}% 30d</text>'
-    )
-
-    # ---- chart panel -----------------------------------------------------
-    parts.append(
-        f'<rect x="{chart_x}" y="{chart_y}" width="{chart_w}" height="{chart_h}" '
-        f'rx="12" fill="{C["panel"]}" stroke="{C["border"]}"/>'
-        f'<rect x="{chart_x}" y="{chart_y}" width="{chart_w}" height="{chart_h}" '
-        f'rx="12" fill="url(#dots)"/>'
-    )
-
-    # Reserve a volume lane at the bottom; the price candles fit the space above
-    # it, fitted to both ends so quiet periods don't leave dead space (site does
-    # the same — momentum is smooth, so no single spike dominates the axis).
-    inner_top = chart_y + 8
-    bottom_axis = chart_y + chart_h - 18  # volume baseline; month labels sit below
-    inner_h = bottom_axis - inner_top
-    vol_h = inner_h * 0.18
-    price_h = inner_h - vol_h - 8
-
-    hi = max((c["h"] for c in candles), default=1)
-    lo = min((c["l"] for c in candles), default=0)
-    span = max(hi - lo, 1)
-    hi += span * 0.06
-    lo = max(lo - span * 0.04, 0)
-    span = hi - lo
-
-    def ys(v):
-        return inner_top + price_h * (1 - (v - lo) / span)
-
-    # horizontal grid + labels (compact, e.g. 9.4k — values reach tens of k)
-    for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
-        v = lo + span * frac
-        gy = ys(v)
-        parts.append(
-            f'<line x1="{chart_x + 10}" y1="{gy:.1f}" x2="{chart_x + chart_w - 10}" y2="{gy:.1f}" '
-            f'stroke="{C["grid"]}" stroke-dasharray="3 3"/>'
-            f'<text x="{chart_x + chart_w - 6}" y="{gy + 3:.1f}" text-anchor="end" font-size="9" '
-            f'fill="{C["muted"]}">{compact(v)}</text>'
-        )
-
-    step = (chart_w - 20) / max(len(candles), 1)
-    body_w = max(step * 0.7, 2)
-
-    vmax = max((c["v"] for c in candles), default=1) or 1
-    for i, c in enumerate(candles):
-        cx = chart_x + 10 + i * step + step / 2
-        up = c["c"] >= c["o"]
-        color = C["green"] if up else C["red"]
-        # volume bar
-        vh = vol_h * (c["v"] / vmax)
-        parts.append(
-            f'<rect x="{cx - body_w / 2:.1f}" y="{bottom_axis - vh:.1f}" '
-            f'width="{body_w:.1f}" height="{vh:.1f}" fill="{color}" fill-opacity="0.25"/>'
-        )
-        # candle wick + body
-        top, bot = max(c["o"], c["c"]), min(c["o"], c["c"])
-        body_h = max(ys(bot) - ys(top), 2)
-        parts.append(
-            f'<line x1="{cx:.1f}" y1="{ys(c["h"]):.1f}" x2="{cx:.1f}" y2="{ys(c["l"]):.1f}" '
-            f'stroke="{color}" stroke-width="1"/>'
-            f'<rect x="{cx - body_w / 2:.1f}" y="{ys(top):.1f}" width="{body_w:.1f}" '
-            f'height="{body_h:.1f}" rx="1" fill="{color}"/>'
-        )
-
-    # current-price marker
-    if candles:
-        last_y = ys(candles[-1]["c"])
-        parts.append(
-            f'<line x1="{chart_x + 10}" y1="{last_y:.1f}" x2="{chart_x + chart_w - 10}" y2="{last_y:.1f}" '
-            f'stroke="{C["green"]}" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'
-            f'<rect x="{chart_x + chart_w - 58}" y="{last_y - 9:.1f}" width="52" height="18" rx="3" fill="{C["green"]}"/>'
-            f'<text x="{chart_x + chart_w - 32}" y="{last_y + 4:.1f}" text-anchor="middle" '
-            f'font-size="10" font-weight="700" fill="{C["bg"]}">{candles[-1]["c"]:,.0f}</text>'
-        )
-
-    # month labels (below the volume lane)
-    seen = set()
-    for wi, c in enumerate(candles):
-        mon = datetime.date.fromisoformat(c["start"]).strftime("%b")
-        if mon not in seen and wi % 4 == 0:
-            seen.add(mon)
-            parts.append(
-                f'<text x="{chart_x + 10 + wi * step + step / 2:.1f}" y="{chart_y + chart_h - 5}" '
-                f'text-anchor="middle" font-size="9" fill="{C["muted"]}">{mon.upper()}</text>'
-            )
-
-    # ---- footer stats ----------------------------------------------------
-    cur, peak = streaks(counts)
-    active = sum(1 for c in counts if c > 0)
-    ath = max((c["v"] for c in candles), default=0)
-    fy = H - 22
-    parts.append(
-        f'<text x="{pad}" y="{fy}" font-size="10" fill="{C["muted"]}">'
-        f'52W · COMMIT VELOCITY</text>'
-        f'<text x="{W - pad}" y="{fy}" text-anchor="end" font-size="10" fill="{C["muted"]}">'
-        f'commit-markets</text>'
-        f'<text x="{W / 2}" y="{fy}" text-anchor="middle" font-size="10" fill="{C["fg"]}">'
-        f'ATH WEEK <tspan fill="{C["green"]}" font-weight="700">{ath}</tspan>   '
-        f'ACTIVE DAYS <tspan fill="{C["green"]}" font-weight="700">{active}/365</tspan>   '
-        f'STREAK <tspan fill="{C["green"]}" font-weight="700">{cur}D</tspan>   '
-        f'PEAK STREAK <tspan fill="{C["green"]}" font-weight="700">{peak}D</tspan>   '
-        f'365D VOL <tspan fill="{C["green"]}" font-weight="700">{total:,}</tspan></text>'
-    )
-
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" font-family="{MONO}">
-<defs>
-  <pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse">
-    <circle cx="2" cy="2" r="1" fill="{C["dot"]}"/>
-  </pattern>
-</defs>
-<rect width="{W}" height="{H}" rx="14" fill="{C["bg"]}" stroke="{C["border"]}"/>
-{''.join(parts)}
-</svg>"""
     write_svg("market.svg", svg)
