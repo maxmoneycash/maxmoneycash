@@ -13,7 +13,7 @@ from common import LOGIN, write_svg
 
 BADGE_URL = (
     f"https://commit-markets.vercel.app/api/badge"
-    f"?handle={LOGIN}&style=card&theme=dark"
+    f"?handle={LOGIN}&style=pro&theme=dark"
 )
 
 
