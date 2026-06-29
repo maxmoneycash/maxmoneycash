@@ -21,16 +21,16 @@
   <rect x="197.6" y="62" width="47.599999999999994" height="16" rx="4" fill="#22c55e" fill-opacity="0.1" stroke="#22c55e" stroke-opacity="0.3"/>
   <circle cx="206.6" cy="70" r="2.5" fill="#22c55e"/>
   <text x="213.6" y="73" font-size="9" letter-spacing="1" fill="#22c55e">LIVE</text>
-  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#e8eae9">10,571.58</text>
-  <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 376.1% <tspan fill="#9ba3a0">30d</tspan></text>
+  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#e8eae9">11,296.58</text>
+  <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 408.7% <tspan fill="#9ba3a0">30d</tspan></text>
   <line x1="0" x2="760" y1="104" y2="104" stroke="#26292b"/>
   <text x="24" y="130" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y LOW</text>
   <text x="380" y="130" text-anchor="middle" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y RANGE</text>
   <text x="736" y="130" text-anchor="end" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y HIGH</text>
   <rect x="24" y="142" width="712" height="6" rx="3" fill="url(#prg)"/>
-  <circle cx="236.26839061626646" cy="145" r="6" fill="#e8eae9" stroke="#0a0c0b" stroke-width="3"/>
+  <circle cx="250.8257777993359" cy="145" r="6" fill="#e8eae9" stroke="#0a0c0b" stroke-width="3"/>
   <text x="24" y="170" font-size="12" fill="#e8eae9">0</text>
-  <text x="380" y="170" text-anchor="middle" font-size="12" fill="#9ba3a0">now 10.6k</text>
+  <text x="380" y="170" text-anchor="middle" font-size="12" fill="#9ba3a0">now 11.3k</text>
   <text x="736" y="170" text-anchor="end" font-size="12" fill="#e8eae9">35.5k</text>
   <line x1="0" x2="760" y1="184" y2="184" stroke="#26292b"/>
   <text x="24" y="208" font-size="11" letter-spacing="1.5" fill="#9ba3a0">VELOCITY · 1Y</text>
@@ -268,12 +268,12 @@
   <line x1="685.9" x2="685.9" y1="252.9" y2="484.7" stroke="#22c55e"/>
   <rect x="682.7" y="349.5" width="6.6" height="135.3" rx="0.5" fill="#22c55e"/>
   <rect x="682.7" y="512.0" width="6.6" height="48.0" fill="#22c55e" fill-opacity="0.25"/>
-  <line x1="695.3" x2="695.3" y1="349.5" y2="427.7" stroke="#e5484d"/>
-  <rect x="692.0" y="349.5" width="6.6" height="78.3" rx="0.5" fill="#e5484d"/>
+  <line x1="695.3" x2="695.3" y1="349.5" y2="422.7" stroke="#e5484d"/>
+  <rect x="692.0" y="349.5" width="6.6" height="73.2" rx="0.5" fill="#e5484d"/>
   <rect x="692.0" y="548.4" width="6.6" height="11.6" fill="#e5484d" fill-opacity="0.25"/>
-  <line x1="16" x2="700" y1="427.7" y2="427.7" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
-  <rect x="702.0" y="419.7" width="40" height="16" rx="2" fill="#22c55e"/>
-  <text x="722.0" y="430.7" text-anchor="middle" font-size="9" font-weight="600" fill="#0a0c0b">10572</text>
+  <line x1="16" x2="700" y1="422.7" y2="422.7" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
+  <rect x="702.0" y="414.7" width="40" height="16" rx="2" fill="#22c55e"/>
+  <text x="722.0" y="425.7" text-anchor="middle" font-size="9" font-weight="600" fill="#0a0c0b">11297</text>
   <line x1="667.2" x2="667.2" y1="238" y2="560" stroke="#ff9f0a" stroke-dasharray="2 4" opacity="0.5"/>
   <text x="671.2" y="248" font-size="8" fill="#ff9f0a" opacity="0.9">FABLE 5</text>
   <text x="20.7" y="576" text-anchor="middle" font-size="9" fill="#5c625f">Jun</text>
@@ -301,9 +301,9 @@
   <line x1="562" x2="562" y1="622" y2="746" stroke="#26292b"/>
   <line x1="16" x2="744" y1="684" y2="684" stroke="#26292b"/>
   <text x="32" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">MKT CAP</text>
-  <text x="32" y="668" font-size="18" fill="#e8eae9">$11179.3K</text>
+  <text x="32" y="668" font-size="18" fill="#e8eae9">$11907.2K</text>
   <text x="214" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">COMMITS 52W</text>
-  <text x="214" y="668" font-size="18" fill="#e8eae9">6,003</text>
+  <text x="214" y="668" font-size="18" fill="#e8eae9">6,032</text>
   <text x="396" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">PEAK WEEK</text>
   <text x="396" y="668" font-size="18" fill="#e8eae9">1796</text>
   <text x="578" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">BUSIEST DAY</text>
