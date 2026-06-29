@@ -18,7 +18,7 @@ STYLE = "pro"
 
 def _badge_url(theme):
     return (
-        f"https://commit-markets.vercel.app/api/badge"
+        f"https://commits.sh/api/badge"
         f"?handle={LOGIN}&style={STYLE}&theme={theme}"
     )
 
