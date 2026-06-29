@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="776" viewBox="0 0 760 776" font-family="ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',Menlo,Consolas,'Liberation Mono',monospace" role="img" aria-label="$MAXMONEYCASH on commit-markets">
-<title>$MAXMONEYCASH — commit-markets</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="776" viewBox="0 0 760 776" font-family="ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',Menlo,Consolas,'Liberation Mono',monospace" role="img" aria-label="$MAXMONEYCASH on commits.sh">
+<title>$MAXMONEYCASH — commits.sh</title>
 <defs>
   <pattern id="pdots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#ececee"/></pattern>
   <linearGradient id="prg" x1="0" y1="0" x2="1" y2="0">
@@ -21,14 +21,14 @@
   <rect x="197.6" y="62" width="47.599999999999994" height="16" rx="4" fill="#22c55e" fill-opacity="0.1" stroke="#22c55e" stroke-opacity="0.3"/>
   <circle cx="206.6" cy="70" r="2.5" fill="#22c55e"/>
   <text x="213.6" y="73" font-size="9" letter-spacing="1" fill="#22c55e">LIVE</text>
-  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#18181b">9,221.58</text>
-  <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 315.3% <tspan fill="#71717a">30d</tspan></text>
+  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#18181b">9,240.33</text>
+  <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 316.1% <tspan fill="#71717a">30d</tspan></text>
   <line x1="0" x2="760" y1="104" y2="104" stroke="#e4e4e7"/>
   <text x="24" y="130" font-size="10" letter-spacing="1" fill="#71717a">1Y LOW</text>
   <text x="380" y="130" text-anchor="middle" font-size="10" letter-spacing="1" fill="#71717a">1Y RANGE</text>
   <text x="736" y="130" text-anchor="end" font-size="10" letter-spacing="1" fill="#71717a">1Y HIGH</text>
   <rect x="24" y="142" width="712" height="6" rx="3" fill="url(#prg)"/>
-  <circle cx="209.1615317236544" cy="145" r="6" fill="#18181b" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="209.5380158749407" cy="145" r="6" fill="#18181b" stroke="#ffffff" stroke-width="3"/>
   <text x="24" y="170" font-size="12" fill="#18181b">0</text>
   <text x="380" y="170" text-anchor="middle" font-size="12" fill="#71717a">now 9.2k</text>
   <text x="736" y="170" text-anchor="end" font-size="12" fill="#18181b">35.5k</text>
@@ -268,12 +268,12 @@
   <line x1="685.9" x2="685.9" y1="252.9" y2="484.7" stroke="#22c55e"/>
   <rect x="682.7" y="349.5" width="6.6" height="135.3" rx="0.5" fill="#22c55e"/>
   <rect x="682.7" y="512.0" width="6.6" height="48.0" fill="#22c55e" fill-opacity="0.25"/>
-  <line x1="695.3" x2="695.3" y1="349.5" y2="437.2" stroke="#dc2626"/>
-  <rect x="692.0" y="349.5" width="6.6" height="87.7" rx="0.5" fill="#dc2626"/>
+  <line x1="695.3" x2="695.3" y1="349.5" y2="437.1" stroke="#dc2626"/>
+  <rect x="692.0" y="349.5" width="6.6" height="87.6" rx="0.5" fill="#dc2626"/>
   <rect x="692.0" y="550.4" width="6.6" height="9.6" fill="#dc2626" fill-opacity="0.25"/>
-  <line x1="16" x2="700" y1="437.2" y2="437.2" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
-  <rect x="702.0" y="429.2" width="40" height="16" rx="2" fill="#22c55e"/>
-  <text x="722.0" y="440.2" text-anchor="middle" font-size="9" font-weight="600" fill="#ffffff">9222</text>
+  <line x1="16" x2="700" y1="437.1" y2="437.1" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
+  <rect x="702.0" y="429.1" width="40" height="16" rx="2" fill="#22c55e"/>
+  <text x="722.0" y="440.1" text-anchor="middle" font-size="9" font-weight="600" fill="#ffffff">9240</text>
   <line x1="667.2" x2="667.2" y1="238" y2="560" stroke="#ff9f0a" stroke-dasharray="2 4" opacity="0.5"/>
   <text x="671.2" y="248" font-size="8" fill="#ff9f0a" opacity="0.9">FABLE 5</text>
   <text x="20.7" y="576" text-anchor="middle" font-size="9" fill="#a1a1aa">Jun</text>
@@ -301,9 +301,9 @@
   <line x1="562" x2="562" y1="622" y2="746" stroke="#e4e4e7"/>
   <line x1="16" x2="744" y1="684" y2="684" stroke="#e4e4e7"/>
   <text x="32" y="646" font-size="10" letter-spacing="1" fill="#71717a">MKT CAP</text>
-  <text x="32" y="668" font-size="18" fill="#18181b">$9822.1K</text>
+  <text x="32" y="668" font-size="18" fill="#18181b">$9841.0K</text>
   <text x="214" y="646" font-size="10" letter-spacing="1" fill="#71717a">COMMITS 52W</text>
-  <text x="214" y="668" font-size="18" fill="#18181b">5,931</text>
+  <text x="214" y="668" font-size="18" fill="#18181b">5,932</text>
   <text x="396" y="646" font-size="10" letter-spacing="1" fill="#71717a">PEAK WEEK</text>
   <text x="396" y="668" font-size="18" fill="#18181b">1796</text>
   <text x="578" y="646" font-size="10" letter-spacing="1" fill="#71717a">BUSIEST DAY</text>
@@ -317,7 +317,7 @@
   <text x="578" y="708" font-size="10" letter-spacing="1" fill="#71717a">FOLLOWERS</text>
   <text x="578" y="730" font-size="18" fill="#18181b">149</text>
   <text x="24" y="764" font-size="9" fill="#a1a1aa">github.com/maxmoneycash</text>
-  <text x="736" y="764" text-anchor="end" font-size="9" fill="#a1a1aa">commit-markets</text>
+  <text x="736" y="764" text-anchor="end" font-size="9" fill="#a1a1aa">commits.sh</text>
 </g>
 <rect x="0.5" y="0.5" width="759" height="775" rx="11.5" fill="none" stroke="#e4e4e7"/>
 </svg>
