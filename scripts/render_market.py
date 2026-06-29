@@ -8,6 +8,19 @@ import datetime
 
 from common import LOGIN, compact, esc, gh_api, gh_graphql, money, write_svg
 
+
+def momentum(daily, alpha=0.25, scale=100):
+    """EWMA of the daily commit series -> the smooth, trending velocity index
+    used as the "price" line. Ported verbatim from commit-markets' github.ts so
+    this card matches the live site (numbers, shape, scale) instead of the old
+    7-day rolling SUM, which produced a single blow-out spike and dead space."""
+    m = 0.0
+    out = []
+    for d in daily:
+        m = alpha * d + (1 - alpha) * m
+        out.append(round(m * scale, 2))
+    return out
+
 MONO = "ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace"
 
 C = {
@@ -66,12 +79,13 @@ def render(gh, tokens):
     days = [d for w in cal["weeks"] for d in w["contributionDays"]]
     counts = [d["contributionCount"] for d in days]
 
-    # 7-day rolling index = the "price" line; candles sample it per week.
-    roll = [sum(counts[max(0, i - 6):i + 1]) for i in range(len(counts))]
+    # EWMA momentum = the "price" line (same as the live site); candles are the
+    # weekly OHLC of it, volume is the weekly raw-commit sum.
+    price = momentum(counts)
     candles, idx = [], 0
     for w in cal["weeks"]:
         k = len(w["contributionDays"])
-        seg = roll[idx:idx + k]
+        seg = price[idx:idx + k]
         if seg:
             candles.append(
                 {
@@ -98,10 +112,10 @@ def render(gh, tokens):
     parts = []
 
     # ---- header ----------------------------------------------------------
-    last_px = roll[-1] if roll else 0
-    d30 = sum(counts[-30:])
-    d30p = sum(counts[-60:-30]) or 1
-    delta = 100 * (d30 - d30p) / d30p
+    # 30d change of the momentum price, matching the site's "▲ % 30d" badge.
+    last_px = price[-1] if price else 0
+    ago = price[-30] if len(price) >= 30 else (price[0] if price else 1)
+    delta = 100 * (last_px - ago) / (ago or 1)
     dcol = C["green"] if delta >= 0 else C["red"]
 
     parts.append(
@@ -111,9 +125,9 @@ def render(gh, tokens):
         f'{LOGIN} · github</text>'
         f'<text x="{W - pad}" y="36" text-anchor="end" font-size="26" font-weight="700" fill="{C["fg"]}">'
         f'{last_px:,.2f}</text>'
-        f'<rect x="{W - pad - 86}" y="42" width="86" height="20" rx="10" fill="{dcol}" fill-opacity="0.14"/>'
-        f'<text x="{W - pad - 43}" y="56" text-anchor="middle" font-size="12" font-weight="600" fill="{dcol}">'
-        f'{"▲" if delta >= 0 else "▼"} {abs(delta):.1f}%</text>'
+        f'<rect x="{W - pad - 104}" y="42" width="104" height="20" rx="10" fill="{dcol}" fill-opacity="0.14"/>'
+        f'<text x="{W - pad - 52}" y="56" text-anchor="middle" font-size="12" font-weight="600" fill="{dcol}">'
+        f'{"▲" if delta >= 0 else "▼"} {abs(delta):.1f}% 30d</text>'
     )
 
     # ---- chart panel -----------------------------------------------------
@@ -124,17 +138,26 @@ def render(gh, tokens):
         f'rx="12" fill="url(#dots)"/>'
     )
 
+    # Reserve a volume lane at the bottom; the price candles fit the space above
+    # it, fitted to both ends so quiet periods don't leave dead space (site does
+    # the same — momentum is smooth, so no single spike dominates the axis).
+    inner_top = chart_y + 8
+    bottom_axis = chart_y + chart_h - 18  # volume baseline; month labels sit below
+    inner_h = bottom_axis - inner_top
+    vol_h = inner_h * 0.18
+    price_h = inner_h - vol_h - 8
+
     hi = max((c["h"] for c in candles), default=1)
     lo = min((c["l"] for c in candles), default=0)
     span = max(hi - lo, 1)
     hi += span * 0.06
-    lo = max(lo - span * 0.05, 0)
+    lo = max(lo - span * 0.04, 0)
     span = hi - lo
 
     def ys(v):
-        return chart_y + 8 + (chart_h - 16) * (1 - (v - lo) / span)
+        return inner_top + price_h * (1 - (v - lo) / span)
 
-    # horizontal grid + labels
+    # horizontal grid + labels (compact, e.g. 9.4k — values reach tens of k)
     for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
         v = lo + span * frac
         gy = ys(v)
@@ -142,35 +165,31 @@ def render(gh, tokens):
             f'<line x1="{chart_x + 10}" y1="{gy:.1f}" x2="{chart_x + chart_w - 10}" y2="{gy:.1f}" '
             f'stroke="{C["grid"]}" stroke-dasharray="3 3"/>'
             f'<text x="{chart_x + chart_w - 6}" y="{gy + 3:.1f}" text-anchor="end" font-size="9" '
-            f'fill="{C["muted"]}">{v:,.0f}</text>'
+            f'fill="{C["muted"]}">{compact(v)}</text>'
         )
 
     step = (chart_w - 20) / max(len(candles), 1)
-    body_w = max(step * 0.55, 3)
-
-    # subtle close line
-    pts = " ".join(
-        f"{chart_x + 10 + i * step + body_w / 2:.1f},{ys(c['c']):.1f}"
-        for i, c in enumerate(candles)
-    )
-    parts.append(
-        f'<polyline points="{pts}" fill="none" stroke="{C["fg"]}" '
-        f'stroke-width="1" opacity="0.12"/>'
-    )
+    body_w = max(step * 0.7, 2)
 
     vmax = max((c["v"] for c in candles), default=1) or 1
     for i, c in enumerate(candles):
-        x = chart_x + 10 + i * step
-        mid = x + body_w / 2
+        cx = chart_x + 10 + i * step + step / 2
         up = c["c"] >= c["o"]
         color = C["green"] if up else C["red"]
+        # volume bar
+        vh = vol_h * (c["v"] / vmax)
+        parts.append(
+            f'<rect x="{cx - body_w / 2:.1f}" y="{bottom_axis - vh:.1f}" '
+            f'width="{body_w:.1f}" height="{vh:.1f}" fill="{color}" fill-opacity="0.25"/>'
+        )
+        # candle wick + body
         top, bot = max(c["o"], c["c"]), min(c["o"], c["c"])
         body_h = max(ys(bot) - ys(top), 2)
         parts.append(
-            f'<line x1="{mid:.1f}" y1="{ys(c["h"]):.1f}" x2="{mid:.1f}" y2="{ys(c["l"]):.1f}" '
+            f'<line x1="{cx:.1f}" y1="{ys(c["h"]):.1f}" x2="{cx:.1f}" y2="{ys(c["l"]):.1f}" '
             f'stroke="{color}" stroke-width="1"/>'
-            f'<rect x="{x:.1f}" y="{ys(top):.1f}" width="{body_w:.1f}" '
-            f'height="{body_h:.1f}" rx="1.5" fill="{color}"/>'
+            f'<rect x="{cx - body_w / 2:.1f}" y="{ys(top):.1f}" width="{body_w:.1f}" '
+            f'height="{body_h:.1f}" rx="1" fill="{color}"/>'
         )
 
     # current-price marker
@@ -179,20 +198,20 @@ def render(gh, tokens):
         parts.append(
             f'<line x1="{chart_x + 10}" y1="{last_y:.1f}" x2="{chart_x + chart_w - 10}" y2="{last_y:.1f}" '
             f'stroke="{C["green"]}" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'
-            f'<rect x="{chart_x + chart_w - 54}" y="{last_y - 9:.1f}" width="48" height="18" rx="3" fill="{C["green"]}"/>'
-            f'<text x="{chart_x + chart_w - 30}" y="{last_y + 4:.1f}" text-anchor="middle" '
-            f'font-size="10" font-weight="700" fill="{C["bg"]}">{candles[-1]["c"]}</text>'
+            f'<rect x="{chart_x + chart_w - 58}" y="{last_y - 9:.1f}" width="52" height="18" rx="3" fill="{C["green"]}"/>'
+            f'<text x="{chart_x + chart_w - 32}" y="{last_y + 4:.1f}" text-anchor="middle" '
+            f'font-size="10" font-weight="700" fill="{C["bg"]}">{candles[-1]["c"]:,.0f}</text>'
         )
 
-    # month labels
+    # month labels (below the volume lane)
     seen = set()
     for wi, c in enumerate(candles):
         mon = datetime.date.fromisoformat(c["start"]).strftime("%b")
         if mon not in seen and wi % 4 == 0:
             seen.add(mon)
             parts.append(
-                f'<text x="{chart_x + 10 + wi * step:.1f}" y="{chart_y + chart_h - 8}" '
-                f'font-size="9" fill="{C["muted"]}">{mon.upper()}</text>'
+                f'<text x="{chart_x + 10 + wi * step + step / 2:.1f}" y="{chart_y + chart_h - 5}" '
+                f'text-anchor="middle" font-size="9" fill="{C["muted"]}">{mon.upper()}</text>'
             )
 
     # ---- footer stats ----------------------------------------------------
