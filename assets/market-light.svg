@@ -301,7 +301,7 @@
   <line x1="562" x2="562" y1="622" y2="746" stroke="#e4e4e7"/>
   <line x1="16" x2="744" y1="684" y2="684" stroke="#e4e4e7"/>
   <text x="32" y="646" font-size="10" letter-spacing="1" fill="#71717a">MKT CAP</text>
-  <text x="32" y="668" font-size="18" fill="#18181b">$10232.9K</text>
+  <text x="32" y="668" font-size="18" fill="#18181b">$10233.0K</text>
   <text x="214" y="646" font-size="10" letter-spacing="1" fill="#71717a">COMMITS 52W</text>
   <text x="214" y="668" font-size="18" fill="#18181b">6,093</text>
   <text x="396" y="646" font-size="10" letter-spacing="1" fill="#71717a">PEAK WEEK</text>
@@ -315,7 +315,7 @@
   <text x="396" y="708" font-size="10" letter-spacing="1" fill="#71717a">STREAK</text>
   <text x="396" y="730" font-size="18" fill="#18181b">0d</text>
   <text x="578" y="708" font-size="10" letter-spacing="1" fill="#71717a">FOLLOWERS</text>
-  <text x="578" y="730" font-size="18" fill="#18181b">149</text>
+  <text x="578" y="730" font-size="18" fill="#18181b">150</text>
   <text x="24" y="764" font-size="9" fill="#a1a1aa">github.com/maxmoneycash</text>
   <text x="736" y="764" text-anchor="end" font-size="9" fill="#a1a1aa">commits.sh</text>
 </g>
