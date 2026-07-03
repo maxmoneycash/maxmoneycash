@@ -30,6 +30,11 @@
 <img src="./assets/market.svg?v=28637184393" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
 </picture></a>
 
+<a href="https://commits.sh/maxmoneycash/live"><picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=dark" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
+</picture></a>
+
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
 
 <sub>Hand-picked deploy screenshots + 52-week commit velocity per repo — click any to open the live app.</sub>
