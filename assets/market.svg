@@ -21,16 +21,16 @@
   <rect x="197.6" y="62" width="47.599999999999994" height="16" rx="4" fill="#22c55e" fill-opacity="0.1" stroke="#22c55e" stroke-opacity="0.3"/>
   <circle cx="206.6" cy="70" r="2.5" fill="#22c55e"/>
   <text x="213.6" y="73" font-size="9" letter-spacing="1" fill="#22c55e">LIVE</text>
-  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#e8eae9">36,562.30</text>
-  <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 2144.3% <tspan fill="#9ba3a0">30d</tspan></text>
+  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#e8eae9">37,087.30</text>
+  <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 2176.5% <tspan fill="#9ba3a0">30d</tspan></text>
   <line x1="0" x2="760" y1="104" y2="104" stroke="#26292b"/>
   <text x="24" y="130" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y LOW</text>
   <text x="380" y="130" text-anchor="middle" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y RANGE</text>
   <text x="736" y="130" text-anchor="end" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y HIGH</text>
   <rect x="24" y="142" width="712" height="6" rx="3" fill="url(#prg)"/>
-  <circle cx="536.4516157988521" cy="145" r="6" fill="#e8eae9" stroke="#0a0c0b" stroke-width="3"/>
+  <circle cx="543.8099356609614" cy="145" r="6" fill="#e8eae9" stroke="#0a0c0b" stroke-width="3"/>
   <text x="24" y="170" font-size="12" fill="#e8eae9">0</text>
-  <text x="380" y="170" text-anchor="middle" font-size="12" fill="#9ba3a0">now 36.6k</text>
+  <text x="380" y="170" text-anchor="middle" font-size="12" fill="#9ba3a0">now 37.1k</text>
   <text x="736" y="170" text-anchor="end" font-size="12" fill="#e8eae9">50.8k</text>
   <line x1="0" x2="760" y1="184" y2="184" stroke="#26292b"/>
   <text x="24" y="208" font-size="11" letter-spacing="1.5" fill="#9ba3a0">VELOCITY · 1Y</text>
@@ -66,7 +66,7 @@
   <rect x="45.5" y="559.5" width="6.6" height="0.5" fill="#22c55e" fill-opacity="0.25"/>
   <line x1="58.2" x2="58.2" y1="495.4" y2="500.0" stroke="#22c55e"/>
   <rect x="54.9" y="497.9" width="6.6" height="2.1" rx="0.5" fill="#22c55e"/>
-  <rect x="54.9" y="558.9" width="6.6" height="1.1" fill="#22c55e" fill-opacity="0.25"/>
+  <rect x="54.9" y="559.0" width="6.6" height="1.0" fill="#22c55e" fill-opacity="0.25"/>
   <line x1="67.5" x2="67.5" y1="497.9" y2="500.5" stroke="#e5484d"/>
   <rect x="64.3" y="497.9" width="6.6" height="2.6" rx="0.5" fill="#e5484d"/>
   <rect x="64.3" y="559.9" width="6.6" height="0.1" fill="#e5484d" fill-opacity="0.25"/>
@@ -222,7 +222,7 @@
   <rect x="532.7" y="559.2" width="6.6" height="0.8" fill="#e5484d" fill-opacity="0.25"/>
   <line x1="545.4" x2="545.4" y1="470.7" y2="496.0" stroke="#22c55e"/>
   <rect x="542.1" y="474.6" width="6.6" height="21.3" rx="0.5" fill="#22c55e"/>
-  <rect x="542.1" y="554.2" width="6.6" height="5.8" fill="#22c55e" fill-opacity="0.25"/>
+  <rect x="542.1" y="554.3" width="6.6" height="5.7" fill="#22c55e" fill-opacity="0.25"/>
   <line x1="554.8" x2="554.8" y1="474.6" y2="491.7" stroke="#e5484d"/>
   <rect x="551.5" y="474.6" width="6.6" height="17.1" rx="0.5" fill="#e5484d"/>
   <rect x="551.5" y="558.2" width="6.6" height="1.8" fill="#e5484d" fill-opacity="0.25"/>
@@ -264,16 +264,16 @@
   <rect x="663.9" y="559.1" width="6.6" height="0.9" fill="#e5484d" fill-opacity="0.25"/>
   <line x1="676.6" x2="676.6" y1="328.2" y2="491.0" stroke="#22c55e"/>
   <rect x="673.3" y="371.0" width="6.6" height="120.0" rx="0.5" fill="#22c55e"/>
-  <rect x="673.3" y="526.1" width="6.6" height="33.9" fill="#22c55e" fill-opacity="0.25"/>
+  <rect x="673.3" y="526.5" width="6.6" height="33.5" fill="#22c55e" fill-opacity="0.25"/>
   <line x1="685.9" x2="685.9" y1="371.0" y2="437.9" stroke="#e5484d"/>
   <rect x="682.7" y="371.0" width="6.6" height="62.1" rx="0.5" fill="#e5484d"/>
   <rect x="682.7" y="554.4" width="6.6" height="5.6" fill="#e5484d" fill-opacity="0.25"/>
   <line x1="695.3" x2="695.3" y1="252.9" y2="439.1" stroke="#22c55e"/>
-  <rect x="692.0" y="322.7" width="6.6" height="110.3" rx="0.5" fill="#22c55e"/>
+  <rect x="692.0" y="320.2" width="6.6" height="112.9" rx="0.5" fill="#22c55e"/>
   <rect x="692.0" y="512.0" width="6.6" height="48.0" fill="#22c55e" fill-opacity="0.25"/>
-  <line x1="16" x2="700" y1="322.7" y2="322.7" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
-  <rect x="702.0" y="314.7" width="40" height="16" rx="2" fill="#22c55e"/>
-  <text x="722.0" y="325.7" text-anchor="middle" font-size="9" font-weight="600" fill="#0a0c0b">36562</text>
+  <line x1="16" x2="700" y1="320.2" y2="320.2" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
+  <rect x="702.0" y="312.2" width="40" height="16" rx="2" fill="#22c55e"/>
+  <text x="722.0" y="323.2" text-anchor="middle" font-size="9" font-weight="600" fill="#0a0c0b">37087</text>
   <line x1="657.8" x2="657.8" y1="238" y2="560" stroke="#ff9f0a" stroke-dasharray="2 4" opacity="0.5"/>
   <text x="661.8" y="248" font-size="8" fill="#ff9f0a" opacity="0.9">FABLE 5</text>
   <text x="20.7" y="576" text-anchor="middle" font-size="9" fill="#5c625f">Jul</text>
@@ -301,11 +301,11 @@
   <line x1="562" x2="562" y1="622" y2="746" stroke="#26292b"/>
   <line x1="16" x2="744" y1="684" y2="684" stroke="#26292b"/>
   <text x="32" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">MKT CAP</text>
-  <text x="32" y="668" font-size="18" fill="#e8eae9">$37406.8K</text>
+  <text x="32" y="668" font-size="18" fill="#e8eae9">$37934.6K</text>
   <text x="214" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">COMMITS 52W</text>
-  <text x="214" y="668" font-size="18" fill="#e8eae9">8,369</text>
+  <text x="214" y="668" font-size="18" fill="#e8eae9">8,397</text>
   <text x="396" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">PEAK WEEK</text>
-  <text x="396" y="668" font-size="18" fill="#e8eae9">2681</text>
+  <text x="396" y="668" font-size="18" fill="#e8eae9">2709</text>
   <text x="578" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">BUSIEST DAY</text>
   <text x="578" y="668" font-size="18" fill="#e8eae9">1424</text>
   <text x="32" y="708" font-size="10" letter-spacing="1" fill="#9ba3a0">ACTIVE DAYS</text>
