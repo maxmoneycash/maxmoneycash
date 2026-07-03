@@ -21,16 +21,16 @@
   <rect x="197.6" y="62" width="47.599999999999994" height="16" rx="4" fill="#22c55e" fill-opacity="0.1" stroke="#22c55e" stroke-opacity="0.3"/>
   <circle cx="206.6" cy="70" r="2.5" fill="#22c55e"/>
   <text x="213.6" y="73" font-size="9" letter-spacing="1" fill="#22c55e">LIVE</text>
-  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#e8eae9">38,718.55</text>
+  <text x="738" y="52" text-anchor="end" font-size="30" font-weight="700" fill="#e8eae9">42,568.55</text>
   <text x="738" y="76" text-anchor="end" font-size="14" fill="#22c55e">▲ 999.0% <tspan fill="#9ba3a0">30d</tspan></text>
   <line x1="0" x2="760" y1="104" y2="104" stroke="#26292b"/>
   <text x="24" y="130" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y LOW</text>
   <text x="380" y="130" text-anchor="middle" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y RANGE</text>
   <text x="736" y="130" text-anchor="end" font-size="10" letter-spacing="1" fill="#9ba3a0">1Y HIGH</text>
   <rect x="24" y="142" width="712" height="6" rx="3" fill="url(#prg)"/>
-  <circle cx="558.0000344795992" cy="145" r="6" fill="#e8eae9" stroke="#0a0c0b" stroke-width="3"/>
+  <circle cx="611.0986172712187" cy="145" r="6" fill="#e8eae9" stroke="#0a0c0b" stroke-width="3"/>
   <text x="24" y="170" font-size="12" fill="#e8eae9">0</text>
-  <text x="380" y="170" text-anchor="middle" font-size="12" fill="#9ba3a0">now 38.7k</text>
+  <text x="380" y="170" text-anchor="middle" font-size="12" fill="#9ba3a0">now 42.6k</text>
   <text x="736" y="170" text-anchor="end" font-size="12" fill="#e8eae9">51.6k</text>
   <line x1="0" x2="760" y1="184" y2="184" stroke="#26292b"/>
   <text x="24" y="208" font-size="11" letter-spacing="1.5" fill="#9ba3a0">VELOCITY · 1Y</text>
@@ -269,11 +269,11 @@
   <rect x="682.7" y="373.1" width="6.6" height="61.1" rx="0.5" fill="#e5484d"/>
   <rect x="682.7" y="554.6" width="6.6" height="5.4" fill="#e5484d" fill-opacity="0.25"/>
   <line x1="695.3" x2="695.3" y1="252.9" y2="440.1" stroke="#22c55e"/>
-  <rect x="692.0" y="315.2" width="6.6" height="119.0" rx="0.5" fill="#22c55e"/>
+  <rect x="692.0" y="296.6" width="6.6" height="137.5" rx="0.5" fill="#22c55e"/>
   <rect x="692.0" y="512.0" width="6.6" height="48.0" fill="#22c55e" fill-opacity="0.25"/>
-  <line x1="16" x2="700" y1="315.2" y2="315.2" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
-  <rect x="702.0" y="307.2" width="40" height="16" rx="2" fill="#22c55e"/>
-  <text x="722.0" y="318.2" text-anchor="middle" font-size="9" font-weight="600" fill="#0a0c0b">38719</text>
+  <line x1="16" x2="700" y1="296.6" y2="296.6" stroke="#22c55e" stroke-dasharray="2 3" opacity="0.4"/>
+  <rect x="702.0" y="288.6" width="40" height="16" rx="2" fill="#22c55e"/>
+  <text x="722.0" y="299.6" text-anchor="middle" font-size="9" font-weight="600" fill="#0a0c0b">42569</text>
   <line x1="657.8" x2="657.8" y1="238" y2="560" stroke="#ff9f0a" stroke-dasharray="2 4" opacity="0.5"/>
   <text x="661.8" y="248" font-size="8" fill="#ff9f0a" opacity="0.9">FABLE 5</text>
   <text x="20.7" y="576" text-anchor="middle" font-size="9" fill="#5c625f">Jul</text>
@@ -301,19 +301,19 @@
   <line x1="562" x2="562" y1="622" y2="746" stroke="#26292b"/>
   <line x1="16" x2="744" y1="684" y2="684" stroke="#26292b"/>
   <text x="32" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">MKT CAP</text>
-  <text x="32" y="668" font-size="18" fill="#e8eae9">$39574.5K</text>
+  <text x="32" y="668" font-size="18" fill="#e8eae9">$43439.9K</text>
   <text x="214" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">COMMITS 52W</text>
-  <text x="214" y="668" font-size="18" fill="#e8eae9">8,484</text>
+  <text x="214" y="668" font-size="18" fill="#e8eae9">8,638</text>
   <text x="396" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">PEAK WEEK</text>
-  <text x="396" y="668" font-size="18" fill="#e8eae9">2796</text>
+  <text x="396" y="668" font-size="18" fill="#e8eae9">2950</text>
   <text x="578" y="646" font-size="10" letter-spacing="1" fill="#9ba3a0">BUSIEST DAY</text>
   <text x="578" y="668" font-size="18" fill="#e8eae9">1424</text>
   <text x="32" y="708" font-size="10" letter-spacing="1" fill="#9ba3a0">ACTIVE DAYS</text>
-  <text x="32" y="730" font-size="18" fill="#e8eae9">218</text>
+  <text x="32" y="730" font-size="18" fill="#e8eae9">219</text>
   <text x="214" y="708" font-size="10" letter-spacing="1" fill="#9ba3a0">LONGEST STREAK</text>
   <text x="214" y="730" font-size="18" fill="#e8eae9">23d</text>
   <text x="396" y="708" font-size="10" letter-spacing="1" fill="#9ba3a0">STREAK</text>
-  <text x="396" y="730" font-size="18" fill="#e8eae9">0d</text>
+  <text x="396" y="730" font-size="18" fill="#22c55e">19d</text>
   <text x="578" y="708" font-size="10" letter-spacing="1" fill="#9ba3a0">FOLLOWERS</text>
   <text x="578" y="730" font-size="18" fill="#e8eae9">151</text>
   <text x="24" y="764" font-size="9" fill="#5c625f">github.com/maxmoneycash</text>
