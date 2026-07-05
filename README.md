@@ -26,8 +26,8 @@
 ## <samp>~ ❯ gh contrib --terminal</samp>
 
 <a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="./assets/market-light.svg?v=28750712599"/>
-<img src="./assets/market.svg?v=28750712599" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
 </picture></a>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
