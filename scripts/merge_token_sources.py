@@ -15,7 +15,7 @@ import sys
 
 COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
 AGENTS = ["claude", "codex", "droid", "kimi", "opencode"]
-TRUE_SOURCES = ["codex-true", "kimi-true", "grok-true", "cursor"]
+TRUE_SOURCES = ["codex-true", "kimi-true", "grok-true", "cursor", "hermes-true"]
 
 
 def load(d, name):

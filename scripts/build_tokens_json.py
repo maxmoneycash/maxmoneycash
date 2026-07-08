@@ -49,6 +49,10 @@ def main():
     except FileNotFoundError:
         grok = {"totals": {}, "monthly": []}
     try:
+        hermes = load(d, "hermes-true.json")
+    except FileNotFoundError:
+        hermes = {"totals": {}, "monthly": []}
+    try:
         kimi_true = load(d, "kimi-true.json")
     except FileNotFoundError:
         kimi_true = {"totals": {}, "monthly": []}
@@ -128,6 +132,7 @@ def main():
 
     merge_source(cursor, "cursor")  # token accounting from 2025-07 (earlier was request-based)
     merge_source(grok, "grok")
+    merge_source(hermes, "hermes")  # cloud swarm gateway; only visible in its sqlite DBs
 
     # --- frozen cloud baseline: usage from the old agent box whose logs were
     #     destroyed in the 2026-07-05 hermes rebuild. Everything above is
@@ -202,6 +207,10 @@ def main():
     agents["kimi"] = {
         "totals": kimi_true.get("totals") or {},
         "monthly": kimi_true.get("monthly") or [],
+    }
+    agents["hermes"] = {
+        "totals": hermes.get("totals") or {},
+        "monthly": hermes.get("monthly") or [],
     }
 
     if baseline:

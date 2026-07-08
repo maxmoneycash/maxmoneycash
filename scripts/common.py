@@ -35,6 +35,7 @@ AGENT_COLORS = {
     "opencode": "#f2cc60",
     "cursor": "#e3e9f0",
     "grok": "#1d9bf0",
+    "hermes": "#ff9f43",
 }
 
 AGENT_LABELS = {
@@ -45,6 +46,7 @@ AGENT_LABELS = {
     "opencode": "OPENCODE",
     "cursor": "CURSOR",
     "grok": "GROK BUILD",
+    "hermes": "HERMES SWARM",
 }
 
 

@@ -70,6 +70,11 @@ if bash "$REPO_DIR/scripts/collect_cloud_tokens.sh" "$CLOUD" >>"$TMP/cloud.log" 
   SOURCES=("$LOCAL" "$CLOUD")
 else
   log "WARNING: cloud collection failed (see $TMP/cloud.log); using local only"
+  # Keep hermes history alive from the committed cache so the box being
+  # offline can't shrink the totals (hermes-true must exist in exactly ONE
+  # source dir — merge sums same-named files across sources).
+  python3 "$REPO_DIR/scripts/hermes_true_usage.py" > "$LOCAL/hermes-true.json" 2>/dev/null \
+      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/hermes-true.json"
   SOURCES=("$LOCAL")
 fi
 
@@ -102,7 +107,7 @@ if [ "$NEW" -lt "$((OLD * 98 / 100))" ]; then
 fi
 mv "$TMP/tokens.out" data/tokens.json
 
-git add data/tokens.json data/cursor-cache.json data/grok-cache.json
+git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
 if git diff --cached --quiet; then
   log "tokens.json unchanged; nothing to push"
   exit 0

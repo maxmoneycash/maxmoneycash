@@ -51,10 +51,39 @@ done
 
 python3 "$REMOTE_DIR/codex_true_usage.py" > codex-true.json 2>/dev/null || echo '{"totals":{},"monthly":[]}' > codex-true.json
 python3 "$REMOTE_DIR/kimi_true_usage.py" > kimi-true.json 2>/dev/null || echo '{"totals":{},"monthly":[]}' > kimi-true.json
+
+# Hermes gateway (the swarm's token accounting) lives ONLY in its sqlite
+# state DBs — ccusage can't see it. Dump per-session counters for the local
+# hermes_true_usage.py cache. || fallback keeps the box's other sources alive.
+python3 - > hermes-sessions.json 2>/dev/null <<'PYEOF' || echo '[]' > hermes-sessions.json
+import glob, json, sqlite3
+rows = []
+paths = {"main": "/root/.hermes/state.db"}
+for p in glob.glob("/root/.hermes/profiles/*/state.db"):
+    paths[p.split("/")[-2]] = p
+for profile, path in paths.items():
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
+        con.row_factory = sqlite3.Row
+        for r in con.execute(
+            "select id, started_at, model, input_tokens, output_tokens,"
+            " cache_read_tokens, cache_write_tokens, reasoning_tokens from sessions"
+        ):
+            rows.append({"profile": profile, **dict(r)})
+        con.close()
+    except Exception:
+        pass
+print(json.dumps(rows))
+PYEOF
 REMOTE
 
 log "pulling results from $HOST"
 scp -q "$HOST:$REMOTE_DIR/*.json" "$OUT_DIR/"
+
+# Fold the hermes session dump into the committed cache and emit the merged
+# monthly series. The dump itself is not a merge source — remove it.
+python3 "$REPO_DIR/scripts/hermes_true_usage.py" "$OUT_DIR/hermes-sessions.json" > "$OUT_DIR/hermes-true.json"
+rm -f "$OUT_DIR/hermes-sessions.json"
 
 # Clean up the remote temp dir.
 ssh -o ConnectTimeout=10 "$HOST" "rm -rf $REMOTE_DIR" >/dev/null 2>&1 || true
