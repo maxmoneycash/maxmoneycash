@@ -4,9 +4,16 @@
 
 <br/>
 
+## <samp>~ ❯ commits.sh --live</samp>
+
+<a href="https://commits.sh/maxmoneycash"><picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
+</picture></a>
+
 ## <samp>~ ❯ ccusage --all-time</samp>
 
-<sub>Live token telemetry across <b>Claude Code · Codex · Cursor · Grok Build · Kimi Code · OpenCode · Droid</b> — pushed daily from my Mac (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a> + custom counters) and rendered by GitHub Actions.</sub>
+<sub>Live token telemetry across <b>Claude Code · Codex · Hermes Swarm · Cursor · Grok Build · Kimi Code · OpenCode · Droid</b> — pushed hourly from my Mac + cloud swarm (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a> + custom counters) and rendered by GitHub Actions.</sub>
 
 <br/><br/>
 
@@ -23,12 +30,7 @@
 <a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg?v=28921206646" width="100%" alt="2023 contributions"/></a>
 <a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg?v=28921206646" width="100%" alt="2022 contributions"/></a>
 
-## <samp>~ ❯ gh contrib --terminal</samp>
-
-<a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
-</picture></a>
+## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
 <source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=light"/>
@@ -61,6 +63,6 @@
 
 <br/>
 
-<sub><samp>rendered daily · cards by GitHub Actions · token data via launchd + ccusage on my mac · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
+<sub><samp>rendered hourly · cards by GitHub Actions · token data via launchd + ccusage on my mac + hermes swarm telemetry · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
 
 </div>

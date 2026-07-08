@@ -13,8 +13,10 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REPO = "maxmoneycash/maxmoneycash"
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
-# Alert ~1 day late rather than 2, so a single missed daily push is caught fast.
-MAX_AGE_HOURS = 30
+# The collector pushes at least hourly and readme.yml runs this check hourly,
+# so >8h stale means the pipeline is actually stuck (guard freeze, wedged
+# gpg-agent, dead launchd) — alert same-day, not days later.
+MAX_AGE_HOURS = 8
 TITLE = "Token data stale — launchd push has stopped"
 
 

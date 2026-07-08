@@ -2,8 +2,9 @@ name: readme-cards
 
 on:
   schedule:
-    - cron: "23 5 * * *"
-    - cron: "23 17 * * *"
+    # hourly: re-render + freshness check even when no data push arrives,
+    # so a dead collector is noticed within hours, not days
+    - cron: "23 * * * *"
   push:
     branches: [main]
     paths: ["data/**", "scripts/**"]
