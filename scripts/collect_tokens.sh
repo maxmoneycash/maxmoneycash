@@ -86,8 +86,11 @@ if ! python3 -c "import json,sys; d=json.load(open('$MERGED/monthly.json')); sys
   log "ERROR: merged monthly empty/invalid — aborting, keeping previous tokens.json"; exit 1
 fi
 
-# Atomic write so a failed build can never truncate data/tokens.json
-python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" > "$TMP/tokens.out"
+# Atomic write so a failed build can never truncate data/tokens.json.
+# data/cloud-baseline.json = frozen usage of the old agent box (its raw logs
+# were destroyed in the 2026-07-05 hermes rebuild) — added on top of what the
+# live logs still prove. See scripts/make_cloud_baseline.py.
+python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" "$REPO_DIR/data/cloud-baseline.json" > "$TMP/tokens.out"
 
 # --- safety: all-time totals only ever grow; a drop = a collection glitch.
 #     Refuse to overwrite good data with a >2% regression. ---

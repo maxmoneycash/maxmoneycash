@@ -7,7 +7,13 @@ scripts/kimi_true_usage.py's wire.jsonl parsing.
 Unified months/totals are then rebuilt so everything sums exactly.
 
 Usage: python3 build_tokens_json.py <dir with monthly.json daily.json
-agent-*.json codex-true.json kimi-true.json>  → tokens.json on stdout.
+agent-*.json codex-true.json kimi-true.json> [baseline.json]  → tokens.json
+on stdout.
+
+The optional baseline (data/cloud-baseline.json, made by make_cloud_baseline.py)
+is the frozen contribution of the old cloud box whose raw logs were destroyed
+in the 2026-07-05 rebuild; it is added on top of everything recounted from
+live logs.
 """
 import datetime
 import json
@@ -122,6 +128,49 @@ def main():
 
     merge_source(cursor, "cursor")  # token accounting from 2025-07 (earlier was request-based)
     merge_source(grok, "grok")
+
+    # --- frozen cloud baseline: usage from the old agent box whose logs were
+    #     destroyed in the 2026-07-05 hermes rebuild. Everything above is
+    #     recounted from raw logs on every run; this slice has no raw logs
+    #     left, so it is added back verbatim. ---
+    baseline = None
+    if len(sys.argv) > 2:
+        try:
+            baseline = json.load(open(sys.argv[2]))
+        except FileNotFoundError:
+            baseline = None
+    if baseline:
+        for bm in baseline.get("monthly", []):
+            m = by_period.get(bm["period"])
+            if m is None:
+                m = {
+                    "period": bm["period"], "agent": "all",
+                    "inputTokens": 0, "outputTokens": 0, "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0, "totalTokens": 0, "totalCost": 0.0,
+                    "modelsUsed": [], "modelBreakdowns": [],
+                    "metadata": {"agents": []},
+                }
+                by_period[bm["period"]] = m
+                monthly.append(m)
+            for c in COMPONENTS + ["totalTokens", "totalCost"]:
+                m[c] = m.get(c, 0) + bm.get(c, 0)
+            m["modelBreakdowns"].extend(bm.get("modelBreakdowns", []))
+            for model in bm.get("modelsUsed", []):
+                if model not in m.get("modelsUsed", []):
+                    m.setdefault("modelsUsed", []).append(model)
+            for agent in (bm.get("metadata") or {}).get("agents", []):
+                agents_list = m.setdefault("metadata", {}).setdefault("agents", [])
+                if agent not in agents_list:
+                    agents_list.append(agent)
+
+        by_day = {dd["period"]: dd for dd in daily["daily"]}
+        for bd in baseline.get("daily", []):
+            dd = by_day.get(bd["period"])
+            if dd is None:
+                continue  # outside the live 35-day window; totals come from monthly
+            for c in COMPONENTS + ["totalTokens", "totalCost"]:
+                dd[c] = dd.get(c, 0) + bd.get(c, 0)
+
     monthly.sort(key=lambda m: m["period"])
 
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
@@ -154,6 +203,33 @@ def main():
         "totals": kimi_true.get("totals") or {},
         "monthly": kimi_true.get("monthly") or [],
     }
+
+    if baseline:
+        for name, b in (baseline.get("agents") or {}).items():
+            a = agents.setdefault(name, {"totals": {}, "monthly": []})
+            at = a["totals"]
+            for c in COMPONENTS + ["totalTokens", "totalCost"]:
+                at[c] = at.get(c, 0) + b.get("totals", {}).get(c, 0)
+            by_month = {m["month"]: m for m in a["monthly"]}
+            for bm in b.get("monthly", []):
+                m = by_month.get(bm["month"])
+                if m is None:
+                    a["monthly"].append(dict(bm))
+                    continue
+                for c in COMPONENTS + ["totalTokens", "totalCost"]:
+                    m[c] = m.get(c, 0) + bm.get(c, 0)
+                models = m.setdefault("models", {})
+                for model, mm in (bm.get("models") or {}).items():
+                    om = models.setdefault(model, {})
+                    for c in COMPONENTS + ["totalTokens", "cost"]:
+                        om[c] = om.get(c, 0) + mm.get(c, 0)
+                    if model not in m.get("modelsUsed", []):
+                        m.setdefault("modelsUsed", []).append(model)
+            a["monthly"].sort(key=lambda m: m["month"])
+        sources = list(sources) + [{
+            "label": "cloud-baseline",
+            "totals": baseline.get("totals", {}),
+        }]
 
     out = {
         "generated_at": datetime.datetime.now(datetime.timezone.utc)

@@ -43,6 +43,13 @@ def load_cache():
         c = json.loads(CACHE.read_text())
         c.setdefault("monthly", {})
         c.setdefault("seen", [])
+        # A 2026-06-21 commit stored this script's OUTPUT (monthly as a list)
+        # as the cache, which crashed every run since (monthly must be a dict
+        # keyed by month). That stale list was verified on 2026-07-07 to be a
+        # strict subset of the still-unrotated rolling log, so discarding it
+        # and recounting from the log loses nothing and can't double-count.
+        if not isinstance(c["monthly"], dict) or not isinstance(c["seen"], list):
+            return {"monthly": {}, "seen": []}
         return c
     except Exception:
         return {"monthly": {}, "seen": []}
