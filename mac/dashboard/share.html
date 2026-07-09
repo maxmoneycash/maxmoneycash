@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>__TOKENTRACKER_TITLE__</title>
+    <meta name="description" content="__TOKENTRACKER_DESCRIPTION__" />
+    <meta property="og:site_name" content="__TOKENTRACKER_OG_SITE_NAME__" />
+    <meta property="og:title" content="__TOKENTRACKER_OG_TITLE__" />
+    <meta property="og:description" content="__TOKENTRACKER_OG_DESCRIPTION__" />
+    <meta property="og:image" content="__TOKENTRACKER_OG_IMAGE__" />
+    <meta property="og:type" content="__TOKENTRACKER_OG_TYPE__" />
+    <meta property="og:url" content="__TOKENTRACKER_OG_URL__" />
+    <meta name="twitter:card" content="__TOKENTRACKER_TWITTER_CARD__" />
+    <meta name="twitter:title" content="__TOKENTRACKER_TWITTER_TITLE__" />
+    <meta name="twitter:description" content="__TOKENTRACKER_TWITTER_DESCRIPTION__" />
+    <meta name="twitter:image" content="__TOKENTRACKER_TWITTER_IMAGE__" />
+    <link rel="canonical" href="__TOKENTRACKER_OG_URL__" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <meta name="theme-color" content="#000000" />
+    <script>
+      // ES2022 built-in polyfills for WebKit < 15.4 (macOS 12.0 Monterey ships Safari 15.0).
+      // Base UI uses Object.hasOwn and Array.prototype.at lands in Safari 15.4; esbuild
+      // down-levels syntax but never polyfills built-ins. Run before the bundle.
+      (function () {
+        try {
+          if (typeof Object.hasOwn !== "function") {
+            Object.defineProperty(Object, "hasOwn", {
+              value: function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); },
+              configurable: true, writable: true,
+            });
+          }
+          function at(n) {
+            n = Math.trunc(n) || 0;
+            if (n < 0) n += this.length;
+            return n < 0 || n >= this.length ? undefined : this[n];
+          }
+          if (typeof Array.prototype.at !== "function") {
+            Object.defineProperty(Array.prototype, "at", { value: at, configurable: true, writable: true });
+          }
+          if (typeof String.prototype.at !== "function") {
+            Object.defineProperty(String.prototype, "at", { value: at, configurable: true, writable: true });
+          }
+        } catch (e) {}
+      })();
+      document.documentElement.classList.add("js");
+    </script>
+    <style>
+      .js .aeo-seed-content {
+        display: none;
+      }
+
+      .aeo-seed-content {
+        margin: 0;
+        padding: 1.5rem;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.55;
+      }
+
+      .aeo-seed-content h1,
+      .aeo-seed-content h2 {
+        margin: 0.75rem 0;
+      }
+    </style>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Token Tracker Share Dashboard",
+        "url": "https://www.tokentracker.cc/share",
+        "description": "Shareable Token Tracker dashboard snapshot."
+      }
+    </script>
+  </head>
+  <body>
+    <main class="aeo-seed-content" aria-label="Token Tracker share page summary">
+      <h1>Token Tracker Share Dashboard</h1>
+      <p>
+        This page renders a shareable dashboard snapshot for Token Tracker token tracking data, including model
+        usage trends and project-level summaries. It is designed for quick sharing with teammates,
+        collaborators, or stakeholders who need clear usage context.
+      </p>
+      <p>
+        The shared view keeps the same core signal style as the main dashboard: concise metrics, readable
+        trend framing, and lightweight navigation. Use it when you want to communicate usage outcomes without
+        requiring the recipient to open the full private workspace.
+      </p>
+      <p>
+        In practice, teams use this page during sprint reviews, weekly engineering updates, and cost-analysis
+        discussions. Instead of manually summarizing logs, you can share one URL that highlights model usage,
+        project activity, and trend direction in a format that is easy to scan.
+      </p>
+
+      <h2>What this share page includes</h2>
+      <ul>
+        <li>Snapshot-oriented presentation for token usage highlights.</li>
+        <li>Model and project usage context suitable for async reporting.</li>
+        <li>Fast navigation back to primary Token Tracker pages.</li>
+      </ul>
+      <p>
+        If you are reviewing usage impact after adopting a new coding workflow, this page helps you present
+        changes clearly: which models were used, where token volume concentrated, and whether the trend is
+        rising or stabilizing. It is optimized for communication and fast interpretation.
+      </p>
+      <p>
+        For deeper analysis and operational actions, recipients can jump back to the main dashboard from the
+        links below, then inspect richer views such as leaderboard ranking, project-level usage, and historical
+        trends over custom time ranges.
+      </p>
+      <p>
+        Example use cases include comparing token efficiency before and after a model swap, validating budget
+        controls for a weekly sprint, and checking if newly introduced automation scripts are causing
+        unexpected model spikes. Teams often use this page when they want a concise status snapshot before
+        a planning meeting, because it keeps language and focus simple while still preserving key operational
+        context.
+      </p>
+      <p>
+        You can also reference this page as supporting material in PRs or postmortems: it helps answer
+        questions like “Did we improve or increase cost this cycle?”, “Which projects drove the largest increase?”,
+        and “What follow-up guardrails should we add next?”.
+      </p>
+
+      <h2>Quick links</h2>
+      <ul>
+        <li><a href="https://www.tokentracker.cc/">Token Tracker homepage</a></li>
+        <li><a href="https://www.tokentracker.cc/leaderboard">Public leaderboard</a></li>
+        <li><a href="https://github.com/mm7894215/TokenTracker">GitHub: mm7894215/TokenTracker</a></li>
+        <li><a href="https://www.npmjs.com/package/tokentracker-cli">npm: tokentracker-cli</a></li>
+      </ul>
+    </main>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+version: 2
+updates:
+  # CLI runtime (root package.json)
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      production-dependencies:
+        dependency-type: production
+      development-dependencies:
+        dependency-type: development
+    ignore:
+      # Major bumps are reviewed manually — keep update PRs low-noise.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: chore
+
+  # Dashboard (Vite + React + TS)
+  - package-ecosystem: npm
+    directory: "/dashboard"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      dashboard-dependencies:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # Auth / cloud-sync critical. InsForge SDK config changes have broken
+      # OAuth/sessions for all users on past upgrades, and 1.3 already drops
+      # `autoRefreshToken` from InsForgeConfig (a tsc break). Upgrade manually,
+      # behind an end-to-end OAuth test — never in a routine dependency sweep.
+      - dependency-name: "@insforge/sdk"
+    commit-message:
+      prefix: chore
+
+  # GitHub Actions used across all workflows — grouped into a single PR so a
+  # batch of action bumps doesn't open one PR each.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

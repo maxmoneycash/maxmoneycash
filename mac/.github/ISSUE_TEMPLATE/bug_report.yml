@@ -1,0 +1,108 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched [existing issues](https://github.com/mm7894215/TokenTracker/issues) and didn't find a duplicate.
+          required: true
+        - label: I'm on the [latest version](https://github.com/mm7894215/TokenTracker/releases).
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. Screenshots welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Smallest set of steps to reproduce the issue.
+      placeholder: |
+        1. Run `tokentracker ...`
+        2. ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: false
+
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Is this a regression?
+      description: Did this work in an earlier version?
+      options:
+        - "Yes — it worked in a previous version"
+        - "No — it never worked"
+        - "Not sure"
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: TokenTracker version
+      description: Output of `tokentracker --version` or the macOS app version
+      placeholder: e.g. 0.40.0
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Output of `node --version` (CLI users only)
+      placeholder: e.g. v20.11.0
+    validations:
+      required: false
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - npm / npx (CLI)
+        - macOS DMG (TokenTrackerBar)
+        - Windows installer / zip
+        - From source
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / version
+      placeholder: e.g. macOS 15.1, Windows 11, Ubuntu 22.04
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `tokentracker doctor` (if applicable)
+      description: Paste the full output. Helps diagnose hook / provider issues.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Logs, config snippets, related issues, hypotheses.
+    validations:
+      required: false

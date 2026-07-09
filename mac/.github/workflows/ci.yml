@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: test + validate + build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          # Node 24 matches the maintainer's local toolchain. The test suite
+          # imports dashboard .ts files directly (native type stripping, Node
+          # 22.18+) and exercises undici 8 (needs webidl.markAsUncloneable), so
+          # Node 20 cannot run the suite even though the published CLI targets it.
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            dashboard/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install dashboard dependencies
+        run: npm ci --prefix dashboard
+
+      # Build the dashboard up front: the local-runtime install test asserts the
+      # bundled dashboard/dist/index.html exists, and a fresh checkout has none.
+      # VITE_* are public client-side values shipped in every dashboard bundle;
+      # absent at build time Vite inlines empty strings and breaks leaderboard
+      # fetch + cloud OAuth. dashboard/.env.local is gitignored, hence inlined here.
+      - name: Build dashboard
+        env:
+          VITE_INSFORGE_BASE_URL: https://srctyff5.us-east.insforge.app
+          VITE_INSFORGE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDU5NDd9.T0auta_IrVIh0uXW1bob5QSnzvsnJmN28r5XkSGEuQY
+        run: npm run dashboard:build
+
+      - name: Test dashboard limits preferences
+        run: npm --prefix dashboard test -- src/hooks/use-limits-display-prefs.test.js
+
+      # Same checks as `npm run ci:local`, with the dashboard build hoisted above.
+      - name: Test and validate
+        run: |
+          npm test
+          npm run validate:copy
+          npm run validate:ui-hardcode
+          npm run validate:guardrails
+          node --test test/architecture-guardrails.test.js
+
+  macos-tests:
+    name: macOS unit tests
+    runs-on: blacksmith-6vcpu-macos-26
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: TokenTrackerBar
+        run: xcodegen generate
+
+      - name: Patch pbxproj for icon
+        working-directory: TokenTrackerBar
+        run: ruby scripts/patch-pbxproj-icon.rb
+
+      - name: Test TokenTrackerBar
+        working-directory: TokenTrackerBar
+        run: |
+          xcodebuild test \
+            -scheme TokenTrackerBarTests \
+            -destination 'platform=macOS'

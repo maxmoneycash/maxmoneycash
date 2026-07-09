@@ -1,0 +1,274 @@
+name: release (macOS + Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.5.25)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-dmg
+  cancel-in-progress: false
+
+jobs:
+  # Create the vX.Y.Z release as a DRAFT first, so the macOS and Windows build
+  # jobs can upload their assets to it IN PARALLEL while it stays invisible.
+  # Drafts are excluded from releases/latest and the public releases page, so
+  # consumers (the Homebrew tap, the landing "Download" deep-link, anyone
+  # browsing) never see a half-published release — releases/latest stays on the
+  # PREVIOUS complete version until the publish job flips this one live, once
+  # every asset is attached. Cheap (~10s on ubuntu).
+  create-release:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Create or reuse the draft GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ inputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists — reusing."
+          else
+            gh release create "$tag" --draft --title "$tag" --generate-notes
+          fi
+
+  build:
+    needs: create-release
+    # macos-26 ships Xcode 26.x which matches the local dev SDK. Earlier
+    # macos-15 (Xcode 16.4) silently rendered widget text using
+    # .foregroundStyle(.primary)/(.secondary) as transparent inside
+    # `containerBackground(.fill.tertiary, for: .widget)` — every label
+    # and hero number disappeared in shipped DMGs even though the same
+    # source rendered fine locally. Pinning to macos-26 keeps the SDK in
+    # sync with local builds.
+    runs-on: blacksmith-6vcpu-macos-26
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      # Verify version matches package.json AND TokenTrackerBar/project.yml.
+      # Skipping the project.yml check once shipped v0.5.77 as a DMG whose
+      # Info.plist still advertised 0.5.76 — keep both in lockstep.
+      - name: Verify version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [[ "$PKG_VERSION" != "${{ inputs.version }}" ]]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match input (${{ inputs.version }})"
+            exit 1
+          fi
+
+          # Every MARKETING_VERSION in project.yml (app + widget targets) must
+          # equal the requested release version; otherwise the built .app
+          # carries a CFBundleShortVersionString that disagrees with the tag.
+          PROJECT_YML="TokenTrackerBar/project.yml"
+          # BSD sed on macOS runners does NOT understand \s — use [[:space:]].
+          MISMATCHED=$(grep -E '^[[:space:]]*MARKETING_VERSION:' "$PROJECT_YML" \
+            | sed -E 's/.*MARKETING_VERSION:[[:space:]]*"([^"]+)".*/\1/' \
+            | sort -u \
+            | grep -v "^${{ inputs.version }}$" || true)
+          if [ -n "$MISMATCHED" ]; then
+            echo "::error::$PROJECT_YML has MARKETING_VERSION value(s) not matching ${{ inputs.version }}: $MISMATCHED"
+            exit 1
+          fi
+
+      # 1. Build dashboard
+      - name: Install dashboard dependencies
+        run: npm ci --prefix dashboard
+
+      # InsForge URL + anon key are public client-side values (shipped in every
+      # dashboard bundle). They MUST be present at build time or Vite inlines
+      # empty strings, which breaks the leaderboard page (no baseUrl → no fetch)
+      # and disables cloud OAuth (`isCloudInsforgeConfigured()` returns false).
+      # `dashboard/.env.local` is gitignored so CI cannot read it — inject here.
+      - name: Build dashboard
+        env:
+          VITE_INSFORGE_BASE_URL: https://srctyff5.us-east.insforge.app
+          VITE_INSFORGE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDU5NDd9.T0auta_IrVIh0uXW1bob5QSnzvsnJmN28r5XkSGEuQY
+        run: npm run dashboard:build
+
+      # 2. Bundle EmbeddedServer (Node.js + tokentracker source)
+      - name: Bundle EmbeddedServer
+        run: bash TokenTrackerBar/scripts/bundle-node.sh
+
+      # 3. Generate Xcode project
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: TokenTrackerBar
+        run: xcodegen generate
+
+      - name: Patch pbxproj for icon
+        working-directory: TokenTrackerBar
+        run: ruby scripts/patch-pbxproj-icon.rb
+
+      # 4. Build app
+      - name: Build TokenTrackerBar
+        working-directory: TokenTrackerBar
+        run: |
+          xcodebuild \
+            -scheme TokenTrackerBar \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            OTHER_SWIFT_FLAGS="\$(inherited) -Xfrontend -solver-expression-time-threshold=120" \
+            clean build
+
+          # Verify universal binary — fail loudly if Intel slice is missing
+          APP_BIN="$(find build/DerivedData/Build/Products/Release -name 'TokenTrackerBar' -path '*/MacOS/*' -maxdepth 5)"
+          echo "Built binary: $APP_BIN"
+          lipo -info "$APP_BIN"
+          if ! lipo -info "$APP_BIN" 2>&1 | grep -q "x86_64"; then
+            echo "::error::Binary is NOT universal — missing x86_64 slice. Intel Macs will show a prohibited icon."
+            exit 1
+          fi
+          echo "✓ Universal binary confirmed (arm64 + x86_64)"
+
+      # 4b. Ad-hoc sign — without this, Gatekeeper rejects the downloaded .app
+      # as "damaged" because CODE_SIGNING_ALLOWED=NO above produced an entirely
+      # unsigned bundle. Ad-hoc signing ("-" identity) makes the error message
+      # downgrade to "unidentified developer" which the user can right-click → Open.
+      # For a fully trusted install you still need Developer ID + notarization.
+      #
+      # CRITICAL ORDERING — sign inner-to-outer, NOT with --deep:
+      #   1. Inner Mach-O binaries (node, dylibs)
+      #   2. The widget extension appex with its OWN entitlements
+      #      (must include com.apple.security.app-sandbox or pkd will refuse
+      #      to load it with "plug-ins must be sandboxed", and the widget
+      #      gallery will silently never list TokenTracker)
+      #   3. The outer .app bundle with the host's entitlements, WITHOUT
+      #      --deep (otherwise the host entitlements get recursively
+      #      re-applied to the appex, stripping its app-sandbox key — the
+      #      host is intentionally not sandboxed because it forks Node)
+      - name: Ad-hoc sign app
+        working-directory: TokenTrackerBar
+        run: |
+          APP_PATH="$(find build/DerivedData/Build/Products/Release -name 'TokenTrackerBar.app' -maxdepth 1)"
+          APPEX_PATH="$APP_PATH/Contents/PlugIns/TokenTrackerWidget.appex"
+          echo "Signing: $APP_PATH"
+
+          # 1. Sign nested Mach-O binaries (inner-to-outer)
+          find "$APP_PATH/Contents/Resources/EmbeddedServer" -type f \
+            \( -name 'node' -o -name '*.dylib' -o -name '*.so' -o -name '*.node' \) \
+            -exec codesign --force --timestamp=none --sign - {} \;
+
+          # 2. Sign the widget extension appex with the WIDGET entitlements
+          #    (app-sandbox + app-group). Must happen BEFORE signing the host
+          #    so the appex's seal references its own entitlements file.
+          if [ -d "$APPEX_PATH" ]; then
+            echo "Signing widget extension: $APPEX_PATH"
+            codesign --force --timestamp=none \
+              --entitlements TokenTrackerWidget/TokenTrackerWidget.entitlements \
+              --sign - "$APPEX_PATH"
+          else
+            echo "::warning::Widget extension not found at $APPEX_PATH"
+          fi
+
+          # 3. Sign the outer .app bundle with the host entitlements.
+          #    NO --deep here — that would recursively re-sign the appex
+          #    with the host's entitlements (which lack app-sandbox) and
+          #    pkd would reject the widget at runtime.
+          codesign --force --timestamp=none \
+            --entitlements TokenTrackerBar/TokenTrackerBar.entitlements \
+            --sign - "$APP_PATH"
+
+          # Verify
+          codesign --verify --verbose=2 "$APP_PATH"
+          codesign -dv --verbose=2 "$APP_PATH" 2>&1 | head -8
+
+          # Sanity-check that the widget extension still has app-sandbox
+          # after the outer signing pass — this is the exact failure mode
+          # that silently breaks widget discovery, so fail loudly here.
+          if [ -d "$APPEX_PATH" ]; then
+            echo "Verifying widget extension entitlements:"
+            codesign -d --entitlements - "$APPEX_PATH" 2>&1 | tee /tmp/appex-ents.txt
+            if ! grep -q "com.apple.security.app-sandbox" /tmp/appex-ents.txt; then
+              echo "::error::Widget extension is missing com.apple.security.app-sandbox after signing — pkd will refuse to load it and the widget gallery will not list TokenTracker"
+              exit 1
+            fi
+            echo "✓ Widget extension still has app-sandbox entitlement"
+          fi
+
+      # 5. Create DMG (uses Homebrew `create-dmg` for headless background + layout)
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Create DMG
+        working-directory: TokenTrackerBar
+        run: |
+          APP_PATH="$(find build/DerivedData/Build/Products/Release -name 'TokenTrackerBar.app' -maxdepth 1)"
+          echo "App path: $APP_PATH"
+          bash scripts/create-dmg.sh "$APP_PATH"
+
+      # 6. Attach the DMG to the draft release that create-release made.
+      # --clobber so re-runs replace the asset; the Windows job uploads its own
+      # assets to the same draft in parallel. The release is still a draft here,
+      # so nothing is public yet — the publish job flips it live.
+      - name: Upload DMG to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ inputs.version }}" \
+            TokenTrackerBar/build/TokenTrackerBar.dmg --clobber
+
+  # Build + attach the Windows tray app to the SAME vX.Y.Z release, so one
+  # `gh workflow run "release DMG" -f version=X.Y.Z` ships both platforms.
+  # `needs: create-release` (NOT `needs: build`) so Windows builds in PARALLEL
+  # with the macOS DMG — both just upload to the already-created release.
+  windows:
+    needs: create-release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      version: ${{ inputs.version }}
+
+  # Flip the draft live ONLY after BOTH platforms finished uploading, so the
+  # release appears complete and atomically — releases/latest stays on the
+  # previous version until this instant, never a partial release. If either
+  # build fails, the release stays a draft (invisible) instead of going public
+  # half-empty. The Homebrew tap is notified HERE (not in the build job) so it
+  # fetches a release that is both public and fully populated — fixing the race
+  # where the tap saw vX.Y.Z before the DMG asset existed.
+  publish:
+    needs: [build, windows]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "v${{ inputs.version }}" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+
+      - name: Dispatch homebrew tap update
+        env:
+          HOMEBREW_DISPATCH_TOKEN: ${{ secrets.HOMEBREW_DISPATCH_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "${HOMEBREW_DISPATCH_TOKEN:-}" ]; then
+            echo "HOMEBREW_DISPATCH_TOKEN not set — tap will update via hourly cron."
+            exit 0
+          fi
+          curl -sSL -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $HOMEBREW_DISPATCH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/mm7894215/homebrew-tokentracker/dispatches \
+            -d "{\"event_type\":\"tokentracker-release\",\"client_payload\":{\"source\":\"dmg\",\"version\":\"$VERSION\"}}"

@@ -1,0 +1,121 @@
+# Dependencies & build output
+node_modules/
+dist/
+build/
+.tmp/
+dashboard/tmp/
+*.tsbuildinfo
+
+# Environment & logs
+.env
+.env.local
+.env.*.local
+.env*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Graph tooling (npm run graph:scip / graph:auto-index)
+index.scip
+/index.*.scip
+/graph.plan.json
+/data/graph.sqlite
+/data/graph.sqlite-*
+
+# Local-only
+/tasks/
+.vercel
+
+# TokenTrackerBar build artifacts
+TokenTrackerBar/EmbeddedServer/
+TokenTrackerBar/build/
+TokenTrackerBar/TokenTrackerBar.xcodeproj/
+TokenTrackerBar/icon_composer/
+TokenTrackerBar/DerivedData/
+TokenTrackerBar/*.xcarchive
+
+# AI / IDE tooling (created locally by assistants)
+.agent/
+.agents/
+
+.claude/
+
+.mimocode/
+.cline/
+.codebuddy/
+.continue/
+.cursor/
+.github/copilot*
+.gstack/
+.iflow/
+.insforge/
+.kilocode/
+.kilo/
+.kiro/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.windsurf/
+.worktrees/
+
+# System & editor
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Build & cache
+.eslintcache
+.parcel-cache
+.turbo
+
+# Private launch playbook — never push to remote
+docs/launch/PLAYBOOK.md
+docs/launch/submit-awesome-pr.sh
+
+# Scratch / reference clones (not part of the project)
+scratch/
+
+# Local InsForge MCP config (contains full-access API_KEY — never commit)
+dashboard/.mcp.json
+
+# Security ops scripts & audit reports (contain vuln details / lockdown SQL — never commit to public repo)
+scripts/ops/
+
+# Local working notes (todo / lessons — not part of the repo)
+tasks/
+
+# Promo video work project (large media — not part of the repo)
+promo-video/
+
+# Local skill tooling lockfile (hyperframes — not part of the repo)
+skills-lock.json
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
+.opencode/
+.serena/
+openspec/
+plans/

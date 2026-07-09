@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest a new feature, improvement, or AI tool integration
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or pain point. Skip the solution for now.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like it to work? Mock UI, command names, config snippets all welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds have you tried? What would also solve the problem?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Category
+      options:
+        - New AI tool integration
+        - Dashboard / web UI
+        - macOS menu bar app
+        - Desktop widget
+        - CLI command
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Links, references, prior art.
+    validations:
+      required: false

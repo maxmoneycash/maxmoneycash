@@ -1,0 +1,22 @@
+.vercel
+.env*.local
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.codebuddy
+.continue
+.cursor
+.github/copilot*
+.iflow
+.kilocode
+.kiro
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
