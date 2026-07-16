@@ -18,7 +18,7 @@ cd "$REPO_DIR"
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 
 # --- single-run lock: never let two collections overlap (they'd race git) ---
-LOCK="$REPO_DIR/.git/tokenstats.lock"
+LOCK="$(git rev-parse --git-path tokenstats.lock)"
 if ! mkdir "$LOCK" 2>/dev/null; then
   if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +15 2>/dev/null)" ]; then
     log "stale lock (>15m); reclaiming"; rm -rf "$LOCK"; mkdir "$LOCK"
