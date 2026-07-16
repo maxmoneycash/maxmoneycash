@@ -16,6 +16,7 @@ in the 2026-07-05 rebuild; it is added on top of everything recounted from
 live logs.
 """
 import datetime
+import copy
 import json
 import pathlib
 import sys
@@ -291,27 +292,30 @@ def main():
 
     agents = {}
     for name, raw in agents_raw.items():
-        agents[name] = {"totals": raw.get("totals") or {}, "monthly": raw.get("monthly") or []}
+        agents[name] = {
+            "totals": copy.deepcopy(raw.get("totals") or {}),
+            "monthly": copy.deepcopy(raw.get("monthly") or []),
+        }
     # Use the same corrected Codex scope in the per-agent receipt.
     agents["codex"] = {
-        "totals": codex_true.get("totals") or {},
-        "monthly": codex_true.get("monthly") or [],
+        "totals": copy.deepcopy(codex_true.get("totals") or {}),
+        "monthly": copy.deepcopy(codex_true.get("monthly") or []),
     }
     agents["cursor"] = {
-        "totals": cursor.get("totals") or {},
-        "monthly": cursor.get("monthly") or [],
+        "totals": copy.deepcopy(cursor.get("totals") or {}),
+        "monthly": copy.deepcopy(cursor.get("monthly") or []),
     }
     agents["grok"] = {
-        "totals": grok.get("totals") or {},
-        "monthly": grok.get("monthly") or [],
+        "totals": copy.deepcopy(grok.get("totals") or {}),
+        "monthly": copy.deepcopy(grok.get("monthly") or []),
     }
     agents["kimi"] = {
-        "totals": kimi_true.get("totals") or {},
-        "monthly": kimi_true.get("monthly") or [],
+        "totals": copy.deepcopy(kimi_true.get("totals") or {}),
+        "monthly": copy.deepcopy(kimi_true.get("monthly") or []),
     }
     agents["hermes"] = {
-        "totals": hermes.get("totals") or {},
-        "monthly": hermes.get("monthly") or [],
+        "totals": copy.deepcopy(hermes.get("totals") or {}),
+        "monthly": copy.deepcopy(hermes.get("monthly") or []),
     }
 
     if baseline:

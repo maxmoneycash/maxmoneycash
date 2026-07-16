@@ -105,7 +105,9 @@ OLD_TIME=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['ge
 NEW=$(python3 -c "import json;print(json.load(open('$TMP/tokens.out'))['totals']['totalTokens'])")
 OLD_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('data/tokens.json')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')" 2>/dev/null || echo 0)
 NEW_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('$TMP/tokens.out')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')")
-if [ "$NEW" -lt "$((OLD * 98 / 100))" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] && [ "$NEW_CODEX_CORRECTED" = 1 ]; }; then
+OLD_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in json.load(open('data/tokens.json')).get('sources',[]))))" 2>/dev/null || echo "")
+NEW_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in json.load(open('$TMP/tokens.out')).get('sources',[]))))")
+if [ "$NEW" -lt "$((OLD * 98 / 100))" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] && [ "$NEW_CODEX_CORRECTED" = 1 ] && [ "$OLD_SOURCES" = "$NEW_SOURCES" ]; }; then
   log "ERROR: new total $NEW < 98% of old $OLD — glitch, keeping previous tokens.json"; exit 1
 fi
 if [ "$NEW" -lt "$OLD" ]; then
