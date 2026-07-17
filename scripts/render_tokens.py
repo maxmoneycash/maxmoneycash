@@ -100,36 +100,40 @@ def render(gh, tokens, target_h=None):
         lx += 14 + len(label) * 7 + 22
 
     # ---- top models all-time (normalized → opus 4.7 vs 4.8 separate) ----
-    model_tot = defaultdict(lambda: [0, 0.0])
+    model_tot = defaultdict(lambda: [0, 0, 0.0])
     for m in tokens["monthly"]:
         for b in m["modelBreakdowns"]:
             name = normalize(b["modelName"])
             model_tot[name][0] += tokens_of(b)
-            model_tot[name][1] += b.get("cost", 0)
-    top = sorted(model_tot.items(), key=lambda kv: -kv[1][0])[:8]
-    top_max = top[0][1][0] if top else 1
+            model_tot[name][1] += b["outputTokens"]
+            model_tot[name][2] += b.get("cost", 0)
+    top = sorted(
+        ((name, values) for name, values in model_tot.items() if values[1] > 0),
+        key=lambda kv: -kv[1][1],
+    )[:8]
+    top_max = top[0][1][1] if top else 1
 
     tm_y = chart_y + chart_h + 78
     parts.append(
         f'<text x="{LEFT}" y="{tm_y - 14}" font-size="11" letter-spacing="2" '
-        f'fill="{t["muted"]}">TOP MODELS · ALL-TIME</text>'
+        f'fill="{t["muted"]}">TOP MODELS · GENERATED OUTPUT</text>'
     )
-    for i, (name, (tok, cost)) in enumerate(top):
+    for i, (name, (traffic, output, _cost)) in enumerate(top):
         y = tm_y + i * 24
-        wfrac = 150 * tok / top_max
+        wfrac = 150 * output / top_max
         color = colors[family_of(name)]
         parts.append(
             f'<text x="{LEFT}" y="{y + 9}" font-size="11" fill="{t["fg"]}">{esc(name[:23])}</text>'
             f'<rect x="{LEFT + 172}" y="{y}" width="{max(wfrac, 2):.1f}" height="11" rx="3" fill="{color}" opacity="0.9"/>'
             f'<text x="{LEFT + 172 + max(wfrac, 2) + 8:.1f}" y="{y + 9}" font-size="10" '
-            f'fill="{t["muted"]}">{compact(tok)} · {money(cost)}</text>'
+            f'fill="{t["muted"]}">{compact(output)} out · {compact(traffic)} traffic</text>'
         )
 
     # ---- opencode lab: every model ever tried there ----------------------
     oc_months = tokens["agents"]["opencode"].get("monthly") or []
     oc_models = sorted(
         {normalize(name) for m in oc_months for name in m.get("modelsUsed", [])},
-        key=lambda n: -model_tot.get(n, [0, 0])[0],
+        key=lambda n: -model_tot.get(n, [0, 0, 0])[1],
     )
     oc_y = tm_y + len(top) * 24 + 38
     parts.append(
@@ -140,7 +144,7 @@ def render(gh, tokens, target_h=None):
     chip_h, chip_gap = 21, 7
     for name in oc_models:
         short = name.split("/")[-1]
-        tok = model_tot.get(name, [0, 0])[0]
+        tok = model_tot.get(name, [0, 0, 0])[0]
         label = f"{short} · {compact(tok)}" if tok else short
         cw = round(len(label) * 6.3) + 18
         if cx + cw > LEFT + INNER:
@@ -160,6 +164,8 @@ def render(gh, tokens, target_h=None):
     d_y = oc_end + 44
     d_h = 60
     d_max = max((d["totalTokens"] for d in daily), default=1)
+    material_floor = max(1_000, totals["outputTokens"] * 0.005)
+    material_models = sum(1 for values in model_tot.values() if values[1] >= material_floor)
     parts.append(
         f'<text x="{LEFT}" y="{d_y - 10}" font-size="11" letter-spacing="2" '
         f'fill="{t["muted"]}">LAST 30 DAYS · TOKENS/DAY</text>'
@@ -185,7 +191,7 @@ def render(gh, tokens, target_h=None):
         f'Σ <tspan fill="{t["phosphor"]}" font-weight="700">{totals["totalTokens"]:,}</tspan> tok'
         f' · cache <tspan fill="{t["phosphor"]}">{cache_pct:.1f}%</tspan>'
         f' · peak <tspan fill="{t["amber"]}">{compact(peak["totalTokens"]) if peak else "-"}</tspan>'
-        f' · <tspan fill="{t["value"]}">{len(model_tot)}</tspan> models</text>'
+        f' · <tspan fill="{t["value"]}">{material_models}</tspan> output-significant models</text>'
     )
 
     H = foot_y + 26

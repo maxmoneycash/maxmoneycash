@@ -18,7 +18,7 @@ cd "$REPO_DIR"
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 
 # --- single-run lock: never let two collections overlap (they'd race git) ---
-LOCK="$REPO_DIR/.git/tokenstats.lock"
+LOCK="$(git rev-parse --git-path tokenstats.lock)"
 if ! mkdir "$LOCK" 2>/dev/null; then
   if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +15 2>/dev/null)" ]; then
     log "stale lock (>15m); reclaiming"; rm -rf "$LOCK"; mkdir "$LOCK"
@@ -97,13 +97,21 @@ fi
 # live logs still prove. See scripts/make_cloud_baseline.py.
 python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" "$REPO_DIR/data/cloud-baseline.json" > "$TMP/tokens.out"
 
-# --- safety: all-time totals only ever grow; a drop = a collection glitch.
-#     Refuse to overwrite good data with a >2% regression. ---
+# --- safety: all-time totals normally only grow; a drop = a collection glitch.
+#     The one exception is the first audited Codex cumulative-delta correction,
+#     which intentionally removes duplicated token_count events. ---
 OLD=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['totals']['totalTokens'])" 2>/dev/null || echo 0)
 OLD_TIME=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['generated_at'])" 2>/dev/null || echo "")
 NEW=$(python3 -c "import json;print(json.load(open('$TMP/tokens.out'))['totals']['totalTokens'])")
-if [ "$NEW" -lt "$((OLD * 98 / 100))" ]; then
+OLD_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('data/tokens.json')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')" 2>/dev/null || echo 0)
+NEW_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('$TMP/tokens.out')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')")
+OLD_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in json.load(open('data/tokens.json')).get('sources',[]))))" 2>/dev/null || echo "")
+NEW_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in json.load(open('$TMP/tokens.out')).get('sources',[]))))")
+if [ "$NEW" -lt "$((OLD * 98 / 100))" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] && [ "$NEW_CODEX_CORRECTED" = 1 ] && [ "$OLD_SOURCES" = "$NEW_SOURCES" ]; }; then
   log "ERROR: new total $NEW < 98% of old $OLD — glitch, keeping previous tokens.json"; exit 1
+fi
+if [ "$NEW" -lt "$OLD" ]; then
+  log "audited correction: removing $((OLD - NEW)) duplicated Codex tokens"
 fi
 mv "$TMP/tokens.out" data/tokens.json
 

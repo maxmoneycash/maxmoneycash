@@ -1,7 +1,7 @@
 """Assemble data/tokens.json from ccusage outputs + true counters.
 
-Codex numbers come straight from ccusage (the raw session logs are treated as
-authoritative). Kimi is corrected because ccusage reads ~/.kimi/user-history
+Codex is corrected with cumulative token deltas because ccusage counts repeated
+token_count events. Kimi is corrected because ccusage reads ~/.kimi/user-history
 (user prompts only) and misses token metadata; we replace it with
 scripts/kimi_true_usage.py's wire.jsonl parsing.
 Unified months/totals are then rebuilt so everything sums exactly.
@@ -16,11 +16,19 @@ in the 2026-07-05 rebuild; it is added on top of everything recounted from
 live logs.
 """
 import datetime
+import copy
 import json
 import pathlib
 import sys
 
 COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
+PLACEHOLDER_MODELS = {"auto", "default", "unknown"}
+MODEL_ALIASES = {
+    "gpt-5-3-codex": "gpt-5.3-codex",
+    "gpt-5-codex-high": "gpt-5-codex",
+    "gpt-5.1-codex-high": "gpt-5.1-codex",
+}
+ACCOUNTING_REVISION = "codex-cumulative-v1"
 
 
 def load(d, name):
@@ -29,6 +37,95 @@ def load(d, name):
     if not text.strip():
         raise FileNotFoundError(d / name)
     return json.loads(text)
+
+
+def model_total(row):
+    return sum(row.get(c, 0) or 0 for c in COMPONENTS)
+
+
+def canonical_model(name):
+    if not isinstance(name, str):
+        return None
+    normalized = name.strip().lower()
+    if not normalized or normalized in PLACEHOLDER_MODELS:
+        return None
+    return MODEL_ALIASES.get(normalized, normalized)
+
+
+def aggregate_breakdowns(rows):
+    """Canonicalize aliases, drop placeholders, and merge duplicate rows."""
+    merged = {}
+    for raw in rows or []:
+        name = canonical_model(raw.get("modelName") or raw.get("model"))
+        if not name:
+            continue
+        row = merged.setdefault(
+            name,
+            {"modelName": name, **{c: 0 for c in COMPONENTS}, "cost": 0.0},
+        )
+        for c in COMPONENTS:
+            row[c] += raw.get(c, 0) or 0
+        row["cost"] += raw.get("cost", 0) or 0
+    return sorted(
+        merged.values(),
+        key=lambda row: (-model_total(row), -row["cost"], row["modelName"]),
+    )
+
+
+def aggregate_model_map(models):
+    return {
+        row["modelName"]: row
+        for row in aggregate_breakdowns(
+            {"modelName": name, **values}
+            for name, values in (models or {}).items()
+        )
+    }
+
+
+def replace_agent_month(month, reported, corrected):
+    """Replace one ccusage agent slice with its independently verified truth."""
+    for c in COMPONENTS + ["totalTokens"]:
+        month[c] = max(0, month.get(c, 0) - reported.get(c, 0)) + corrected.get(c, 0)
+
+    grouped = {
+        row["modelName"]: row
+        for row in aggregate_breakdowns(month.get("modelBreakdowns", []))
+    }
+    reported_models = aggregate_model_map(reported.get("models"))
+    corrected_models = aggregate_model_map(corrected.get("models"))
+    for key, raw in reported_models.items():
+        if key not in grouped:
+            continue
+        row = grouped[key]
+        for c in COMPONENTS:
+            row[c] = max(0, row[c] - (raw.get(c, 0) or 0))
+        row["cost"] = max(0.0, row["cost"] - (raw.get("cost", 0) or 0))
+
+    for key, raw in corrected_models.items():
+        row = grouped.setdefault(
+            key,
+            {"modelName": key, **{c: 0 for c in COMPONENTS}, "cost": 0.0},
+        )
+        for c in COMPONENTS:
+            row[c] += raw.get(c, 0) or 0
+        reported_row = reported_models.get(key)
+        reported_total = model_total(reported_row or {})
+        if reported_row and reported_total > 0:
+            row["cost"] += (reported_row.get("cost", 0) or 0) * model_total(raw) / reported_total
+
+    month["modelBreakdowns"] = aggregate_breakdowns(grouped.values())
+    month["modelsUsed"] = [row["modelName"] for row in month["modelBreakdowns"]]
+
+
+def infer_single_reported_model(reported, corrected):
+    """Keep a verified identity when the true counter only lacks model splits."""
+    if corrected.get("models") or len(reported.get("models") or {}) != 1:
+        return corrected
+    name = next(iter(reported["models"]))
+    out = dict(corrected)
+    out["models"] = {name: {c: corrected.get(c, 0) for c in COMPONENTS}}
+    out["models"][name]["totalTokens"] = corrected.get("totalTokens", 0)
+    return out
 
 
 def main():
@@ -61,29 +158,35 @@ def main():
     except FileNotFoundError:
         sources = []
 
+    codex_rep = {m["month"]: m for m in agents_raw["codex"].get("monthly") or []}
+    codex_tru = {m["month"]: m for m in codex_true.get("monthly") or []}
     kimi_rep = {m["month"]: m for m in agents_raw["kimi"].get("monthly") or []}
     kimi_tru = {m["month"]: m for m in kimi_true["monthly"]}
 
-    def rep_models(rep):
-        # per-agent schema: models is a dict keyed by model name
-        return set((rep.get("models") or {}).keys()) | set(rep.get("modelsUsed") or [])
-
     def rep_total(rep):
         return rep.get("totalTokens") or sum(rep.get(c, 0) for c in COMPONENTS)
+
+    if rep_total(agents_raw["codex"].get("totals") or {}) > 0 and rep_total(codex_true.get("totals") or {}) <= 0:
+        raise RuntimeError("codex true counter is empty while ccusage reported data")
+    if rep_total(agents_raw["kimi"].get("totals") or {}) > 0 and rep_total(kimi_true.get("totals") or {}) <= 0:
+        raise RuntimeError("kimi true counter is empty while ccusage reported data")
 
     monthly = []
     for m in unified["monthly"]:
         m = dict(m)
         month = m["period"]
 
+        # ccusage's Codex adapter sums repeated cumulative token_count events.
+        # Replace that slice before adding side sources or the frozen baseline.
+        crep = codex_rep.get(month)
+        if crep:
+            replace_agent_month(m, crep, codex_tru.get(month, {"models": {}}))
+
         # Correct kimi (ccusage reads user-history, missing token metadata).
         krep = kimi_rep.get(month)
         ktru = kimi_tru.get(month)
         if krep and rep_total(krep):
-            ktru_tot = ktru["totalTokens"] if ktru else 0
-            for c in COMPONENTS:
-                m[c] = m.get(c, 0) - krep.get(c, 0) + (ktru.get(c, 0) if ktru else 0)
-            m["totalTokens"] = m["totalTokens"] - rep_total(krep) + ktru_tot
+            replace_agent_month(m, krep, infer_single_reported_model(krep, ktru or {"models": {}}))
 
         # Rebuild the month's cost from the (possibly corrected) model rows.
         breakdowns = []
@@ -176,6 +279,12 @@ def main():
             for c in COMPONENTS + ["totalTokens", "totalCost"]:
                 dd[c] = dd.get(c, 0) + bd.get(c, 0)
 
+    # One public row per real model. Placeholder router labels remain counted
+    # in all-time totals but are intentionally left unattributed.
+    for m in monthly:
+        m["modelBreakdowns"] = aggregate_breakdowns(m.get("modelBreakdowns", []))
+        m["modelsUsed"] = [row["modelName"] for row in m["modelBreakdowns"]]
+
     monthly.sort(key=lambda m: m["period"])
 
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
@@ -184,33 +293,30 @@ def main():
 
     agents = {}
     for name, raw in agents_raw.items():
-        agents[name] = {"totals": raw.get("totals") or {}, "monthly": raw.get("monthly") or []}
-    # Replace codex with the true counts; keep ccusage's model lists.
-    models_used = {
-        m["month"]: sorted(rep_models(m)) for m in agents["codex"]["monthly"]
-    }
+        agents[name] = {
+            "totals": copy.deepcopy(raw.get("totals") or {}),
+            "monthly": copy.deepcopy(raw.get("monthly") or []),
+        }
+    # Use the same corrected Codex scope in the per-agent receipt.
     agents["codex"] = {
-        "totals": agents_raw["codex"].get("totals") or {},
-        "monthly": agents_raw["codex"].get("monthly") or [],
+        "totals": copy.deepcopy(codex_true.get("totals") or {}),
+        "monthly": copy.deepcopy(codex_true.get("monthly") or []),
     }
-    # models_used was kept for codex correction display; no longer needed but
-    # harmless to leave empty.
-    models_used = {}
     agents["cursor"] = {
-        "totals": cursor.get("totals") or {},
-        "monthly": cursor.get("monthly") or [],
+        "totals": copy.deepcopy(cursor.get("totals") or {}),
+        "monthly": copy.deepcopy(cursor.get("monthly") or []),
     }
     agents["grok"] = {
-        "totals": grok.get("totals") or {},
-        "monthly": grok.get("monthly") or [],
+        "totals": copy.deepcopy(grok.get("totals") or {}),
+        "monthly": copy.deepcopy(grok.get("monthly") or []),
     }
     agents["kimi"] = {
-        "totals": kimi_true.get("totals") or {},
-        "monthly": kimi_true.get("monthly") or [],
+        "totals": copy.deepcopy(kimi_true.get("totals") or {}),
+        "monthly": copy.deepcopy(kimi_true.get("monthly") or []),
     }
     agents["hermes"] = {
-        "totals": hermes.get("totals") or {},
-        "monthly": hermes.get("monthly") or [],
+        "totals": copy.deepcopy(hermes.get("totals") or {}),
+        "monthly": copy.deepcopy(hermes.get("monthly") or []),
     }
 
     if baseline:
@@ -250,11 +356,15 @@ def main():
         "agents": agents,
         "sources": sources,
         "corrections": {
+            "accountingRevision": ACCOUNTING_REVISION,
+            "codexCumulativeAdjusted": True,
+            "codexReportedTotal": agents_raw["codex"].get("totals", {}).get("totalTokens"),
+            "codexTrueTotal": codex_true.get("totals", {}).get("totalTokens"),
             "kimiWireAdjusted": True,
             "kimiReportedTotal": agents_raw["kimi"].get("totals", {}).get("totalTokens"),
             "kimiTrueTotal": kimi_true["totals"].get("totalTokens"),
             "note": (
-                "codex numbers come straight from ccusage. "
+                "codex counted from monotonic total_token_usage deltas; repeated token_count events removed. "
                 "kimi counted from ~/.kimi/sessions/**/wire.jsonl StatusUpdate "
                 "token_usage; ccusage reads user-history and undercounts. "
                 "daily[] series left as reported (relative shape only)."

@@ -173,10 +173,17 @@ def merge_true(sources):
             out["totalCost"] += m.get("totalCost", 0.0)
             for model, mm in (m.get("models") or {}).items():
                 if model not in out["models"]:
-                    out["models"][model] = {"totalTokens": 0, "outputTokens": 0}
+                    out["models"][model] = {
+                        "inputTokens": 0,
+                        "outputTokens": 0,
+                        "cacheCreationTokens": 0,
+                        "cacheReadTokens": 0,
+                        "totalTokens": 0,
+                        "cost": 0.0,
+                    }
                 om = out["models"][model]
-                om["totalTokens"] += mm.get("totalTokens", 0)
-                om["outputTokens"] += mm.get("outputTokens", 0)
+                for c in COMPONENTS + ["totalTokens", "cost"]:
+                    om[c] += mm.get(c, 0)
     monthly = sorted(by_month.values(), key=lambda m: m["month"])
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)

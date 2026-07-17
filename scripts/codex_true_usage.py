@@ -174,19 +174,14 @@ def process_file(path, totals, monthly, monthly_models):
                 )
                 add_delta(totals, d_input, d_cached, d_output)
                 add_delta(monthly[month], d_input, d_cached, d_output)
-                mm = monthly_models[month][model]
-                non_cached = max(0, d_input - d_cached)
-                mm["totalTokens"] += non_cached + d_cached + d_output
-                mm["outputTokens"] += d_output
+                add_delta(monthly_models[month][model], d_input, d_cached, d_output)
 
 
 def main():
     codex_home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
     totals = new_bucket()
     monthly = defaultdict(new_bucket)
-    monthly_models = defaultdict(
-        lambda: defaultdict(lambda: {"totalTokens": 0, "outputTokens": 0})
-    )
+    monthly_models = defaultdict(lambda: defaultdict(new_bucket))
 
     for path in session_files(codex_home):
         try:
