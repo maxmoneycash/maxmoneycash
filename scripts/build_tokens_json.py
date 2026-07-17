@@ -67,7 +67,11 @@ def aggregate_breakdowns(rows):
             row[c] += raw.get(c, 0) or 0
         row["cost"] += raw.get("cost", 0) or 0
     return sorted(
-        merged.values(),
+        (
+            row
+            for row in merged.values()
+            if model_total(row) > 0 or row["cost"] > 0
+        ),
         key=lambda row: (-model_total(row), -row["cost"], row["modelName"]),
     )
 
@@ -82,7 +86,7 @@ def aggregate_model_map(models):
     }
 
 
-def replace_agent_month(month, reported, corrected):
+def replace_agent_month(month, reported, corrected, reported_model_predicate=None):
     """Replace one ccusage agent slice with its independently verified truth."""
     for c in COMPONENTS + ["totalTokens"]:
         month[c] = max(0, month.get(c, 0) - reported.get(c, 0)) + corrected.get(c, 0)
@@ -93,10 +97,20 @@ def replace_agent_month(month, reported, corrected):
     }
     reported_models = aggregate_model_map(reported.get("models"))
     corrected_models = aggregate_model_map(corrected.get("models"))
+    if reported_model_predicate:
+        for key, row in grouped.items():
+            if key not in reported_models and reported_model_predicate(key):
+                reported_models[key] = row
     for key, raw in reported_models.items():
         if key not in grouped:
             continue
         row = grouped[key]
+        raw = dict(raw)
+        raw_total = model_total(raw)
+        row_total = model_total(row)
+        if not raw.get("cost") and raw_total > 0 and row_total > 0:
+            raw["cost"] = row.get("cost", 0) * min(1.0, raw_total / row_total)
+            reported_models[key] = raw
         for c in COMPONENTS:
             row[c] = max(0, row[c] - (raw.get(c, 0) or 0))
         row["cost"] = max(0.0, row["cost"] - (raw.get("cost", 0) or 0))
@@ -115,6 +129,33 @@ def replace_agent_month(month, reported, corrected):
 
     month["modelBreakdowns"] = aggregate_breakdowns(grouped.values())
     month["modelsUsed"] = [row["modelName"] for row in month["modelBreakdowns"]]
+
+
+def cap_model_breakdowns(month):
+    """Keep attributed model components within their verified month totals."""
+    rows = aggregate_breakdowns(month.get("modelBreakdowns", []))
+    for component in COMPONENTS:
+        cap = int(month.get(component, 0) or 0)
+        values = [int(row.get(component, 0) or 0) for row in rows]
+        assigned = sum(values)
+        if assigned <= cap or assigned == 0:
+            continue
+        allocations = []
+        for index, value in enumerate(values):
+            scaled, remainder = divmod(value * cap, assigned)
+            rows[index][component] = scaled
+            allocations.append((remainder, rows[index]["modelName"], index))
+        remaining = cap - sum(row[component] for row in rows)
+        for _, _, index in sorted(allocations, key=lambda item: (-item[0], item[1]))[:remaining]:
+            rows[index][component] += 1
+
+    cost_cap = float(month.get("totalCost", 0) or 0)
+    assigned_cost = sum(float(row.get("cost", 0) or 0) for row in rows)
+    if assigned_cost > cost_cap and assigned_cost > 0:
+        factor = cost_cap / assigned_cost
+        for row in rows:
+            row["cost"] = float(row.get("cost", 0) or 0) * factor
+    return aggregate_breakdowns(rows)
 
 
 def infer_single_reported_model(reported, corrected):
@@ -180,7 +221,12 @@ def main():
         # Replace that slice before adding side sources or the frozen baseline.
         crep = codex_rep.get(month)
         if crep:
-            replace_agent_month(m, crep, codex_tru.get(month, {"models": {}}))
+            replace_agent_month(
+                m,
+                crep,
+                codex_tru.get(month, {"models": {}}),
+                reported_model_predicate=lambda name: "codex" in name,
+            )
 
         # Correct kimi (ccusage reads user-history, missing token metadata).
         krep = kimi_rep.get(month)
@@ -282,7 +328,7 @@ def main():
     # One public row per real model. Placeholder router labels remain counted
     # in all-time totals but are intentionally left unattributed.
     for m in monthly:
-        m["modelBreakdowns"] = aggregate_breakdowns(m.get("modelBreakdowns", []))
+        m["modelBreakdowns"] = cap_model_breakdowns(m)
         m["modelsUsed"] = [row["modelName"] for row in m["modelBreakdowns"]]
 
     monthly.sort(key=lambda m: m["period"])
