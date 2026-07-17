@@ -31,6 +31,17 @@ class TokenPipelineTests(unittest.TestCase):
             artifact.get("corrections", {}).get("accountingRevision"),
             build.ACCOUNTING_REVISION,
         )
+        for month in artifact.get("monthly", []):
+            rows = month.get("modelBreakdowns", [])
+            for component in build.COMPONENTS:
+                self.assertLessEqual(
+                    sum(row.get(component, 0) or 0 for row in rows),
+                    month.get(component, 0) or 0,
+                )
+            self.assertLessEqual(
+                sum(row.get("cost", 0) or 0 for row in rows),
+                (month.get("totalCost", 0) or 0) + 1e-9,
+            )
 
     def test_codex_uses_cumulative_deltas_and_preserves_model_components(self):
         rows = [
@@ -134,6 +145,65 @@ class TokenPipelineTests(unittest.TestCase):
         self.assertEqual(build.model_total(rows["gpt-5.3-codex"]), 230)
         self.assertAlmostEqual(rows["gpt-5.3-codex"]["cost"], 2.0)
         self.assertEqual(build.model_total(rows["other"]), 115)
+
+    def test_codex_replacement_removes_orphan_codex_rows(self):
+        month = {
+            "inputTokens": 200,
+            "outputTokens": 0,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 0,
+            "totalTokens": 200,
+            "modelBreakdowns": [
+                {"modelName": "gpt-5.5", "inputTokens": 100, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 0},
+                {"modelName": "gpt-5-3-codex", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 0},
+                {"modelName": "other", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 0},
+            ],
+        }
+        reported = {
+            "inputTokens": 150,
+            "totalTokens": 150,
+            "models": {"gpt-5.5": {"inputTokens": 100}},
+        }
+        corrected = {
+            "inputTokens": 80,
+            "totalTokens": 80,
+            "models": {"gpt-5.5": {"inputTokens": 80}},
+        }
+
+        build.replace_agent_month(
+            month,
+            reported,
+            corrected,
+            reported_model_predicate=lambda name: "codex" in name,
+        )
+
+        self.assertEqual(month["inputTokens"], 130)
+        self.assertEqual(
+            sum(row["inputTokens"] for row in month["modelBreakdowns"]),
+            130,
+        )
+        self.assertNotIn(
+            "gpt-5.3-codex",
+            {row["modelName"] for row in month["modelBreakdowns"]},
+        )
+
+    def test_model_breakdowns_are_capped_to_verified_components(self):
+        month = {
+            "inputTokens": 100,
+            "outputTokens": 20,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 200,
+            "totalCost": 10.0,
+            "modelBreakdowns": [
+                {"modelName": "a", "inputTokens": 60, "outputTokens": 15, "cacheCreationTokens": 0, "cacheReadTokens": 150, "cost": 8.0},
+                {"modelName": "b", "inputTokens": 60, "outputTokens": 15, "cacheCreationTokens": 0, "cacheReadTokens": 150, "cost": 8.0},
+            ],
+        }
+        rows = build.cap_model_breakdowns(month)
+        self.assertEqual(sum(row["inputTokens"] for row in rows), 100)
+        self.assertEqual(sum(row["outputTokens"] for row in rows), 20)
+        self.assertEqual(sum(row["cacheReadTokens"] for row in rows), 200)
+        self.assertAlmostEqual(sum(row["cost"] for row in rows), 10.0)
 
     @staticmethod
     def token_event(input_tokens, cached_tokens, output_tokens, total_tokens, timestamp):
