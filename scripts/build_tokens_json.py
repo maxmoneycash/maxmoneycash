@@ -28,6 +28,7 @@ MODEL_ALIASES = {
     "gpt-5-codex-high": "gpt-5-codex",
     "gpt-5.1-codex-high": "gpt-5.1-codex",
 }
+ACCOUNTING_REVISION = "codex-cumulative-v1"
 
 
 def load(d, name):
@@ -355,6 +356,7 @@ def main():
         "agents": agents,
         "sources": sources,
         "corrections": {
+            "accountingRevision": ACCOUNTING_REVISION,
             "codexCumulativeAdjusted": True,
             "codexReportedTotal": agents_raw["codex"].get("totals", {}).get("totalTokens"),
             "codexTrueTotal": codex_true.get("totals", {}).get("totalTokens"),

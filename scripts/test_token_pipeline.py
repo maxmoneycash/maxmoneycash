@@ -23,6 +23,9 @@ build = load_module("build_tokens_json")
 
 
 class TokenPipelineTests(unittest.TestCase):
+    def test_accounting_revision_is_stable_for_one_time_consumer_adoption(self):
+        self.assertEqual(build.ACCOUNTING_REVISION, "codex-cumulative-v1")
+
     def test_codex_uses_cumulative_deltas_and_preserves_model_components(self):
         rows = [
             {"type": "session_meta", "timestamp": "2026-07-16T10:00:00Z", "payload": {}},
