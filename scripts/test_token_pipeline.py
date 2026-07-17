@@ -205,6 +205,20 @@ class TokenPipelineTests(unittest.TestCase):
         self.assertEqual(sum(row["cacheReadTokens"] for row in rows), 200)
         self.assertAlmostEqual(sum(row["cost"] for row in rows), 10.0)
 
+        rounded = build.cap_model_breakdowns({
+            "inputTokens": 1,
+            "outputTokens": 0,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 0,
+            "totalCost": 0,
+            "modelBreakdowns": [
+                {"modelName": "a", "inputTokens": 1},
+                {"modelName": "b", "inputTokens": 1},
+            ],
+        })
+        self.assertEqual(len(rounded), 1)
+        self.assertEqual(rounded[0]["inputTokens"], 1)
+
     @staticmethod
     def token_event(input_tokens, cached_tokens, output_tokens, total_tokens, timestamp):
         return {

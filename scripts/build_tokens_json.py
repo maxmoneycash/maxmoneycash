@@ -149,7 +149,7 @@ def cap_model_breakdowns(month):
         factor = cost_cap / assigned_cost
         for row in rows:
             row["cost"] = float(row.get("cost", 0) or 0) * factor
-    return rows
+    return aggregate_breakdowns(rows)
 
 
 def infer_single_reported_model(reported, corrected):
