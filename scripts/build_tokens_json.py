@@ -105,6 +105,12 @@ def replace_agent_month(month, reported, corrected, reported_model_predicate=Non
         if key not in grouped:
             continue
         row = grouped[key]
+        raw = dict(raw)
+        raw_total = model_total(raw)
+        row_total = model_total(row)
+        if not raw.get("cost") and raw_total > 0 and row_total > 0:
+            raw["cost"] = row.get("cost", 0) * min(1.0, raw_total / row_total)
+            reported_models[key] = raw
         for c in COMPONENTS:
             row[c] = max(0, row[c] - (raw.get(c, 0) or 0))
         row["cost"] = max(0.0, row["cost"] - (raw.get("cost", 0) or 0))

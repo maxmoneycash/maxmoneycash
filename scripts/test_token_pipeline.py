@@ -148,21 +148,25 @@ class TokenPipelineTests(unittest.TestCase):
 
     def test_codex_replacement_removes_orphan_codex_rows(self):
         month = {
-            "inputTokens": 200,
+            "inputTokens": 250,
             "outputTokens": 0,
             "cacheCreationTokens": 0,
             "cacheReadTokens": 0,
-            "totalTokens": 200,
+            "totalTokens": 250,
             "modelBreakdowns": [
-                {"modelName": "gpt-5.5", "inputTokens": 100, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 0},
-                {"modelName": "gpt-5-3-codex", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 0},
-                {"modelName": "other", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 0},
+                {"modelName": "gpt-5.5", "inputTokens": 100, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 10},
+                {"modelName": "gpt-5-3-codex", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 5},
+                {"modelName": "gpt-5", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 3},
+                {"modelName": "other", "inputTokens": 50, "outputTokens": 0, "cacheCreationTokens": 0, "cacheReadTokens": 0, "cost": 2},
             ],
         }
         reported = {
-            "inputTokens": 150,
-            "totalTokens": 150,
-            "models": {"gpt-5.5": {"inputTokens": 100}},
+            "inputTokens": 200,
+            "totalTokens": 200,
+            "models": {
+                "gpt-5.5": {"inputTokens": 100},
+                "gpt-5": {"inputTokens": 50},
+            },
         }
         corrected = {
             "inputTokens": 80,
@@ -184,6 +188,10 @@ class TokenPipelineTests(unittest.TestCase):
         )
         self.assertNotIn(
             "gpt-5.3-codex",
+            {row["modelName"] for row in month["modelBreakdowns"]},
+        )
+        self.assertNotIn(
+            "gpt-5",
             {row["modelName"] for row in month["modelBreakdowns"]},
         )
 
