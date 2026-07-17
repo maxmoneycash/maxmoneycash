@@ -282,6 +282,14 @@ def main():
     merge_source(cursor, "cursor")  # token accounting from 2025-07 (earlier was request-based)
     merge_source(grok, "grok")
     merge_source(hermes, "hermes")  # cloud swarm gateway; only visible in its sqlite DBs
+    if rep_total(hermes.get("totals") or {}) > 0:
+        # monthly.json only describes ccusage's direct/mirrored cloud logs.
+        # Preserve the Hermes side ledger as its own source so README fleet
+        # totals include every cloud profile and offline cache fallback.
+        sources = list(sources) + [{
+            "label": "cloud-hermes",
+            "totals": copy.deepcopy(hermes.get("totals") or {}),
+        }]
 
     # --- frozen cloud baseline: usage from the old agent box whose logs were
     #     destroyed in the 2026-07-05 hermes rebuild. Everything above is
@@ -409,6 +417,8 @@ def main():
             "kimiWireAdjusted": True,
             "kimiReportedTotal": agents_raw["kimi"].get("totals", {}).get("totalTokens"),
             "kimiTrueTotal": kimi_true["totals"].get("totalTokens"),
+            "cloudHermesAccounted": rep_total(hermes.get("totals") or {}) > 0,
+            "cloudHermesTotal": hermes.get("totals", {}).get("totalTokens", 0),
             "note": (
                 "codex counted from monotonic total_token_usage deltas; repeated token_count events removed. "
                 "kimi counted from ~/.kimi/sessions/**/wire.jsonl StatusUpdate "

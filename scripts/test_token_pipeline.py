@@ -20,9 +20,78 @@ def load_module(name):
 codex = load_module("codex_true_usage")
 merge = load_module("merge_token_sources")
 build = load_module("build_tokens_json")
+hermes = load_module("hermes_true_usage")
+common = load_module("common")
 
 
 class TokenPipelineTests(unittest.TestCase):
+    def test_cloud_source_family_includes_baseline_and_live_hermes(self):
+        tokens = {"sources": [
+            {"label": "local", "totals": {"totalTokens": 100}},
+            {"label": "cloud", "totals": {"totalTokens": 20}},
+            {"label": "cloud-baseline", "totals": {"totalTokens": 30}},
+            {"label": "cloud-hermes", "totals": {"totalTokens": 40}},
+        ]}
+        self.assertEqual(common.source_total(tokens, "cloud"), 90)
+        self.assertEqual(common.source_total(tokens, "local"), 100)
+
+    def test_hermes_profile_overlap_fence_counts_cloud_sessions_once(self):
+        rows = [
+            {
+                "profile": "main",
+                "id": "mirrored",
+                "started_at": 1783294784,
+                "model": "gpt-main",
+                "input_tokens": 10,
+                "output_tokens": 3,
+                "reasoning_tokens": 2,
+                "cache_write_tokens": 5,
+                "cache_read_tokens": 20,
+            },
+            {
+                "profile": "builder",
+                "id": "cloud-only",
+                "started_at": 1783294785,
+                "model": "gpt-builder",
+                "input_tokens": 7,
+                "output_tokens": 1,
+                "reasoning_tokens": 0,
+                "cache_write_tokens": 0,
+                "cache_read_tokens": 12,
+            },
+        ]
+        ccusage = {"monthly": [{
+            "period": "2026-07",
+            "inputTokens": 10,
+            "outputTokens": 3,
+            "cacheCreationTokens": 5,
+            "cacheReadTokens": 20,
+            "totalTokens": 40,
+        }]}
+        self.assertTrue(hermes.profile_is_covered_by_ccusage("main", rows, ccusage))
+
+        sessions = {}
+        for row in rows:
+            key = f"{row['profile']}:{row['id']}"
+            sessions[key] = {
+                "month": hermes.month_of(row["started_at"]),
+                "model": row["model"],
+                "inputTokens": row["input_tokens"],
+                "outputTokens": row["output_tokens"] + row["reasoning_tokens"],
+                "cacheCreationTokens": row["cache_write_tokens"],
+                "cacheReadTokens": row["cache_read_tokens"],
+            }
+
+        full, _ = hermes.aggregate_sessions(sessions)
+        cloud_only, _ = hermes.aggregate_sessions(sessions, {"main"})
+        self.assertEqual(full["totalTokens"], 60)
+        self.assertEqual(cloud_only["totalTokens"], 20)
+        self.assertEqual(ccusage["monthly"][0]["totalTokens"] + cloud_only["totalTokens"], 60)
+
+        incomplete = json.loads(json.dumps(ccusage))
+        incomplete["monthly"][0]["cacheReadTokens"] = 19
+        self.assertFalse(hermes.profile_is_covered_by_ccusage("main", rows, incomplete))
+
     def test_accounting_revision_is_stable_for_one_time_consumer_adoption(self):
         self.assertEqual(build.ACCOUNTING_REVISION, "codex-cumulative-v1")
         with open(ROOT.parent / "data" / "tokens.json") as fh:
