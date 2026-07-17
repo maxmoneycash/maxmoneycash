@@ -25,6 +25,12 @@ build = load_module("build_tokens_json")
 class TokenPipelineTests(unittest.TestCase):
     def test_accounting_revision_is_stable_for_one_time_consumer_adoption(self):
         self.assertEqual(build.ACCOUNTING_REVISION, "codex-cumulative-v1")
+        with open(ROOT.parent / "data" / "tokens.json") as fh:
+            artifact = json.load(fh)
+        self.assertEqual(
+            artifact.get("corrections", {}).get("accountingRevision"),
+            build.ACCOUNTING_REVISION,
+        )
 
     def test_codex_uses_cumulative_deltas_and_preserves_model_components(self):
         rows = [
