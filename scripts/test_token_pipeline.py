@@ -63,6 +63,14 @@ class TokenPipelineTests(unittest.TestCase):
                     "cacheReadTokens": 13,
                     "totalTokens": 50,
                     "totalCost": 0,
+                    "modelBreakdowns": [{
+                        "modelName": "model-a",
+                        "inputTokens": 5,
+                        "outputTokens": 7,
+                        "cacheCreationTokens": 11,
+                        "cacheReadTokens": 13,
+                        "cost": 0,
+                    }],
                 },
                 {
                     "period": "2026-07",
@@ -79,6 +87,10 @@ class TokenPipelineTests(unittest.TestCase):
         )
 
         self.assertEqual([row["totalTokens"] for row in rows], [50, 36])
+        self.assertEqual(
+            accounting.component_total(rows[0]["modelBreakdowns"][0]),
+            36,
+        )
         self.assertEqual(baseline.totals_of(rows)["totalTokens"], 86)
 
     def test_merge_conserves_month_daily_agent_and_true_source_totals(self):
@@ -97,19 +109,54 @@ class TokenPipelineTests(unittest.TestCase):
                 "models": {},
             }
 
-        monthly = merge.merge_monthly([{"monthly": [row("period", "2026-07", 30)]}])
-        daily = merge.merge_daily([{"daily": [row("period", "2026-07-18", 50)]}])
-        agent = merge.merge_agent([{"monthly": [row("month", "2026-07", 30)]}])
-        true_source = merge.merge_true([{"monthly": [row("month", "2026-07", 50)]}])
+        monthly_rows = [row("period", "2026-07", 30), row("period", "2026-07", 50)]
+        daily_rows = [row("period", "2026-07-18", 30), row("period", "2026-07-18", 50)]
+        agent_rows = [row("month", "2026-07", 30), row("month", "2026-07", 50)]
+        true_rows = [row("month", "2026-07", 30), row("month", "2026-07", 50)]
+        for rows in (agent_rows, true_rows):
+            for source_row in rows:
+                source_row["models"] = {"model-a": {
+                    "inputTokens": 5,
+                    "outputTokens": 7,
+                    "cacheCreationTokens": 11,
+                    "cacheReadTokens": 13,
+                    "totalTokens": source_row["totalTokens"],
+                    "cost": 0,
+                }}
 
-        self.assertEqual(monthly["monthly"][0]["totalTokens"], 36)
-        self.assertEqual(monthly["totals"]["totalTokens"], 36)
-        self.assertEqual(daily["daily"][0]["totalTokens"], 50)
-        self.assertEqual(daily["totals"]["totalTokens"], 50)
-        self.assertEqual(agent["monthly"][0]["totalTokens"], 36)
-        self.assertEqual(agent["totals"]["totalTokens"], 36)
-        self.assertEqual(true_source["monthly"][0]["totalTokens"], 50)
-        self.assertEqual(true_source["totals"]["totalTokens"], 50)
+        monthly = merge.merge_monthly([
+            {"monthly": [monthly_rows[0]]},
+            {"monthly": [monthly_rows[1]]},
+        ])
+        daily = merge.merge_daily([
+            {"daily": [daily_rows[0]]},
+            {"daily": [daily_rows[1]]},
+        ])
+        agent = merge.merge_agent([
+            {"monthly": [agent_rows[0]]},
+            {"monthly": [agent_rows[1]]},
+        ])
+        true_source = merge.merge_true([
+            {"monthly": [true_rows[0]]},
+            {"monthly": [true_rows[1]]},
+        ])
+
+        for result, section in (
+            (monthly, "monthly"),
+            (daily, "daily"),
+            (agent, "monthly"),
+            (true_source, "monthly"),
+        ):
+            self.assertEqual(result[section][0]["totalTokens"], 86)
+            self.assertEqual(result["totals"]["totalTokens"], 86)
+        self.assertEqual(agent["monthly"][0]["models"]["model-a"]["totalTokens"], 86)
+        self.assertEqual(true_source["monthly"][0]["models"]["model-a"]["totalTokens"], 86)
+
+        # Finalization must operate on copies, not mutate caller-owned receipts.
+        for rows in (monthly_rows, daily_rows, agent_rows, true_rows):
+            self.assertEqual([source_row["totalTokens"] for source_row in rows], [30, 50])
+        self.assertEqual(agent_rows[0]["models"]["model-a"]["totalTokens"], 30)
+        self.assertEqual(true_rows[0]["models"]["model-a"]["totalTokens"], 30)
 
     def test_build_conserves_every_public_accounting_boundary(self):
         def components(total):

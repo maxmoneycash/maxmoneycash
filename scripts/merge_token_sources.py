@@ -32,7 +32,9 @@ def merge_monthly(sources):
     """Merge ccusage monthly.json sources by period."""
     by_period = {}
     for src in sources:
-        for m in src.get("monthly", []):
+        for raw_month in src.get("monthly", []):
+            m = dict(raw_month)
+            floor_total_tokens(m)
             period = m["period"]
             if period not in by_period:
                 by_period[period] = {
@@ -56,7 +58,9 @@ def merge_monthly(sources):
             for model in m.get("modelsUsed", []):
                 if model not in out["modelsUsed"]:
                     out["modelsUsed"].append(model)
-            out["modelBreakdowns"].extend(m.get("modelBreakdowns", []))
+            out["modelBreakdowns"].extend(
+                dict(row) for row in m.get("modelBreakdowns", [])
+            )
             for agent in m.get("metadata", {}).get("agents", []):
                 if agent not in out["metadata"]["agents"]:
                     out["metadata"]["agents"].append(agent)
@@ -74,7 +78,9 @@ def merge_daily(sources):
     """Merge ccusage daily.json sources by period."""
     by_period = {}
     for src in sources:
-        for d in src.get("daily", []):
+        for raw_day in src.get("daily", []):
+            d = dict(raw_day)
+            floor_total_tokens(d)
             period = d["period"]
             if period not in by_period:
                 by_period[period] = {
@@ -98,7 +104,9 @@ def merge_daily(sources):
             for model in d.get("modelsUsed", []):
                 if model not in out["modelsUsed"]:
                     out["modelsUsed"].append(model)
-            out["modelBreakdowns"].extend(d.get("modelBreakdowns", []))
+            out["modelBreakdowns"].extend(
+                dict(row) for row in d.get("modelBreakdowns", [])
+            )
             for agent in d.get("metadata", {}).get("agents", []):
                 if agent not in out["metadata"]["agents"]:
                     out["metadata"]["agents"].append(agent)
@@ -116,7 +124,9 @@ def merge_agent(sources):
     """Merge per-agent ccusage JSON (agent-<name>.json) sources by month."""
     by_month = {}
     for src in sources:
-        for m in src.get("monthly", []):
+        for raw_month in src.get("monthly", []):
+            m = dict(raw_month)
+            floor_total_tokens(m)
             month = m["month"]
             if month not in by_month:
                 by_month[month] = {
@@ -135,7 +145,9 @@ def merge_agent(sources):
                 out[c] += m.get(c, 0)
             out["totalTokens"] += m.get("totalTokens", 0)
             out["totalCost"] += m.get("totalCost", 0.0)
-            for model, mm in (m.get("models") or {}).items():
+            for model, raw_model in (m.get("models") or {}).items():
+                mm = dict(raw_model)
+                floor_total_tokens(mm)
                 if model not in out["models"]:
                     out["models"][model] = {
                         "inputTokens": 0,
@@ -166,7 +178,9 @@ def merge_true(sources):
     """Merge codex-true / kimi-true / grok-true / cursor sources by month."""
     by_month = {}
     for src in sources:
-        for m in src.get("monthly", []):
+        for raw_month in src.get("monthly", []):
+            m = dict(raw_month)
+            floor_total_tokens(m)
             month = m["month"]
             if month not in by_month:
                 by_month[month] = {
@@ -184,7 +198,9 @@ def merge_true(sources):
                 out[c] += m.get(c, 0)
             out["totalTokens"] += m.get("totalTokens", 0)
             out["totalCost"] += m.get("totalCost", 0.0)
-            for model, mm in (m.get("models") or {}).items():
+            for model, raw_model in (m.get("models") or {}).items():
+                mm = dict(raw_model)
+                floor_total_tokens(mm)
                 if model not in out["models"]:
                     out["models"][model] = {
                         "inputTokens": 0,

@@ -36,7 +36,10 @@ def agg_models(breakdowns):
     out = {}
     for b in breakdowns or []:
         name = b.get("modelName", "unknown")
-        row = out.setdefault(name, {c: 0 for c in COMPONENTS} | {"cost": 0.0})
+        row = out.setdefault(
+            name,
+            {**{c: 0 for c in COMPONENTS}, "cost": 0.0},
+        )
         for c in COMPONENTS + ["cost"]:
             row[c] += b.get(c, 0)
     return out
