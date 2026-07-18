@@ -26,9 +26,94 @@ hermes = load_module("hermes_true_usage")
 common = load_module("common")
 accounting = load_module("token_accounting")
 baseline = load_module("make_cloud_baseline")
+heatmaps = load_module("render_heatmaps")
 
 
 class TokenPipelineTests(unittest.TestCase):
+    def test_public_calendar_fallback_parses_exact_counts_and_bounds_future_days(self):
+        markup = """
+        <td data-date="2025-12-31" id="day-0"></td>
+        <tool-tip for="day-0">5 contributions on December 31st.</tool-tip>
+        <td data-date="2026-07-17" id="day-1"></td>
+        <tool-tip for="day-1">1,234 contributions on July 17th.</tool-tip>
+        <td data-date="2026-07-18" id="day-2"></td>
+        <tool-tip for="day-2">No contributions on July 18th.</tool-tip>
+        <td data-date="2026-07-19" id="day-3"></td>
+        <tool-tip for="day-3">9 contributions on July 19th.</tool-tip>
+        """
+        calendar = heatmaps.parse_public_calendar(markup, through="2026-07-18")
+        days = calendar["weeks"][0]["contributionDays"]
+        self.assertEqual(days, [
+            {"date": "2026-07-17", "contributionCount": 1234},
+            {"date": "2026-07-18", "contributionCount": 0},
+        ])
+        self.assertEqual(calendar["totalContributions"], 1234)
+
+    def test_public_calendar_fallback_rejects_malformed_numeric_grouping(self):
+        markup = """
+        <td data-date="2026-07-17" id="day-1"></td>
+        <tool-tip for="day-1">1,,234 contributions on July 17th.</tool-tip>
+        """
+        with self.assertRaises(RuntimeError):
+            heatmaps.parse_public_calendar(markup, through="2026-07-18")
+
+    def test_public_calendar_fallback_rejects_partial_or_duplicate_markup(self):
+        mismatched = """
+        <td data-date="2026-07-17" id="day-1"></td>
+        <tool-tip for="day-1">1,234 contributions on July 17th.</tool-tip>
+        <td data-date="2026-07-18" id="day-2"></td>
+        <tool-tip for="wrong-day">2 contributions on July 18th.</tool-tip>
+        """
+        with self.assertRaises(RuntimeError):
+            heatmaps.parse_public_calendar(mismatched, through="2026-07-18")
+
+        duplicate = """
+        <td data-date="2026-07-17" id="day-1"></td>
+        <tool-tip for="day-1">1,234 contributions on July 17th.</tool-tip>
+        <td data-date="2026-07-17" id="day-2"></td>
+        <tool-tip for="day-2">2 contributions on July 17th.</tool-tip>
+        """
+        with self.assertRaises(RuntimeError):
+            heatmaps.parse_public_calendar(duplicate, through="2026-07-18")
+
+    def test_public_calendar_fallback_validates_every_cell_before_bounding(self):
+        malformed_future = """
+        <td data-date="2026-07-17" id="day-1"></td>
+        <tool-tip for="day-1">1 contribution on July 17th.</tool-tip>
+        <td data-date="2026-7-19" id="day-2"></td>
+        <tool-tip for="day-2">2 contributions on July 19th.</tool-tip>
+        """
+        with self.assertRaises(RuntimeError):
+            heatmaps.parse_public_calendar(malformed_future, through="2026-07-18")
+
+        impossible_date = """
+        <td data-date="2026-00-99" id="day-1"></td>
+        <tool-tip for="day-1">1 contribution on July 17th.</tool-tip>
+        """
+        with self.assertRaises(RuntimeError):
+            heatmaps.parse_public_calendar(impossible_date, through="2026-07-18")
+
+        missing_id = '<td data-date="2026-07-17"></td>'
+        with self.assertRaises(RuntimeError):
+            heatmaps.parse_public_calendar(missing_id, through="2026-07-18")
+
+    def test_calendar_fallback_requires_exact_structured_limit_error_type(self):
+        self.assertTrue(heatmaps.is_github_limit_error(RuntimeError([
+            {"type": "RESOURCE_LIMITS_EXCEEDED", "message": "limited"},
+        ])))
+        self.assertTrue(heatmaps.is_github_limit_error(RuntimeError([
+            {"type": "RATE_LIMITED", "message": "limited"},
+        ])))
+        self.assertFalse(heatmaps.is_github_limit_error(RuntimeError([
+            {"type": "OTHER", "message": "not RESOURCE_LIMITS_EXCEEDED"},
+        ])))
+        self.assertFalse(heatmaps.is_github_limit_error(RuntimeError([
+            {"type": "RATE_LIMITED"}, {"type": "OTHER"},
+        ])))
+        self.assertFalse(heatmaps.is_github_limit_error(
+            RuntimeError("RESOURCE_LIMITS_EXCEEDED")
+        ))
+
     def assert_components_conserved(self, row):
         if all(component in row and row[component] is not None for component in accounting.COMPONENTS):
             self.assertGreaterEqual(
