@@ -13,7 +13,9 @@ import json
 import pathlib
 import sys
 
-COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
+from token_accounting import COMPONENTS, floor_total_tokens
+
+
 AGENTS = ["claude", "codex", "droid", "kimi", "opencode"]
 TRUE_SOURCES = ["codex-true", "kimi-true", "grok-true", "cursor", "hermes-true"]
 
@@ -59,9 +61,12 @@ def merge_monthly(sources):
                 if agent not in out["metadata"]["agents"]:
                     out["metadata"]["agents"].append(agent)
     monthly = sorted(by_period.values(), key=lambda m: m["period"])
+    for month in monthly:
+        floor_total_tokens(month)
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
     totals["totalCost"] = sum(m["totalCost"] for m in monthly)
+    floor_total_tokens(totals)
     return {"monthly": monthly, "totals": totals}
 
 
@@ -98,9 +103,12 @@ def merge_daily(sources):
                 if agent not in out["metadata"]["agents"]:
                     out["metadata"]["agents"].append(agent)
     daily = sorted(by_period.values(), key=lambda d: d["period"])
+    for day in daily:
+        floor_total_tokens(day)
     totals = {c: sum(d.get(c, 0) for d in daily) for c in COMPONENTS}
     totals["totalTokens"] = sum(d["totalTokens"] for d in daily)
     totals["totalCost"] = sum(d["totalCost"] for d in daily)
+    floor_total_tokens(totals)
     return {"daily": daily, "totals": totals}
 
 
@@ -143,9 +151,14 @@ def merge_agent(sources):
                 if model not in out["modelsUsed"]:
                     out["modelsUsed"].append(model)
     monthly = sorted(by_month.values(), key=lambda m: m["month"])
+    for month in monthly:
+        floor_total_tokens(month)
+        for model in month["models"].values():
+            floor_total_tokens(model)
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
     totals["totalCost"] = sum(m["totalCost"] for m in monthly)
+    floor_total_tokens(totals)
     return {"monthly": monthly, "totals": totals}
 
 
@@ -185,9 +198,14 @@ def merge_true(sources):
                 for c in COMPONENTS + ["totalTokens", "cost"]:
                     om[c] += mm.get(c, 0)
     monthly = sorted(by_month.values(), key=lambda m: m["month"])
+    for month in monthly:
+        floor_total_tokens(month)
+        for model in month["models"].values():
+            floor_total_tokens(model)
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
     totals["totalCost"] = sum(m["totalCost"] for m in monthly)
+    floor_total_tokens(totals)
     return {"monthly": monthly, "totals": totals}
 
 
@@ -212,7 +230,8 @@ def main():
     for label, d in zip(labels, src_dirs):
         try:
             monthly = load(d, "monthly.json")
-            totals = monthly.get("totals", {})
+            totals = dict(monthly.get("totals", {}))
+            floor_total_tokens(totals)
         except FileNotFoundError:
             totals = {}
         sources.append({"label": label, "totals": totals})

@@ -21,14 +21,16 @@ import json
 import pathlib
 import sys
 
-COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
+from token_accounting import COMPONENTS, floor_total_tokens
+
+
 PLACEHOLDER_MODELS = {"auto", "default", "unknown"}
 MODEL_ALIASES = {
     "gpt-5-3-codex": "gpt-5.3-codex",
     "gpt-5-codex-high": "gpt-5-codex",
     "gpt-5.1-codex-high": "gpt-5.1-codex",
 }
-ACCOUNTING_REVISION = "codex-cumulative-v1"
+ACCOUNTING_REVISION = "headline-component-floor-v2"
 
 
 def load(d, name):
@@ -169,10 +171,20 @@ def infer_single_reported_model(reported, corrected):
     return out
 
 
+def conserve_agent_rows(agent):
+    floor_total_tokens(agent["totals"])
+    for month in agent["monthly"]:
+        floor_total_tokens(month)
+        for model in (month.get("models") or {}).values():
+            floor_total_tokens(model)
+
+
 def main():
     d = pathlib.Path(sys.argv[1])
     unified = load(d, "monthly.json")
     daily = load(d, "daily.json")
+    for day in daily["daily"]:
+        floor_total_tokens(day)
     agents_raw = {
         a: load(d, f"agent-{a}.json")
         for a in ("claude", "codex", "droid", "kimi", "opencode")
@@ -242,6 +254,7 @@ def main():
             breakdowns.append(dict(b))
         m["modelBreakdowns"] = breakdowns
         m["totalCost"] = total_cost
+        floor_total_tokens(m)
         monthly.append(m)
 
     # Merge a token-accounted side source (cursor dashboard, grok logs) into the
@@ -249,7 +262,9 @@ def main():
     by_period = {m["period"]: m for m in monthly}
 
     def merge_source(src, label):
-        for cm in src.get("monthly") or []:
+        for raw_month in src.get("monthly") or []:
+            cm = dict(raw_month)
+            floor_total_tokens(cm)
             m = by_period.get(cm["month"])
             if m is None:
                 m = {
@@ -302,7 +317,9 @@ def main():
         except FileNotFoundError:
             baseline = None
     if baseline:
-        for bm in baseline.get("monthly", []):
+        for raw_month in baseline.get("monthly", []):
+            bm = dict(raw_month)
+            floor_total_tokens(bm)
             m = by_period.get(bm["period"])
             if m is None:
                 m = {
@@ -326,7 +343,9 @@ def main():
                     agents_list.append(agent)
 
         by_day = {dd["period"]: dd for dd in daily["daily"]}
-        for bd in baseline.get("daily", []):
+        for raw_day in baseline.get("daily", []):
+            bd = dict(raw_day)
+            floor_total_tokens(bd)
             dd = by_day.get(bd["period"])
             if dd is None:
                 continue  # outside the live 35-day window; totals come from monthly
@@ -336,14 +355,18 @@ def main():
     # One public row per real model. Placeholder router labels remain counted
     # in all-time totals but are intentionally left unattributed.
     for m in monthly:
+        floor_total_tokens(m)
         m["modelBreakdowns"] = cap_model_breakdowns(m)
         m["modelsUsed"] = [row["modelName"] for row in m["modelBreakdowns"]]
+    for day in daily["daily"]:
+        floor_total_tokens(day)
 
     monthly.sort(key=lambda m: m["period"])
 
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
     totals["totalCost"] = sum(m["totalCost"] for m in monthly)
+    floor_total_tokens(totals)
 
     agents = {}
     for name, raw in agents_raw.items():
@@ -372,15 +395,23 @@ def main():
         "totals": copy.deepcopy(hermes.get("totals") or {}),
         "monthly": copy.deepcopy(hermes.get("monthly") or []),
     }
+    for agent in agents.values():
+        conserve_agent_rows(agent)
 
     if baseline:
         for name, b in (baseline.get("agents") or {}).items():
             a = agents.setdefault(name, {"totals": {}, "monthly": []})
             at = a["totals"]
+            baseline_totals = dict(b.get("totals", {}))
+            floor_total_tokens(baseline_totals)
             for c in COMPONENTS + ["totalTokens", "totalCost"]:
-                at[c] = at.get(c, 0) + b.get("totals", {}).get(c, 0)
+                at[c] = at.get(c, 0) + baseline_totals.get(c, 0)
             by_month = {m["month"]: m for m in a["monthly"]}
-            for bm in b.get("monthly", []):
+            for raw_month in b.get("monthly", []):
+                bm = copy.deepcopy(raw_month)
+                floor_total_tokens(bm)
+                for model in (bm.get("models") or {}).values():
+                    floor_total_tokens(model)
                 m = by_month.get(bm["month"])
                 if m is None:
                     a["monthly"].append(dict(bm))
@@ -399,6 +430,12 @@ def main():
             "label": "cloud-baseline",
             "totals": baseline.get("totals", {}),
         }]
+
+    for agent in agents.values():
+        conserve_agent_rows(agent)
+    for source in sources:
+        if isinstance(source.get("totals"), dict):
+            floor_total_tokens(source["totals"])
 
     out = {
         "generated_at": datetime.datetime.now(datetime.timezone.utc)
@@ -419,11 +456,14 @@ def main():
             "kimiTrueTotal": kimi_true["totals"].get("totalTokens"),
             "cloudHermesAccounted": rep_total(hermes.get("totals") or {}) > 0,
             "cloudHermesTotal": hermes.get("totals", {}).get("totalTokens", 0),
+            "componentTotalsConserved": True,
             "note": (
                 "codex counted from monotonic total_token_usage deltas; repeated token_count events removed. "
                 "kimi counted from ~/.kimi/sessions/**/wire.jsonl StatusUpdate "
                 "token_usage; ccusage reads user-history and undercounts. "
-                "daily[] series left as reported (relative shape only)."
+                "complete component rows are floored at input + output + cache write + cache read "
+                "while larger provider totals preserve unclassified/reasoning tokens. "
+                "daily[] period components remain as reported (relative shape only)."
             ),
         },
     }

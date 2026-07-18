@@ -25,7 +25,9 @@ build_tokens_json.py adds data/cloud-baseline.json back into every build.
 import json
 import sys
 
-COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
+from token_accounting import COMPONENTS, floor_total_tokens
+
+
 NUMS = COMPONENTS + ["totalTokens", "totalCost"]
 
 
@@ -63,6 +65,7 @@ def sub_series(old_rows, new_rows, key):
         row = {key: o[key]}
         for c in NUMS:
             row[c] = max(0, o.get(c, 0) - n.get(c, 0))
+        floor_total_tokens(row)
         if row["totalTokens"] <= 0:
             continue
         if "modelBreakdowns" in o:
@@ -90,6 +93,7 @@ def totals_of(rows):
     t = {c: sum(r.get(c, 0) for r in rows) for c in COMPONENTS}
     t["totalTokens"] = sum(r.get("totalTokens", 0) for r in rows)
     t["totalCost"] = sum(r.get("totalCost", 0.0) for r in rows)
+    floor_total_tokens(t)
     return t
 
 
