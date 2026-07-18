@@ -7,6 +7,7 @@ from common import (
     compact,
     esc,
     money,
+    source_total,
     write_svg,
 )
 
@@ -56,9 +57,8 @@ def render(gh, tokens):
 
     totals = tokens["totals"]
     agents = tokens["agents"]
-    sources = {s["label"]: s.get("totals", {}) for s in tokens.get("sources", [])}
-    cloud_total = sources.get("cloud", {}).get("totalTokens", 0)
-    local_total = sources.get("local", {}).get("totalTokens", 0)
+    cloud_total = source_total(tokens, "cloud")
+    local_total = source_total(tokens, "local")
     cloud_pct = 100 * cloud_total / totals["totalTokens"] if totals["totalTokens"] else 0
 
     W = 940

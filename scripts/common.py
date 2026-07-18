@@ -78,6 +78,16 @@ def load_tokens():
         return json.load(f)
 
 
+def source_total(tokens, label):
+    """Sum a source family, including durable/live variants such as cloud-* ."""
+    return sum(
+        (source.get("totals") or {}).get("totalTokens", 0) or 0
+        for source in tokens.get("sources", [])
+        if source.get("label") == label
+        or str(source.get("label", "")).startswith(f"{label}-")
+    )
+
+
 def _request(url, data=None, headers=None):
     req = urllib.request.Request(url, data=data, headers=headers or {})
     if TOKEN:

@@ -81,8 +81,24 @@ log "pulling results from $HOST"
 scp -q "$HOST:$REMOTE_DIR/*.json" "$OUT_DIR/"
 
 # Fold the hermes session dump into the committed cache and emit the merged
-# monthly series. The dump itself is not a merge source — remove it.
-python3 "$REPO_DIR/scripts/hermes_true_usage.py" "$OUT_DIR/hermes-sessions.json" > "$OUT_DIR/hermes-true.json"
+# monthly series. The Hermes `main` profile is mirrored into ccusage's default
+# cloud source. Exclude only the current dump's main sessions after proving
+# ccusage covers their durable cached values; pruned cache-only sessions remain
+# counted forever. The proof and exclusion happen in one process (no TOCTOU).
+python3 "$REPO_DIR/scripts/hermes_true_usage.py" \
+  "$OUT_DIR/hermes-sessions.json" \
+  --exclude-covered-dump-profile main "$OUT_DIR/monthly.json" \
+  > "$OUT_DIR/hermes-true.json"
+if python3 - "$OUT_DIR/hermes-true.json" <<'PYEOF'
+import json, sys
+data = json.load(open(sys.argv[1]))
+raise SystemExit(0 if "main" in data.get("excludedProfiles", []) else 1)
+PYEOF
+then
+  log "ccusage covers current Hermes main sessions; fencing duplicates"
+else
+  log "ccusage does not cover current Hermes main sessions; retaining them"
+fi
 rm -f "$OUT_DIR/hermes-sessions.json"
 
 # Clean up the remote temp dir.

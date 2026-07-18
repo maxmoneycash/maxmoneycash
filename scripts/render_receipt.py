@@ -5,7 +5,7 @@ import hashlib
 import re
 from collections import defaultdict
 
-from common import AGENT_LABELS, compact, esc, money, write_svg
+from common import AGENT_LABELS, compact, esc, money, source_total, write_svg
 
 PAPER = "#f7f3e9"
 INK = "#211c16"
@@ -101,9 +101,8 @@ def _paper_outline(h):
 def _build(tokens):
     totals = tokens["totals"]
     agents = tokens["agents"]
-    sources = {s["label"]: s.get("totals", {}) for s in tokens.get("sources", [])}
-    cloud_total = sources.get("cloud", {}).get("totalTokens", 0)
-    local_total = sources.get("local", {}).get("totalTokens", 0)
+    cloud_total = source_total(tokens, "cloud")
+    local_total = source_total(tokens, "local")
     now = datetime.datetime.now(datetime.timezone.utc)
     receipt_id = f"MMC_{now:%Y%m%d}_{hashlib.sha1(str(totals['totalTokens']).encode()).hexdigest()[:6].upper()}"
     first = datetime.datetime.strptime(tokens["monthly"][0]["period"], "%Y-%m")
