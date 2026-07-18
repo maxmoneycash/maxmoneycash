@@ -103,8 +103,9 @@ def session_keys_are_covered_by_ccusage(sessions, keys, ccusage):
     """Prove that ccusage covers selected durable Hermes sessions by month.
 
     The cache folds reasoning into outputTokens while ccusage exposes reasoning
-    only through totalTokens. Compare the other components plus totalTokens so
-    the proof remains valid for both old cache entries and fresh dump rows.
+    only through totalTokens. Durable dump-backed entries also retain their raw
+    output split, so compare raw output plus the other components and grand
+    total. If an old entry lacks a provable output split, fail closed.
     """
     selected_monthly = {}
     for key in keys:
@@ -114,13 +115,17 @@ def session_keys_are_covered_by_ccusage(sessions, keys, ccusage):
         month = entry["month"]
         bucket = selected_monthly.setdefault(month, {
             "inputTokens": 0,
+            "outputTokens": 0,
             "cacheCreationTokens": 0,
             "cacheReadTokens": 0,
             "totalTokens": 0,
         })
+        if "rawOutputTokens" not in entry:
+            return False
         for component in ("inputTokens", "cacheCreationTokens", "cacheReadTokens"):
             value = entry.get(component, 0)
             bucket[component] += value
+        bucket["outputTokens"] += entry["rawOutputTokens"]
         bucket["totalTokens"] += sum(entry.get(component, 0) for component in COMPONENTS)
 
     if not selected_monthly:
@@ -137,12 +142,15 @@ def session_keys_are_covered_by_ccusage(sessions, keys, ccusage):
 
 
 def entry_from_row(row):
+    raw_output = row.get("output_tokens") or 0
+    reasoning = row.get("reasoning_tokens") or 0
     return {
         "month": month_of(row.get("started_at")),
         "model": row.get("model") or "unknown",
         "inputTokens": row.get("input_tokens") or 0,
-        "outputTokens": (row.get("output_tokens") or 0)
-        + (row.get("reasoning_tokens") or 0),
+        "outputTokens": raw_output + reasoning,
+        "rawOutputTokens": raw_output,
+        "reasoningTokens": reasoning,
         "cacheCreationTokens": row.get("cache_write_tokens") or 0,
         "cacheReadTokens": row.get("cache_read_tokens") or 0,
     }
@@ -158,11 +166,35 @@ def fold_rows(sessions, rows):
             continue
         dump_keys.add(key)
         old = sessions.get(key)
-        # Session counters only grow; keep the largest snapshot ever seen.
-        if old is None or sum(entry[c] for c in COMPONENTS) >= sum(
-            old.get(c, 0) for c in COMPONENTS
-        ):
+        if old is None:
             sessions[key] = entry
+            continue
+
+        # Session counters only grow, but providers can flush components at
+        # different moments. Preserve the component-wise maximum rather than
+        # replacing an entry merely because its grand total is larger.
+        merged = dict(old)
+        merged["month"] = old.get("month") or entry["month"]
+        if not old.get("model") or old.get("model") == "unknown":
+            merged["model"] = entry["model"]
+        for component in ("inputTokens", "cacheCreationTokens", "cacheReadTokens"):
+            merged[component] = max(old.get(component, 0), entry[component])
+
+        raw_output = max(old.get("rawOutputTokens", 0), entry["rawOutputTokens"])
+        reasoning = max(old.get("reasoningTokens", 0), entry["reasoningTokens"])
+        split_total = raw_output + reasoning
+        old_output = old.get("outputTokens", 0)
+        if split_total >= old_output:
+            merged["rawOutputTokens"] = raw_output
+            merged["reasoningTokens"] = reasoning
+            merged["outputTokens"] = split_total
+        else:
+            # A legacy cache value is larger than the fresh split. Keep it,
+            # but remove the unprovable split so overlap fencing fails closed.
+            merged["outputTokens"] = old_output
+            merged.pop("rawOutputTokens", None)
+            merged.pop("reasoningTokens", None)
+        sessions[key] = merged
     return dump_keys
 
 

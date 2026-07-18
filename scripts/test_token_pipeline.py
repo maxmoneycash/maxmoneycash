@@ -178,6 +178,59 @@ class TokenPipelineTests(unittest.TestCase):
         full, _ = hermes.aggregate_sessions(sessions)
         self.assertEqual(full["totalTokens"], 100)
 
+    def test_hermes_fold_is_componentwise_monotonic(self):
+        sessions = {
+            "main:offset": {
+                "month": "2026-07",
+                "model": "gpt-main",
+                "inputTokens": 100,
+                "outputTokens": 10,
+                "cacheCreationTokens": 0,
+                "cacheReadTokens": 100,
+            }
+        }
+        hermes.fold_rows(sessions, [{
+            "profile": "main",
+            "id": "offset",
+            "started_at": 1783294784,
+            "model": "gpt-main",
+            "input_tokens": 90,
+            "output_tokens": 31,
+            "reasoning_tokens": 0,
+            "cache_write_tokens": 0,
+            "cache_read_tokens": 100,
+        }])
+        entry = sessions["main:offset"]
+        self.assertEqual(entry["inputTokens"], 100)
+        self.assertEqual(entry["outputTokens"], 31)
+        self.assertEqual(entry["cacheReadTokens"], 100)
+        total, _ = hermes.aggregate_sessions(sessions)
+        self.assertEqual(total["totalTokens"], 231)
+
+    def test_hermes_overlap_requires_raw_output_coverage(self):
+        rows = [{
+            "profile": "main",
+            "id": "output",
+            "started_at": 1783294784,
+            "model": "gpt-main",
+            "input_tokens": 100,
+            "output_tokens": 100,
+            "reasoning_tokens": 0,
+            "cache_write_tokens": 0,
+            "cache_read_tokens": 0,
+        }]
+        ccusage = {"monthly": [{
+            "period": "2026-07",
+            "inputTokens": 200,
+            "outputTokens": 0,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 0,
+            "totalTokens": 200,
+        }]}
+        self.assertFalse(
+            hermes.profile_is_covered_by_ccusage("main", rows, ccusage)
+        )
+
     def test_accounting_revision_is_stable_for_one_time_consumer_adoption(self):
         self.assertEqual(build.ACCOUNTING_REVISION, "codex-cumulative-v1")
         with open(ROOT.parent / "data" / "tokens.json") as fh:
