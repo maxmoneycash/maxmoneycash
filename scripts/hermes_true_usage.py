@@ -25,9 +25,10 @@ Cost = 0 (subscription OAuth, no per-token price).
 Usage:
   hermes_true_usage.py <hermes-sessions.json>   fold dump into cache, emit monthly
   hermes_true_usage.py                          emit from cache alone (box offline)
-  hermes_true_usage.py <dump> --exclude-profile main
-      fold every session into the durable cache, but omit a profile from this
-      output when another collector source already includes it
+  hermes_true_usage.py <dump> --exclude-covered-dump-profile main <ccusage.json>
+      fold every session into the durable cache, then omit only the current
+      dump's profile sessions that ccusage proves it already includes. Older
+      cached sessions stay visible even if the box prunes them.
 
 Outputs {totals, monthly:[...]} (cursor/codex schema) to stdout.
 """
@@ -72,13 +73,14 @@ def empty_model():
     return bucket
 
 
-def aggregate_sessions(sessions, excluded_profiles=None):
-    """Aggregate the durable cache, optionally hiding already-counted profiles."""
+def aggregate_sessions(sessions, excluded_profiles=None, excluded_keys=None):
+    """Aggregate cache, optionally hiding already-counted profiles or sessions."""
     excluded_profiles = set(excluded_profiles or ())
+    excluded_keys = set(excluded_keys or ())
     monthly = {}
     for key, entry in sessions.items():
         profile = key.split(":", 1)[0]
-        if profile in excluded_profiles:
+        if profile in excluded_profiles or key in excluded_keys:
             continue
         m = monthly.setdefault(entry["month"], empty_month())
         model = entry.get("model") or "unknown"
@@ -97,35 +99,34 @@ def aggregate_sessions(sessions, excluded_profiles=None):
     return totals, out_monthly
 
 
-def profile_is_covered_by_ccusage(profile, rows, ccusage):
-    """Prove that ccusage already contains a Hermes profile month by month.
+def session_keys_are_covered_by_ccusage(sessions, keys, ccusage):
+    """Prove that ccusage covers selected durable Hermes sessions by month.
 
-    Hermes records reasoning separately while ccusage folds it into totalTokens,
-    so outputTokens is compared without reasoning and totalTokens with it.
-    Component-wise coverage also keeps this valid if direct cloud usage is added
-    alongside the mirrored profile later.
+    The cache folds reasoning into outputTokens while ccusage exposes reasoning
+    only through totalTokens. Compare the other components plus totalTokens so
+    the proof remains valid for both old cache entries and fresh dump rows.
     """
-    profile_monthly = {}
-    for row in rows:
-        if (row.get("profile") or "main") != profile:
+    selected_monthly = {}
+    for key in keys:
+        entry = sessions.get(key)
+        if not entry:
             continue
-        month = month_of(row.get("started_at"))
-        bucket = profile_monthly.setdefault(month, {c: 0 for c in COMPONENTS + ["totalTokens"]})
-        values = {
-            "inputTokens": row.get("input_tokens") or 0,
-            "outputTokens": row.get("output_tokens") or 0,
-            "cacheCreationTokens": row.get("cache_write_tokens") or 0,
-            "cacheReadTokens": row.get("cache_read_tokens") or 0,
-        }
-        for component, value in values.items():
+        month = entry["month"]
+        bucket = selected_monthly.setdefault(month, {
+            "inputTokens": 0,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 0,
+            "totalTokens": 0,
+        })
+        for component in ("inputTokens", "cacheCreationTokens", "cacheReadTokens"):
+            value = entry.get(component, 0)
             bucket[component] += value
-            bucket["totalTokens"] += value
-        bucket["totalTokens"] += row.get("reasoning_tokens") or 0
+        bucket["totalTokens"] += sum(entry.get(component, 0) for component in COMPONENTS)
 
-    if not profile_monthly:
+    if not selected_monthly:
         return False
     ccusage_monthly = {row.get("period"): row for row in ccusage.get("monthly") or []}
-    for month, expected in profile_monthly.items():
+    for month, expected in selected_monthly.items():
         observed = ccusage_monthly.get(month)
         if not observed:
             return False
@@ -135,23 +136,65 @@ def profile_is_covered_by_ccusage(profile, rows, ccusage):
     return True
 
 
+def entry_from_row(row):
+    return {
+        "month": month_of(row.get("started_at")),
+        "model": row.get("model") or "unknown",
+        "inputTokens": row.get("input_tokens") or 0,
+        "outputTokens": (row.get("output_tokens") or 0)
+        + (row.get("reasoning_tokens") or 0),
+        "cacheCreationTokens": row.get("cache_write_tokens") or 0,
+        "cacheReadTokens": row.get("cache_read_tokens") or 0,
+    }
+
+
+def fold_rows(sessions, rows):
+    """Fold a dump into the durable cache and return its non-empty session keys."""
+    dump_keys = set()
+    for row in rows:
+        key = f"{row.get('profile', 'main')}:{row['id']}"
+        entry = entry_from_row(row)
+        if sum(entry[c] for c in COMPONENTS) == 0:
+            continue
+        dump_keys.add(key)
+        old = sessions.get(key)
+        # Session counters only grow; keep the largest snapshot ever seen.
+        if old is None or sum(entry[c] for c in COMPONENTS) >= sum(
+            old.get(c, 0) for c in COMPONENTS
+        ):
+            sessions[key] = entry
+    return dump_keys
+
+
+def profile_is_covered_by_ccusage(profile, rows, ccusage):
+    """Compatibility helper: prove coverage for a profile in one dump."""
+    sessions = {}
+    dump_keys = fold_rows(sessions, rows)
+    profile_keys = {
+        key for key in dump_keys if key.split(":", 1)[0] == profile
+    }
+    return session_keys_are_covered_by_ccusage(sessions, profile_keys, ccusage)
+
+
 def parse_output_args(args):
     dump_path = None
-    excluded_profiles = set()
+    covered_dump_profiles = []
     index = 0
     while index < len(args):
         arg = args[index]
-        if arg == "--exclude-profile":
-            index += 1
-            if index >= len(args):
-                raise SystemExit("--exclude-profile requires a profile name")
-            excluded_profiles.add(args[index])
+        if arg == "--exclude-covered-dump-profile":
+            if index + 2 >= len(args):
+                raise SystemExit(
+                    "--exclude-covered-dump-profile requires a profile and ccusage file"
+                )
+            covered_dump_profiles.append((args[index + 1], args[index + 2]))
+            index += 2
         elif dump_path is None:
             dump_path = arg
         else:
             raise SystemExit(f"unexpected argument: {arg}")
         index += 1
-    return dump_path, excluded_profiles
+    return dump_path, covered_dump_profiles
 
 
 def main():
@@ -164,43 +207,49 @@ def main():
         profile, ccusage_path, dump_path = sys.argv[2:]
         ccusage = json.loads(pathlib.Path(ccusage_path).read_text())
         rows = json.loads(pathlib.Path(dump_path).read_text())
-        raise SystemExit(0 if profile_is_covered_by_ccusage(profile, rows, ccusage) else 1)
+        sessions = load_cache()["sessions"]
+        dump_keys = fold_rows(sessions, rows)
+        profile_keys = {
+            key for key in dump_keys if key.split(":", 1)[0] == profile
+        }
+        raise SystemExit(
+            0 if session_keys_are_covered_by_ccusage(
+                sessions, profile_keys, ccusage
+            ) else 1
+        )
 
-    dump_path, excluded_profiles = parse_output_args(sys.argv[1:])
+    dump_path, covered_dump_profiles = parse_output_args(sys.argv[1:])
     cache = load_cache()
     sessions = cache["sessions"]
+    dump_keys = set()
 
     if dump_path:
         dump = json.loads(pathlib.Path(dump_path).read_text())
-        for row in dump:
-            key = f"{row.get('profile', 'main')}:{row['id']}"
-            entry = {
-                "month": month_of(row.get("started_at")),
-                "model": row.get("model") or "unknown",
-                "inputTokens": row.get("input_tokens") or 0,
-                "outputTokens": (row.get("output_tokens") or 0)
-                + (row.get("reasoning_tokens") or 0),
-                "cacheCreationTokens": row.get("cache_write_tokens") or 0,
-                "cacheReadTokens": row.get("cache_read_tokens") or 0,
-            }
-            if sum(entry[c] for c in COMPONENTS) == 0:
-                continue
-            old = sessions.get(key)
-            # session counters only grow; keep the largest snapshot ever seen
-            if old is None or sum(entry[c] for c in COMPONENTS) >= sum(
-                old.get(c, 0) for c in COMPONENTS
-            ):
-                sessions[key] = entry
+        dump_keys = fold_rows(sessions, dump)
         CACHE.write_text(json.dumps(cache, sort_keys=True))
 
-    totals, out_monthly = aggregate_sessions(sessions, excluded_profiles)
+    excluded_keys = set()
+    covered_profiles = []
+    for profile, ccusage_path in covered_dump_profiles:
+        profile_keys = {
+            key for key in dump_keys if key.split(":", 1)[0] == profile
+        }
+        ccusage = json.loads(pathlib.Path(ccusage_path).read_text())
+        if session_keys_are_covered_by_ccusage(
+            sessions, profile_keys, ccusage
+        ):
+            excluded_keys.update(profile_keys)
+            covered_profiles.append(profile)
+
+    totals, out_monthly = aggregate_sessions(sessions, excluded_keys=excluded_keys)
     generated = (datetime.datetime.now(datetime.timezone.utc)
                  .isoformat(timespec="seconds").replace("+00:00", "Z"))
     json.dump({
         "totals": totals,
         "monthly": out_monthly,
         "generated_at": generated,
-        "excludedProfiles": sorted(excluded_profiles),
+        "excludedProfiles": sorted(set(covered_profiles)),
+        "excludedSessionCount": len(excluded_keys),
     }, sys.stdout)
 
 

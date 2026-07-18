@@ -82,17 +82,22 @@ scp -q "$HOST:$REMOTE_DIR/*.json" "$OUT_DIR/"
 
 # Fold the hermes session dump into the committed cache and emit the merged
 # monthly series. The Hermes `main` profile is mirrored into ccusage's default
-# cloud source; exclude it only after proving ccusage covers every component.
-# All sessions still enter the durable cache so an offline fallback stays whole.
-if python3 "$REPO_DIR/scripts/hermes_true_usage.py" \
-    --profile-covered-by-ccusage main \
-    "$OUT_DIR/monthly.json" "$OUT_DIR/hermes-sessions.json"; then
-  log "ccusage covers Hermes main profile; fencing duplicate profile"
-  python3 "$REPO_DIR/scripts/hermes_true_usage.py" \
-    "$OUT_DIR/hermes-sessions.json" --exclude-profile main > "$OUT_DIR/hermes-true.json"
+# cloud source. Exclude only the current dump's main sessions after proving
+# ccusage covers their durable cached values; pruned cache-only sessions remain
+# counted forever. The proof and exclusion happen in one process (no TOCTOU).
+python3 "$REPO_DIR/scripts/hermes_true_usage.py" \
+  "$OUT_DIR/hermes-sessions.json" \
+  --exclude-covered-dump-profile main "$OUT_DIR/monthly.json" \
+  > "$OUT_DIR/hermes-true.json"
+if python3 - "$OUT_DIR/hermes-true.json" <<'PYEOF'
+import json, sys
+data = json.load(open(sys.argv[1]))
+raise SystemExit(0 if "main" in data.get("excludedProfiles", []) else 1)
+PYEOF
+then
+  log "ccusage covers current Hermes main sessions; fencing duplicates"
 else
-  python3 "$REPO_DIR/scripts/hermes_true_usage.py" \
-    "$OUT_DIR/hermes-sessions.json" > "$OUT_DIR/hermes-true.json"
+  log "ccusage does not cover current Hermes main sessions; retaining them"
 fi
 rm -f "$OUT_DIR/hermes-sessions.json"
 

@@ -92,6 +92,92 @@ class TokenPipelineTests(unittest.TestCase):
         incomplete["monthly"][0]["cacheReadTokens"] = 19
         self.assertFalse(hermes.profile_is_covered_by_ccusage("main", rows, incomplete))
 
+    def test_hermes_pruned_sessions_survive_current_dump_overlap_fence(self):
+        sessions = {
+            "main:old": {
+                "month": "2026-06",
+                "model": "gpt-main",
+                "inputTokens": 25,
+                "outputTokens": 5,
+                "cacheCreationTokens": 0,
+                "cacheReadTokens": 70,
+            }
+        }
+        rows = [{
+            "profile": "main",
+            "id": "live",
+            "started_at": 1783294784,
+            "model": "gpt-main",
+            "input_tokens": 2,
+            "output_tokens": 1,
+            "reasoning_tokens": 0,
+            "cache_write_tokens": 0,
+            "cache_read_tokens": 7,
+        }]
+        dump_keys = hermes.fold_rows(sessions, rows)
+        ccusage = {"monthly": [{
+            "period": "2026-07",
+            "inputTokens": 2,
+            "outputTokens": 1,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 7,
+            "totalTokens": 10,
+        }]}
+        self.assertTrue(
+            hermes.session_keys_are_covered_by_ccusage(
+                sessions, dump_keys, ccusage
+            )
+        )
+        full, _ = hermes.aggregate_sessions(sessions)
+        publishable, _ = hermes.aggregate_sessions(
+            sessions, excluded_keys=dump_keys
+        )
+        self.assertEqual(full["totalTokens"], 110)
+        self.assertEqual(publishable["totalTokens"], 100)
+        self.assertEqual(
+            publishable["totalTokens"]
+            + ccusage["monthly"][0]["totalTokens"],
+            full["totalTokens"],
+        )
+
+    def test_hermes_regressed_live_row_cannot_hide_larger_cached_session(self):
+        sessions = {
+            "main:live": {
+                "month": "2026-07",
+                "model": "gpt-main",
+                "inputTokens": 25,
+                "outputTokens": 5,
+                "cacheCreationTokens": 0,
+                "cacheReadTokens": 70,
+            }
+        }
+        dump_keys = hermes.fold_rows(sessions, [{
+            "profile": "main",
+            "id": "live",
+            "started_at": 1783294784,
+            "model": "gpt-main",
+            "input_tokens": 2,
+            "output_tokens": 1,
+            "reasoning_tokens": 0,
+            "cache_write_tokens": 0,
+            "cache_read_tokens": 7,
+        }])
+        ccusage = {"monthly": [{
+            "period": "2026-07",
+            "inputTokens": 2,
+            "outputTokens": 1,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 7,
+            "totalTokens": 10,
+        }]}
+        self.assertFalse(
+            hermes.session_keys_are_covered_by_ccusage(
+                sessions, dump_keys, ccusage
+            )
+        )
+        full, _ = hermes.aggregate_sessions(sessions)
+        self.assertEqual(full["totalTokens"], 100)
+
     def test_accounting_revision_is_stable_for_one_time_consumer_adoption(self):
         self.assertEqual(build.ACCOUNTING_REVISION, "codex-cumulative-v1")
         with open(ROOT.parent / "data" / "tokens.json") as fh:
