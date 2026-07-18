@@ -18,20 +18,41 @@ cd "$REPO_DIR"
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 
 # --- single-run lock: never let two collections overlap (they'd race git) ---
-LOCK="$(git rev-parse --git-path tokenstats.lock)"
-if ! mkdir "$LOCK" 2>/dev/null; then
-  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +15 2>/dev/null)" ]; then
-    log "stale lock (>15m); reclaiming"; rm -rf "$LOCK"; mkdir "$LOCK"
-  else
-    log "another run in progress; skipping"; exit 0
+# `lockf` holds an OS-level exclusive lock on fd 9 for this shell's lifetime.
+# Unlike an age-based directory takeover, it cannot steal or unlink another
+# live process's lock. `-k` keeps the inert file so concurrent open/unlock
+# ordering stays well-defined.
+LOCK_FILE="$(git rev-parse --git-path tokenstats.flock)"
+exec 9>"$LOCK_FILE"
+if ! lockf -s -t 0 9; then
+  log "another run is still alive; skipping"; exit 0
+fi
+
+# One-time compatibility with the directory lock used by older revisions.
+# A pre-upgrade collector that is still alive wins; a fresh ambiguous lock
+# fails closed; only an old lock with no live owner is removed. All new
+# revisions are already serialized above, so they cannot race this migration.
+LEGACY_LOCK="$(git rev-parse --git-path tokenstats.lock)"
+if [ -d "$LEGACY_LOCK" ]; then
+  OWNER_PID=""
+  if [ -f "$LEGACY_LOCK/pid" ]; then
+    read -r OWNER_PID < "$LEGACY_LOCK/pid" || OWNER_PID=""
   fi
+  if [[ "$OWNER_PID" =~ ^[0-9]+$ ]] && kill -0 "$OWNER_PID" 2>/dev/null; then
+    log "pre-upgrade run is still alive (pid $OWNER_PID); skipping"; exit 0
+  fi
+  if [ -z "$(find "$LEGACY_LOCK" -maxdepth 0 -mmin +15 2>/dev/null)" ]; then
+    log "pre-upgrade lock is fresh; skipping"; exit 0
+  fi
+  log "removing stale pre-upgrade lock (>15m)"
+  rm -rf "$LEGACY_LOCK"
 fi
 TMP=$(mktemp -d)
 LOCAL="$TMP/local"
 CLOUD="$TMP/cloud"
 MERGED="$TMP/merged"
 mkdir -p "$LOCAL" "$CLOUD" "$MERGED"
-trap 'rm -rf "$LOCK" "$TMP"' EXIT
+trap 'rm -rf "$TMP"' EXIT
 
 # --- collect local ccusage sources SEQUENTIALLY. Parallel bunx/ccusage invocations
 #     race on the package cache and produced empty/partial JSON (the root cause
