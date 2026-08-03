@@ -80,12 +80,29 @@ def load_tokens():
 
 def source_total(tokens, label):
     """Sum a source family, including durable/live variants such as cloud-* ."""
-    return sum(
+    raw_total = sum(
         (source.get("totals") or {}).get("totalTokens", 0) or 0
         for source in tokens.get("sources", [])
         if source.get("label") == label
         or str(source.get("label", "")).startswith(f"{label}-")
     )
+    if label != "local":
+        return raw_total
+
+    # sources.local comes from ccusage before independently audited Codex/Kimi
+    # replacements and Cursor/Grok Build side ledgers are applied. Cloud
+    # receipts are already durable and separately labeled, so render local as
+    # the audited headline remainder. This keeps the public fleet split reconcilable.
+    headline = (tokens.get("totals") or {}).get("totalTokens")
+    if headline is None:
+        return raw_total
+    cloud_total = sum(
+        (source.get("totals") or {}).get("totalTokens", 0) or 0
+        for source in tokens.get("sources", [])
+        if source.get("label") == "cloud"
+        or str(source.get("label", "")).startswith("cloud-")
+    )
+    return max(0, headline - cloud_total)
 
 
 def _request(url, data=None, headers=None):

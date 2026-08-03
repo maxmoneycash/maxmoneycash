@@ -12,9 +12,15 @@ import base64
 import datetime
 import json
 import pathlib
+import ssl
 import sqlite3
 import sys
 import urllib.request
+
+try:
+    import certifi
+except ImportError:
+    certifi = None
 
 DB = (
     pathlib.Path.home()
@@ -27,7 +33,16 @@ EMPTY = {
     },
     "monthly": [],
 }
-START = (2023, 1)
+# Cursor's dashboard was request-counted before July 2025, so earlier calls
+# cannot contribute token-accounted rows and only slow or destabilize refreshes.
+START = (2025, 7)
+
+
+def tls_context():
+    """Use certifi when the framework Python has no usable system CA store."""
+    if certifi is not None:
+        return ssl.create_default_context(cafile=certifi.where())
+    return ssl.create_default_context()
 
 
 def bail(reason):
@@ -71,7 +86,7 @@ def post(path, body, ck):
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
         },
     )
-    with urllib.request.urlopen(req, timeout=45) as r:
+    with urllib.request.urlopen(req, timeout=45, context=tls_context()) as r:
         return json.loads(r.read().decode())
 
 
