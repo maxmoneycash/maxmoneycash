@@ -7,8 +7,8 @@
 ## <samp>~ ❯ commits.sh --live</samp>
 
 <a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light&v=b8dc7a1"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark&v=b8dc7a1" width="720" alt="$MAXMONEYCASH on commits.sh — all-time commit velocity with a live forming candle"/>
 </picture></a>
 
 ## <samp>~ ❯ ccusage --all-time</samp>
