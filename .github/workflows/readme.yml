@@ -28,6 +28,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Test card pipeline
+        run: |
+          python scripts/test_token_pipeline.py
+          python scripts/test_cachebust_readme.py
+
       - name: Render cards
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
