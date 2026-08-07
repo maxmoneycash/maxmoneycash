@@ -1,14 +1,17 @@
 <div align="center">
 
-<a href="https://github.com/maxmoneycash/maxmoneycash"><img src="./assets/neofetch.svg?v=31211363138-07-18T13:50:53Z-07-18T13:50:53Z" width="100%" alt="neofetch — maxmoneycash@github"/></a>
+<a href="https://commits.sh/maxmoneycash"><picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=profile&theme=light&v=3f4431a-56963"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=profile&theme=dark&v=3f4431a-56963" width="100%" alt="maxmoneycash at GitHub — live all-time coding profile"/>
+</picture></a>
 
 <br/>
 
 ## <samp>~ ❯ commits.sh --live</samp>
 
 <a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light&v=canonical-20260807"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark&v=canonical-20260807" width="720" alt="$MAXMONEYCASH on commits.sh — all-time commit velocity with a live forming candle"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light&v=3f4431a-56963"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark&v=3f4431a-56963" width="720" alt="$MAXMONEYCASH on commits.sh — all-time commit velocity with a live forming candle"/>
 </picture></a>
 
 ## <samp>~ ❯ commits.sh --ledger</samp>
@@ -18,12 +21,10 @@
 <br/><br/>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=statement&theme=light&v=canonical-20260807"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=statement&theme=dark&v=canonical-20260807" width="440" alt="$MAXMONEYCASH live AI compute statement"/>
-</picture></a>
-<a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=token-ops&theme=light&v=canonical-20260807"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=token-ops&theme=dark&v=canonical-20260807" width="440" alt="$MAXMONEYCASH live token operations and model usage"/>
+<source media="(max-width: 600px) and (prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-stack&theme=light&v=3f4431a-56963"/>
+<source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-stack&theme=dark&v=3f4431a-56963"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-row&theme=light&v=3f4431a-56963"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-row&theme=dark&v=3f4431a-56963" width="100%" alt="$MAXMONEYCASH live AI compute statement and model operations ledger"/>
 </picture></a>
 
 ## <samp>~ ❯ git log --graph --all</samp>
@@ -37,8 +38,8 @@
 ## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=light&v=canonical-20260807"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=dark&v=canonical-20260807" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=light&v=3f4431a-56963"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=dark&v=3f4431a-56963" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
 </picture></a>
 
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
@@ -62,8 +63,8 @@
 ## <samp>~ ❯ wrapped --share</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=wrapped&theme=light&v=canonical-20260807"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=wrapped&theme=dark&v=canonical-20260807" width="720" alt="$MAXMONEYCASH year in tokens — live annual compute report"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=wrapped&theme=light&v=3f4431a-56963"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=wrapped&theme=dark&v=3f4431a-56963" width="720" alt="$MAXMONEYCASH all-time in tokens — live compute report"/>
 </picture></a>
 
 <br/>
