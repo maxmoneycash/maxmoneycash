@@ -23,6 +23,7 @@ codex = load_module("codex_true_usage")
 merge = load_module("merge_token_sources")
 build = load_module("build_tokens_json")
 hermes = load_module("hermes_true_usage")
+grok_usage = load_module("grok_true_usage")
 common = load_module("common")
 accounting = load_module("token_accounting")
 baseline = load_module("make_cloud_baseline")
@@ -50,6 +51,69 @@ class TokenPipelineTests(unittest.TestCase):
             'style=wrapped&',
         ):
             self.assertNotIn(redesigned, readme)
+
+    def test_grok_build_model_timeline_tracks_the_active_recorded_model(self):
+        timelines = {"session-a": [
+            ("2026-07-08T00:00:00.000Z", "grok-4.20"),
+            ("2026-07-08T08:00:00.000Z", "grok-4.5"),
+        ]}
+
+        self.assertEqual(
+            grok_usage.model_at(
+                timelines, "session-a", "2026-07-08T07:59:59.999Z"
+            ),
+            "grok-4.20",
+        )
+        self.assertEqual(
+            grok_usage.model_at(
+                timelines, "session-a", "2026-07-08T08:00:00.000Z"
+            ),
+            "grok-4.5",
+        )
+        self.assertEqual(
+            grok_usage.model_at(timelines, "missing", "2026-07-08T09:00:00.000Z"),
+            "unknown",
+        )
+        self.assertEqual(
+            grok_usage.model_at(
+                timelines, "session-a", "2026-07-07T23:59:59.999Z"
+            ),
+            "unknown",
+        )
+
+    def test_grok_build_cache_migration_preserves_total_and_marks_rotated_history(self):
+        monthly = {"2026-07": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 70,
+            "totalTokens": 100,
+            "calls": 3,
+        }}
+        records = [{
+            "id": "inference-a",
+            "month": "2026-07",
+            "model": "grok-4.5",
+            "usage": {
+                "inputTokens": 5,
+                "outputTokens": 2,
+                "cacheCreationTokens": 0,
+                "cacheReadTokens": 28,
+                "totalTokens": 35,
+            },
+        }]
+
+        grok_usage.migrate_legacy_months(monthly, records, {"inference-a"})
+
+        month = monthly["2026-07"]
+        self.assertEqual(month["totalTokens"], 100)
+        self.assertEqual(month["models"]["grok-4.5"]["totalTokens"], 35)
+        self.assertEqual(month["models"]["unknown"]["totalTokens"], 65)
+        for component in grok_usage.COMPONENTS + ["totalTokens"]:
+            self.assertEqual(
+                sum(model[component] for model in month["models"].values()),
+                month[component],
+            )
 
     def test_public_calendar_fallback_parses_exact_counts_and_bounds_future_days(self):
         markup = """
@@ -368,14 +432,14 @@ class TokenPipelineTests(unittest.TestCase):
         )
 
     def test_cloud_source_family_includes_baseline_and_live_hermes(self):
-        tokens = {"sources": [
+        tokens = {"totals": {"totalTokens": 150}, "sources": [
             {"label": "local", "totals": {"totalTokens": 100}},
             {"label": "cloud", "totals": {"totalTokens": 20}},
             {"label": "cloud-baseline", "totals": {"totalTokens": 30}},
             {"label": "cloud-hermes", "totals": {"totalTokens": 40}},
         ]}
         self.assertEqual(common.source_total(tokens, "cloud"), 90)
-        self.assertEqual(common.source_total(tokens, "local"), 100)
+        self.assertEqual(common.source_total(tokens, "local"), 60)
 
     def test_hermes_profile_overlap_fence_counts_cloud_sessions_once(self):
         rows = [

@@ -14,10 +14,13 @@ Field mapping → tokens.json schema:
   cacheCreationTokens = 0  (grok reports none)
 
 Grok runs on a subscription with no per-token price in our data, so cost = 0.
-Per-inference logs carry no model name, so usage is bucketed under "grok-build".
+Per-inference logs carry no model name. The matching session event stream does,
+so records still present on disk are joined to the active `turn_started.model_id`.
+Historical cached usage whose raw record has rotated away remains `unknown`.
 
 Outputs the accumulated {totals, monthly:[...]} (cursor/codex schema) to stdout.
 """
+import bisect
 import datetime
 import glob
 import json
@@ -28,19 +31,26 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CACHE = ROOT / "data" / "grok-cache.json"
 GROK_HOME = pathlib.Path(os.environ.get("GROK_HOME", pathlib.Path.home() / ".grok"))
-MODEL = "grok-build"
+UNKNOWN_MODEL = "unknown"
+CACHE_VERSION = 2
 COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
 SEEN_CAP = 100_000  # rolling log means old ids never reappear; bound cache size
 
 
 def empty_month():
     return {"inputTokens": 0, "outputTokens": 0, "cacheCreationTokens": 0,
-            "cacheReadTokens": 0, "totalTokens": 0, "calls": 0}
+            "cacheReadTokens": 0, "totalTokens": 0, "calls": 0, "models": {}}
+
+
+def empty_model():
+    return {"inputTokens": 0, "outputTokens": 0, "cacheCreationTokens": 0,
+            "cacheReadTokens": 0, "totalTokens": 0}
 
 
 def load_cache():
     try:
         c = json.loads(CACHE.read_text())
+        c.setdefault("version", 1)
         c.setdefault("monthly", {})
         c.setdefault("seen", [])
         # A 2026-06-21 commit stored this script's OUTPUT (monthly as a list)
@@ -49,10 +59,118 @@ def load_cache():
         # strict subset of the still-unrotated rolling log, so discarding it
         # and recounting from the log loses nothing and can't double-count.
         if not isinstance(c["monthly"], dict) or not isinstance(c["seen"], list):
-            return {"monthly": {}, "seen": []}
+            return {"version": CACHE_VERSION, "monthly": {}, "seen": []}
         return c
     except Exception:
-        return {"monthly": {}, "seen": []}
+        return {"version": CACHE_VERSION, "monthly": {}, "seen": []}
+
+
+def model_timelines():
+    timelines = {}
+    pattern = str(GROK_HOME / "sessions" / "**" / "events.jsonl")
+    for fp in sorted(glob.glob(pattern, recursive=True)):
+        for line in open(fp, errors="ignore"):
+            if '"turn_started"' not in line:
+                continue
+            try:
+                event = json.loads(line)
+            except Exception:
+                continue
+            if event.get("type") != "turn_started":
+                continue
+            session_id = event.get("session_id")
+            timestamp = event.get("ts")
+            model = event.get("model_id")
+            if not session_id or not timestamp or not model:
+                continue
+            timelines.setdefault(session_id, []).append((timestamp, model))
+    for events in timelines.values():
+        events.sort()
+    return timelines
+
+
+def model_at(timelines, session_id, timestamp):
+    events = timelines.get(session_id) or []
+    if not events:
+        return UNKNOWN_MODEL
+    index = bisect.bisect_right([event[0] for event in events], timestamp) - 1
+    if index < 0:
+        return UNKNOWN_MODEL
+    return events[index][1]
+
+
+def usage_records(timelines):
+    records = []
+    seen_in_logs = set()
+    for fp in sorted(glob.glob(str(GROK_HOME / "logs" / "*.jsonl*"))):
+        for line in open(fp, errors="ignore"):
+            if '"prompt_tokens"' not in line:
+                continue
+            try:
+                data = json.loads(line)
+            except Exception:
+                continue
+            ctx = data.get("ctx") or {}
+            if data.get("msg") != "shell.turn.inference_done" or "prompt_tokens" not in ctx:
+                continue
+            timestamp = data.get("ts") or ""
+            session_id = data.get("sid") or ""
+            event_id = (
+                f"{session_id}|{timestamp}|{ctx.get('loop_index', '')}|"
+                f"{ctx.get('prompt_tokens')}"
+            )
+            if event_id in seen_in_logs:
+                continue
+            seen_in_logs.add(event_id)
+            prompt = ctx.get("prompt_tokens", 0) or 0
+            cached = min(ctx.get("cached_prompt_tokens", 0) or 0, prompt)
+            output = ((ctx.get("completion_tokens", 0) or 0)
+                      + (ctx.get("reasoning_tokens", 0) or 0))
+            components = {
+                "inputTokens": max(prompt - cached, 0),
+                "outputTokens": output,
+                "cacheCreationTokens": 0,
+                "cacheReadTokens": cached,
+            }
+            components["totalTokens"] = sum(components[c] for c in COMPONENTS)
+            records.append({
+                "id": event_id,
+                "month": timestamp[:7] or "unknown",
+                "model": model_at(timelines, session_id, timestamp),
+                "usage": components,
+            })
+    return records
+
+
+def add_usage(target, usage):
+    for component in COMPONENTS + ["totalTokens"]:
+        target[component] = target.get(component, 0) + usage.get(component, 0)
+
+
+def migrate_legacy_months(monthly, records, seen):
+    """Attribute cached rows that still have raw records, preserving old totals."""
+    for month in monthly.values():
+        legacy = {component: month.get(component, 0)
+                  for component in COMPONENTS + ["totalTokens"]}
+        month["models"] = {UNKNOWN_MODEL: legacy}
+    for record in records:
+        if record["id"] not in seen or record["month"] not in monthly:
+            continue
+        unknown = monthly[record["month"]]["models"][UNKNOWN_MODEL]
+        usage = record["usage"]
+        if any(unknown.get(component, 0) < usage.get(component, 0)
+               for component in COMPONENTS + ["totalTokens"]):
+            continue
+        for component in COMPONENTS + ["totalTokens"]:
+            unknown[component] -= usage[component]
+        model = monthly[record["month"]]["models"].setdefault(
+            record["model"], empty_model())
+        add_usage(model, usage)
+    for month in monthly.values():
+        month["models"] = {
+            model: usage for model, usage in month["models"].items()
+            if usage.get("totalTokens", 0) > 0
+        }
 
 
 def main():
@@ -60,42 +178,29 @@ def main():
     monthly = cache["monthly"]
     seen = set(cache["seen"])
     new_ids = []
-
-    for fp in sorted(glob.glob(str(GROK_HOME / "logs" / "*.jsonl*"))):
-        for line in open(fp, errors="ignore"):
-            if '"prompt_tokens"' not in line:
-                continue
-            try:
-                d = json.loads(line)
-            except Exception:
-                continue
-            ctx = d.get("ctx") or {}
-            if "prompt_tokens" not in ctx:
-                continue
-            ts = d.get("ts") or ""
-            eid = f"{d.get('sid','')}|{ts}|{ctx.get('loop_index','')}|{ctx.get('prompt_tokens')}"
-            if eid in seen:
-                continue
-            seen.add(eid)
-            new_ids.append(eid)
-            month = ts[:7] or "unknown"
-            m = monthly.setdefault(month, empty_month())
-            prompt = ctx.get("prompt_tokens", 0) or 0
-            cached = ctx.get("cached_prompt_tokens", 0) or 0
-            out = (ctx.get("completion_tokens", 0) or 0) + (ctx.get("reasoning_tokens", 0) or 0)
-            inp = max(prompt - cached, 0)
-            m["inputTokens"] += inp
-            m["cacheReadTokens"] += cached
-            m["outputTokens"] += out
-            m["totalTokens"] += inp + cached + out
-            m["calls"] += 1
+    records = usage_records(model_timelines())
+    if cache.get("version", 1) < CACHE_VERSION:
+        migrate_legacy_months(monthly, records, seen)
+    for record in records:
+        if record["id"] in seen:
+            continue
+        seen.add(record["id"])
+        new_ids.append(record["id"])
+        month = monthly.setdefault(record["month"], empty_month())
+        add_usage(month, record["usage"])
+        model = month.setdefault("models", {}).setdefault(
+            record["model"], empty_model())
+        add_usage(model, record["usage"])
+        month["calls"] = month.get("calls", 0) + 1
 
     # persist cache (bound the seen list)
     all_seen = cache["seen"] + new_ids
     if len(all_seen) > SEEN_CAP:
         all_seen = all_seen[-SEEN_CAP:]
     CACHE.parent.mkdir(exist_ok=True)
-    CACHE.write_text(json.dumps({"monthly": monthly, "seen": all_seen}))
+    CACHE.write_text(json.dumps({
+        "version": CACHE_VERSION, "monthly": monthly, "seen": all_seen,
+    }))
 
     # build output in the cursor/codex monthly schema
     out_monthly = []
@@ -106,11 +211,10 @@ def main():
             "inputTokens": m["inputTokens"], "outputTokens": m["outputTokens"],
             "cacheCreationTokens": 0, "cacheReadTokens": m["cacheReadTokens"],
             "totalTokens": m["totalTokens"], "totalCost": 0.0,
-            "models": {MODEL: {
-                "inputTokens": m["inputTokens"], "outputTokens": m["outputTokens"],
-                "cacheCreationTokens": 0, "cacheReadTokens": m["cacheReadTokens"],
-                "totalTokens": m["totalTokens"], "cost": 0.0,
-            }},
+            "models": {
+                model: {**usage, "cost": 0.0}
+                for model, usage in (m.get("models") or {}).items()
+            },
         })
     totals = {c: sum(mm[c] for mm in out_monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(mm["totalTokens"] for mm in out_monthly)

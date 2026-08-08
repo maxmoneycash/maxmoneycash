@@ -136,6 +136,11 @@ if [ "$NEW" -lt "$OLD" ]; then
 fi
 mv "$TMP/tokens.out" data/tokens.json
 
+if [ "${TOKENSTATS_NO_GIT:-0}" = "1" ]; then
+  log "audit mode: rebuilt token artifacts without committing or pushing"
+  exit 0
+fi
+
 git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
 if git diff --cached --quiet; then
   log "tokens.json unchanged; nothing to push"
