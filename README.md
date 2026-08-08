@@ -1,31 +1,26 @@
 <div align="center">
 
-<a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=profile&theme=light&v=31234910958"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=profile&theme=dark&v=31234910958" width="100%" alt="maxmoneycash at GitHub — live all-time coding profile"/>
-</picture></a>
+<a href="https://github.com/maxmoneycash/maxmoneycash"><img src="./assets/neofetch.svg?v=31234910958" width="100%" alt="neofetch — maxmoneycash@github"/></a>
 
 <br/>
 
 ## <samp>~ ❯ commits.sh --live</samp>
 
 <a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=light&v=31234910958"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro&theme=dark&v=31234910958" width="720" alt="$MAXMONEYCASH on commits.sh — all-time commit velocity with a live forming candle"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro-classic&theme=light&v=31234910958"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro-classic&theme=dark&v=31234910958" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
 </picture></a>
 
-## <samp>~ ❯ commits.sh --ledger</samp>
+## <samp>~ ❯ ccusage --all-time</samp>
 
-<sub>The same signed aggregate telemetry shown by my commits.sh menu-bar app. Grok Build is a CLI tool; Grok 4.20, Grok 4.5, and Composer 2.5 are models. Prompts, code, filenames, and paths stay local.</sub>
+<sub>Live token telemetry across <b>Claude Code · Codex · Hermes Swarm · Cursor · Grok Build · Kimi Code · OpenCode · Droid</b> — pushed hourly from my Mac + cloud swarm (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a> + custom counters) and rendered by GitHub Actions.</sub>
 
 <br/><br/>
 
-<a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(max-width: 600px) and (prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-stack&theme=light&v=31234910958"/>
-<source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-stack&theme=dark&v=31234910958"/>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-row&theme=light&v=31234910958"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=ledger-row&theme=dark&v=31234910958" width="100%" alt="$MAXMONEYCASH live AI compute statement and model operations ledger"/>
-</picture></a>
+<picture>
+<source media="(max-width: 768px)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/tokens-stack.svg?v=31234910958"/>
+<img src="./assets/tokens-row.svg?v=31234910958" width="100%" alt="all-time token receipt and token-ops dashboard"/>
+</picture>
 
 ## <samp>~ ❯ git log --graph --all</samp>
 
@@ -38,8 +33,8 @@
 ## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=light&v=31234910958"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn&theme=dark&v=31234910958" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=light&v=31234910958"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=dark&v=31234910958" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
 </picture></a>
 
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
@@ -62,13 +57,12 @@
 
 ## <samp>~ ❯ wrapped --share</samp>
 
-<a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=wrapped&theme=light&v=31234910958"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=wrapped&theme=dark&v=31234910958" width="720" alt="$MAXMONEYCASH all-time in tokens — live compute report"/>
-</picture></a>
+<img src="./assets/wrapped.svg?v=31234910958" width="100%" alt="year in tokens — annual compute report"/>
+
+<sub><samp><a href="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/wrapped.png?v=31234910958">download PNG for posting →</a></samp></sub>
 
 <br/>
 
-<sub><samp>token cards use the same commits.sh ledger as the Mac app · GitHub controls README image-cache repaint timing · heatmaps and project cards render hourly · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
+<sub><samp>rendered hourly · cards by GitHub Actions · token data via launchd + ccusage on my mac + hermes swarm telemetry · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
 
 </div>
