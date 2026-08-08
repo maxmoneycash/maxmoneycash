@@ -30,6 +30,27 @@ heatmaps = load_module("render_heatmaps")
 
 
 class TokenPipelineTests(unittest.TestCase):
+    def test_readme_keeps_the_july_card_compositions(self):
+        readme = (ROOT.parent / "README.md").read_text()
+
+        for expected in (
+            './assets/neofetch.svg',
+            'style=pro-classic',
+            './assets/tokens-row.svg',
+            'assets/tokens-stack.svg',
+            'style=burn-classic',
+            './assets/wrapped.svg',
+        ):
+            self.assertIn(expected, readme)
+
+        for redesigned in (
+            'style=profile',
+            'style=ledger-row',
+            'style=ledger-stack',
+            'style=wrapped&',
+        ):
+            self.assertNotIn(redesigned, readme)
+
     def test_public_calendar_fallback_parses_exact_counts_and_bounds_future_days(self):
         markup = """
         <td data-date="2025-12-31" id="day-0"></td>
