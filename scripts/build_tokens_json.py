@@ -21,6 +21,7 @@ import json
 import pathlib
 import sys
 
+from model_pricing import list_value
 from token_accounting import COMPONENTS, floor_total_tokens
 
 
@@ -30,7 +31,10 @@ MODEL_ALIASES = {
     "gpt-5-codex-high": "gpt-5-codex",
     "gpt-5.1-codex-high": "gpt-5.1-codex",
 }
-ACCOUNTING_REVISION = "headline-component-floor-v2"
+# Bumping this string is the signal that lets commits.sh lower a cached total
+# exactly once (AppDelegate → adoptAccountingRevisionIfNeeded). Change it
+# whenever this file changes what the headline numbers mean.
+ACCOUNTING_REVISION = "list-value-component-floor-v3"
 
 
 def load(d, name):
@@ -363,9 +367,21 @@ def main():
 
     monthly.sort(key=lambda m: m["period"])
 
+    # List-price equivalent. `cost` stays a faithful record of what a provider
+    # actually quoted — subscription agents (codex, kimi, grok, hermes) quote
+    # zero, which is why the receipt read $36k against 67B tokens. listValue
+    # keeps every quoted cost and fills only the zero rows from the reference
+    # table, matching estimatedListValue() in web/src/lib/usageValue.ts.
+    for m in monthly:
+        m["listValueUsd"] = 0.0
+        for row in m["modelBreakdowns"]:
+            row["listValue"] = list_value(row["modelName"], row)
+            m["listValueUsd"] += row["listValue"]
+
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
     totals["totalTokens"] = sum(m["totalTokens"] for m in monthly)
     totals["totalCost"] = sum(m["totalCost"] for m in monthly)
+    totals["listValueUsd"] = sum(m["listValueUsd"] for m in monthly)
     floor_total_tokens(totals)
 
     agents = {}
@@ -457,7 +473,14 @@ def main():
             "cloudHermesAccounted": rep_total(hermes.get("totals") or {}) > 0,
             "cloudHermesTotal": hermes.get("totals", {}).get("totalTokens", 0),
             "componentTotalsConserved": True,
+            "listValuePriced": True,
+            "listValueUsd": totals["listValueUsd"],
+            "reportedCostUsd": totals["totalCost"],
             "note": (
+                "totals.listValueUsd is the list-price equivalent: every provider-quoted "
+                "cost kept as-is, plus a reference quote for the subscription rows that "
+                "report zero (codex/kimi/grok/hermes). totals.totalCost remains what was "
+                "actually quoted. "
                 "codex counted from monotonic total_token_usage deltas; repeated token_count events removed. "
                 "kimi counted from ~/.kimi/sessions/**/wire.jsonl StatusUpdate "
                 "token_usage; ccusage reads user-history and undercounts. "

@@ -107,11 +107,15 @@ def render(gh, tokens, target_h=None):
             model_tot[name][0] += tokens_of(b)
             model_tot[name][1] += b["outputTokens"]
             model_tot[name][2] += b.get("cost", 0)
+    # Rank by the same number the row prints. Ranking by output while showing
+    # traffic made the list read as scrambled — gpt-5.4 has more traffic than
+    # kimi-for-coding but less output, so it fell off the cut for no visible
+    # reason. The bar still scales to output, which the heading names.
     top = sorted(
         ((name, values) for name, values in model_tot.items() if values[1] > 0),
-        key=lambda kv: -kv[1][1],
+        key=lambda kv: (-kv[1][0], -kv[1][1], kv[0]),
     )[:8]
-    top_max = top[0][1][1] if top else 1
+    top_max = max((values[1] for _, values in top), default=1) or 1
 
     tm_y = chart_y + chart_h + 78
     parts.append(
@@ -130,15 +134,29 @@ def render(gh, tokens, target_h=None):
         )
 
     # ---- opencode lab: every model ever tried there ----------------------
-    oc_months = tokens["agents"]["opencode"].get("monthly") or []
+    # ccusage reports no model split for opencode, so modelsUsed is empty and
+    # this used to render a bare "0 MODELS TESTED". Fall back to the models
+    # dict when one exists, and say the split is unavailable rather than
+    # claiming zero — opencode has 66M tokens, not none.
+    oc_agent = tokens["agents"].get("opencode") or {}
+    oc_months = oc_agent.get("monthly") or []
+    oc_names = {name for m in oc_months for name in (m.get("modelsUsed") or [])}
+    oc_names |= {name for m in oc_months for name in (m.get("models") or {})}
     oc_models = sorted(
-        {normalize(name) for m in oc_months for name in m.get("modelsUsed", [])},
+        {normalize(name) for name in oc_names},
         key=lambda n: -model_tot.get(n, [0, 0, 0])[1],
     )
+    oc_tokens = (oc_agent.get("totals") or {}).get("totalTokens", 0)
+    if oc_models:
+        oc_heading = f"OPENCODE LAB · {len(oc_models)} MODELS TESTED"
+    elif oc_tokens:
+        oc_heading = f"OPENCODE LAB · {compact(oc_tokens)} TOK · MODEL SPLIT UNAVAILABLE"
+    else:
+        oc_heading = "OPENCODE LAB · NO RUNS RECORDED"
     oc_y = tm_y + len(top) * 24 + 38
     parts.append(
         f'<text x="{LEFT}" y="{oc_y - 12}" font-size="11" letter-spacing="2" '
-        f'fill="{t["muted"]}">OPENCODE LAB · {len(oc_models)} MODELS TESTED</text>'
+        f'fill="{t["muted"]}">{oc_heading}</text>'
     )
     cx, cy = LEFT, oc_y
     chip_h, chip_gap = 21, 7

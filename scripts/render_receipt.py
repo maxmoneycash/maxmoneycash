@@ -176,9 +176,10 @@ def _build(tokens):
     if reasoning > 100_000:
         p.kv("REASONING (DROID)", f"{reasoning:,}", gap=20)
     p.rule(heavy=True)
-    p.kv("TOTAL USD", money(totals["totalCost"], cents=True), bold=True, gap=24)
+    spend = totals.get("listValueUsd", totals["totalCost"])
+    p.kv("LIST VALUE", money(spend, cents=True), bold=True, gap=24)
     months_active = max(len(tokens["monthly"]), 1)
-    p.kv("AVG / MONTH", money(totals["totalCost"] / months_active, cents=True), gap=20)
+    p.kv("AVG / MONTH", money(spend / months_active, cents=True), gap=20)
     p.rule()
     p.center(f"{totals['totalTokens']:,} TOKENS.", 12, gap=LH)
     p.center("ZERO REGRETS.", 12, gap=22)

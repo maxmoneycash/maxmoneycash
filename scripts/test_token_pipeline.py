@@ -638,7 +638,10 @@ class TokenPipelineTests(unittest.TestCase):
         )
 
     def test_accounting_revision_is_stable_for_one_time_consumer_adoption(self):
-        self.assertEqual(build.ACCOUNTING_REVISION, "headline-component-floor-v2")
+        # Pinned on purpose: consumers adopt a corrected total exactly once per
+        # distinct revision string, so this must only change deliberately and
+        # together with the committed artifact below.
+        self.assertEqual(build.ACCOUNTING_REVISION, "list-value-component-floor-v3")
         with open(ROOT.parent / "data" / "tokens.json") as fh:
             artifact = json.load(fh)
         self.assertEqual(
