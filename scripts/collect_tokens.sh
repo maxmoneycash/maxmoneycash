@@ -75,6 +75,16 @@ if [ -d "$LEGACY_LOCK" ]; then
   log "removing stale pre-upgrade lock (>15m)"
   rm -rf "$LEGACY_LOCK"
 fi
+# Server drift check FIRST, before any scanning. It compares the committed
+# ledger against the public total and re-anchors on >2% drift (observed:
+# restart-burst minting took the server from 68.2B to 270.7B in three days).
+# It must not wait behind the scans: a hung or aborted scan cycle would take
+# the drift protection down with it, which is exactly when it is needed.
+RECONCILE_LOG="$HOME/Library/Logs/tokenstats-reconcile.log"
+python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$RECONCILE_LOG" 2>&1 \
+  && log "server drift check ok" \
+  || log "WARNING: server drift check failed (see $RECONCILE_LOG)"
+
 TMP=$(mktemp -d)
 LOCAL="$TMP/local"
 CLOUD="$TMP/cloud"
@@ -169,17 +179,6 @@ if [ "${TOKENSTATS_NO_GIT:-0}" = "1" ]; then
   exit 0
 fi
 
-# Server drift check: the commits.sh merge is additive for live publishers and
-# can mint phantom token deltas around app restarts (observed: 68.2B -> 270.7B
-# in three days, cost untouched). Re-anchor with an operator reconcile whenever
-# the public total drifts >2% from this audited ledger. Best-effort — a failed
-# check must never block the README publish.
-# Durable log — the temp dir is deleted on exit, which made the first failure
-# here undiagnosable.
-RECONCILE_LOG="$HOME/Library/Logs/tokenstats-reconcile.log"
-python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$RECONCILE_LOG" 2>&1 \
-  && log "server drift check ok" \
-  || log "WARNING: server drift check failed (see $RECONCILE_LOG)"
 
 git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
 if git diff --cached --quiet; then
