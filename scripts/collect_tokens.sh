@@ -9,8 +9,22 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-# --bun forces the bun runtime: /usr/local/bin/node is an x86_64 leftover and
-# the ccusage wrapper otherwise spawns it and looks for the wrong native binary.
+# turbotokens is the counter. It is CLI-compatible with ccusage for every
+# invocation below, ~19x faster end to end on this dataset (2m23s vs 45m+), and
+# — the reason for the switch — it does not double-count Codex's re-emitted
+# token_count events. Measured: ccusage over-reports Codex by 10,159,852,651
+# tokens, within 21,530 of what codex_true_usage.py independently computes as
+# the correction. ccusage remains the fallback so a missing binary degrades
+# rather than fails.
+#
+# --bun forces the bun runtime for the fallback: /usr/local/bin/node is an
+# x86_64 leftover and the ccusage wrapper otherwise spawns it and looks for the
+# wrong native binary.
+if [ -z "${CCUSAGE:-}" ]; then
+  for candidate in "$HOME/.local/bin/turbotokens" /usr/local/bin/turbotokens /opt/homebrew/bin/turbotokens; do
+    if [ -x "$candidate" ]; then CCUSAGE="$candidate"; break; fi
+  done
+fi
 CCUSAGE="${CCUSAGE:-bunx --bun ccusage@20.0.9}"
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 cd "$REPO_DIR"
@@ -140,6 +154,15 @@ if [ "${TOKENSTATS_NO_GIT:-0}" = "1" ]; then
   log "audit mode: rebuilt token artifacts without committing or pushing"
   exit 0
 fi
+
+# Server drift check: the commits.sh merge is additive for live publishers and
+# can mint phantom token deltas around app restarts (observed: 68.2B -> 270.7B
+# in three days, cost untouched). Re-anchor with an operator reconcile whenever
+# the public total drifts >2% from this audited ledger. Best-effort — a failed
+# check must never block the README publish.
+python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$TMP/reconcile.log" 2>&1 \
+  && log "server drift check ok" \
+  || log "WARNING: server drift check failed (see $TMP/reconcile.log)"
 
 git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
 if git diff --cached --quiet; then

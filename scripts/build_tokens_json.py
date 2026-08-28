@@ -34,7 +34,7 @@ MODEL_ALIASES = {
 # Bumping this string is the signal that lets commits.sh lower a cached total
 # exactly once (AppDelegate → adoptAccountingRevisionIfNeeded). Change it
 # whenever this file changes what the headline numbers mean.
-ACCOUNTING_REVISION = "list-value-component-floor-v3"
+ACCOUNTING_REVISION = "turbotokens-counter-v4"
 
 
 def load(d, name):

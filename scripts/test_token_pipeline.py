@@ -641,7 +641,7 @@ class TokenPipelineTests(unittest.TestCase):
         # Pinned on purpose: consumers adopt a corrected total exactly once per
         # distinct revision string, so this must only change deliberately and
         # together with the committed artifact below.
-        self.assertEqual(build.ACCOUNTING_REVISION, "list-value-component-floor-v3")
+        self.assertEqual(build.ACCOUNTING_REVISION, "turbotokens-counter-v4")
         with open(ROOT.parent / "data" / "tokens.json") as fh:
             artifact = json.load(fh)
         self.assertEqual(
