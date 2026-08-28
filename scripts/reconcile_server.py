@@ -23,7 +23,6 @@ import json
 import pathlib
 import subprocess
 import sys
-import urllib.request
 from collections import defaultdict
 
 HANDLE = "maxmoneycash"
@@ -47,9 +46,19 @@ def keychain_token():
         return None
 
 
+def _curl(args, timeout):
+    """HTTP via curl: it uses the macOS system trust store, so this works under
+    launchd too — the launchd PATH resolves python3 to an interpreter without a
+    certificate bundle, and urllib fails there with CERTIFICATE_VERIFY_FAILED."""
+    out = subprocess.run(["curl", "-sS", "--max-time", str(timeout), *args],
+                         capture_output=True, text=True, timeout=timeout + 10)
+    if out.returncode != 0:
+        raise RuntimeError(out.stderr.strip() or f"curl exit {out.returncode}")
+    return json.loads(out.stdout)
+
+
 def server_total():
-    with urllib.request.urlopen(f"{API}/api/usage?handle={HANDLE}", timeout=20) as r:
-        return json.load(r)["tokens"]["total"]
+    return _curl([f"{API}/api/usage?handle={HANDLE}"], 20)["tokens"]["total"]
 
 
 def build_payload(ledger):
@@ -117,14 +126,12 @@ def main():
         print("reconcile: dry run; would post authoritative reconcile")
         return 0
 
-    request = urllib.request.Request(
-        f"{API}/api/ingest",
-        data=json.dumps(payload).encode(),
-        headers={"authorization": f"Bearer {token}", "content-type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=30) as r:
-        body = json.load(r)
+    body = _curl([
+        "-X", "POST", f"{API}/api/ingest",
+        "-H", f"authorization: Bearer {token}",
+        "-H", "content-type: application/json",
+        "--data-binary", json.dumps(payload),
+    ], 30)
     accepted = (body.get("accepted") or {}).get("total")
     ok = body.get("reconciled") is True and accepted == audited
     print(f"reconcile: posted, reconciled={body.get('reconciled')} accepted={accepted:,}"
