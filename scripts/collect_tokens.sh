@@ -29,6 +29,20 @@ CCUSAGE="${CCUSAGE:-bunx --bun ccusage@20.0.9}"
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 cd "$REPO_DIR"
 
+# Hard deadline on every scanner invocation. A scan that used to take seconds
+# wedged for 8 hours on 2026-08-27 (turbotokens codex spinning on a live
+# session file) and froze the whole pipeline — including the server drift
+# check, whose entire job is to not be down for days. A timed-out scan falls
+# through to each call's empty-JSON fallback; the monotonic guards below keep
+# a partial scan from ever shrinking the published ledger.
+if command -v timeout >/dev/null 2>&1; then
+  SCAN_TIMEOUT="timeout 300"
+elif command -v gtimeout >/dev/null 2>&1; then
+  SCAN_TIMEOUT="gtimeout 300"
+else
+  SCAN_TIMEOUT=""
+fi
+
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 
 # --- single-run lock: never let two collections overlap (they'd race git) ---
@@ -73,12 +87,12 @@ trap 'rm -rf "$TMP"' EXIT
 #     of the 2026-06-21/22 collection failures). The python true counters can
 #     still run in parallel because they don't touch bunx.
 log "collecting local ccusage…"
-$CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>/dev/null \
+$SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>/dev/null \
     || echo '{"monthly":[]}' > "$LOCAL/monthly.json"
-$CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>/dev/null \
+$SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>/dev/null \
     || echo '{"daily":[]}' > "$LOCAL/daily.json"
 for agent in claude codex droid kimi opencode; do
-  $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>/dev/null \
+  $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>/dev/null \
       || echo '{"monthly":[],"totals":{}}' > "$LOCAL/agent-$agent.json"
 done
 
