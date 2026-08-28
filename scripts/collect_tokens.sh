@@ -174,9 +174,12 @@ fi
 # in three days, cost untouched). Re-anchor with an operator reconcile whenever
 # the public total drifts >2% from this audited ledger. Best-effort — a failed
 # check must never block the README publish.
-python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$TMP/reconcile.log" 2>&1 \
+# Durable log — the temp dir is deleted on exit, which made the first failure
+# here undiagnosable.
+RECONCILE_LOG="$HOME/Library/Logs/tokenstats-reconcile.log"
+python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$RECONCILE_LOG" 2>&1 \
   && log "server drift check ok" \
-  || log "WARNING: server drift check failed (see $TMP/reconcile.log)"
+  || log "WARNING: server drift check failed (see $RECONCILE_LOG)"
 
 git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
 if git diff --cached --quiet; then
