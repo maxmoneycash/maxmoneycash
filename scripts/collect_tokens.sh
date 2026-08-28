@@ -27,6 +27,10 @@ if [ -z "${CCUSAGE:-}" ]; then
 fi
 CCUSAGE="${CCUSAGE:-bunx --bun ccusage@20.0.9}"
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# launchd does not set TMPDIR, so scanner runs fell back to a different, cold
+# parse cache than interactive shells (turbotokens keeps its cache in TMPDIR).
+# Pin it to the real per-user temp dir so every context shares one warm cache.
+export TMPDIR="${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR)}"
 cd "$REPO_DIR"
 
 # Hard deadline on every scanner invocation. A scan that used to take seconds
