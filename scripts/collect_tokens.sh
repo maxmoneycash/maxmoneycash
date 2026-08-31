@@ -26,6 +26,7 @@ if [ -z "${CCUSAGE:-}" ]; then
   done
 fi
 CCUSAGE="${CCUSAGE:-bunx --bun ccusage@20.0.9}"
+case "$CCUSAGE" in *turbotokens*) COUNTER_IS_TURBOTOKENS=1 ;; *) COUNTER_IS_TURBOTOKENS=0 ;; esac
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 # launchd does not set TMPDIR, so scanner runs fell back to a different, cold
 # parse cache than interactive shells (turbotokens keeps its cache in TMPDIR).
@@ -111,14 +112,29 @@ for agent in claude codex droid kimi opencode; do
 done
 
 log "collecting local true counters…"
-( python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>/dev/null \
-    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-( python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>/dev/null \
-    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
-( python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>/dev/null \
+# codex/kimi "true" counters exist to undo ccusage bugs: it re-counts Codex's
+# repeated token_count events, and reads kimi from user-history. turbotokens
+# has neither bug — measured on this dataset, its Codex figure lands within
+# 21,530 tokens (0.0001%) of codex_true_usage.py, and its kimi figure is the
+# larger, more complete one. So under turbotokens the corrections are noise at
+# best and lossy at worst, and codex_true_usage.py is the script that hung the
+# collector for 18h on 2026-08-30. Source both from the counter itself; the
+# legacy parsers stay for the ccusage fallback path.
+if [ "$COUNTER_IS_TURBOTOKENS" = "1" ]; then
+  ( $SCAN_TIMEOUT $CCUSAGE codex monthly --json --offline --breakdown > "$LOCAL/codex-true.json" 2>/dev/null \
+      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
+  ( $SCAN_TIMEOUT $CCUSAGE kimi monthly --json --offline --breakdown > "$LOCAL/kimi-true.json" 2>/dev/null \
+      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+else
+  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>/dev/null \
+      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
+  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>/dev/null \
+      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+fi
+( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>/dev/null \
     || echo '{"totals":{},"monthly":[]}' > "$LOCAL/grok-true.json" ) &
 # Cursor dashboard (network); fall back to the committed cache on any failure
-( if python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>/dev/null && [ -s "$LOCAL/cursor.json" ]; then
+( if $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>/dev/null && [ -s "$LOCAL/cursor.json" ]; then
     cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
   elif [ -f "$REPO_DIR/data/cursor-cache.json" ]; then
     cp "$REPO_DIR/data/cursor-cache.json" "$LOCAL/cursor.json"
