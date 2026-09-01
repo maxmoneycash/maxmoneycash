@@ -51,7 +51,14 @@
   <key>StandardErrorPath</key>
   <string>__HOME__/Library/Logs/tokenstats.log</string>
 
+  <!-- Standard, not Background. macOS throttles disk I/O aggressively for the
+       Background class, and this job reads tens of gigabytes of agent session
+       logs: scans that take ~6s interactively ran past 10 minutes under
+       Background, blew the collector's per-scan timeout, fell through to the
+       empty-JSON fallback, and every cycle from 2026-08-26 onward was rejected
+       by the monotonic guard. Standard still yields to the user's foreground
+       work; it just isn't I/O-starved. -->
   <key>ProcessType</key>
-  <string>Background</string>
+  <string>Standard</string>
 </dict>
 </plist>

@@ -101,13 +101,15 @@ trap 'rm -rf "$TMP"' EXIT
 #     race on the package cache and produced empty/partial JSON (the root cause
 #     of the 2026-06-21/22 collection failures). The python true counters can
 #     still run in parallel because they don't touch bunx.
+SCAN_LOG="$HOME/Library/Logs/tokenstats-scan.log"
+: > "$SCAN_LOG"
 log "collecting local ccusage…"
-$SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>/dev/null \
+$SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>>"$SCAN_LOG" \
     || echo '{"monthly":[]}' > "$LOCAL/monthly.json"
-$SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>/dev/null \
+$SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>>"$SCAN_LOG" \
     || echo '{"daily":[]}' > "$LOCAL/daily.json"
 for agent in claude codex droid kimi opencode; do
-  $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>/dev/null \
+  $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>>"$SCAN_LOG" \
       || echo '{"monthly":[],"totals":{}}' > "$LOCAL/agent-$agent.json"
 done
 
@@ -121,20 +123,20 @@ log "collecting local true counters…"
 # collector for 18h on 2026-08-30. Source both from the counter itself; the
 # legacy parsers stay for the ccusage fallback path.
 if [ "$COUNTER_IS_TURBOTOKENS" = "1" ]; then
-  ( $SCAN_TIMEOUT $CCUSAGE codex monthly --json --offline --breakdown > "$LOCAL/codex-true.json" 2>/dev/null \
+  ( $SCAN_TIMEOUT $CCUSAGE codex monthly --json --offline --breakdown > "$LOCAL/codex-true.json" 2>>"$SCAN_LOG" \
       || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-  ( $SCAN_TIMEOUT $CCUSAGE kimi monthly --json --offline --breakdown > "$LOCAL/kimi-true.json" 2>/dev/null \
+  ( $SCAN_TIMEOUT $CCUSAGE kimi monthly --json --offline --breakdown > "$LOCAL/kimi-true.json" 2>>"$SCAN_LOG" \
       || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
 else
-  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>/dev/null \
+  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>>"$SCAN_LOG" \
       || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>/dev/null \
+  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>>"$SCAN_LOG" \
       || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
 fi
-( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>/dev/null \
+( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>>"$SCAN_LOG" \
     || echo '{"totals":{},"monthly":[]}' > "$LOCAL/grok-true.json" ) &
 # Cursor dashboard (network); fall back to the committed cache on any failure
-( if $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>/dev/null && [ -s "$LOCAL/cursor.json" ]; then
+( if $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>>"$SCAN_LOG" && [ -s "$LOCAL/cursor.json" ]; then
     cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
   elif [ -f "$REPO_DIR/data/cursor-cache.json" ]; then
     cp "$REPO_DIR/data/cursor-cache.json" "$LOCAL/cursor.json"
@@ -152,7 +154,7 @@ else
   # Keep hermes history alive from the committed cache so the box being
   # offline can't shrink the totals (hermes-true must exist in exactly ONE
   # source dir — merge sums same-named files across sources).
-  python3 "$REPO_DIR/scripts/hermes_true_usage.py" > "$LOCAL/hermes-true.json" 2>/dev/null \
+  python3 "$REPO_DIR/scripts/hermes_true_usage.py" > "$LOCAL/hermes-true.json" 2>>"$SCAN_LOG" \
       || echo '{"totals":{},"monthly":[]}' > "$LOCAL/hermes-true.json"
   SOURCES=("$LOCAL")
 fi
