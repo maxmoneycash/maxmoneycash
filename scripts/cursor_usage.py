@@ -15,6 +15,7 @@ import pathlib
 import ssl
 import sqlite3
 import sys
+import time
 import urllib.request
 
 try:
@@ -36,6 +37,23 @@ EMPTY = {
 # Cursor's dashboard was request-counted before July 2025, so earlier calls
 # cannot contribute token-accounted rows and only slow or destabilize refreshes.
 START = (2025, 7)
+CACHE = pathlib.Path(__file__).resolve().parent.parent / "data" / "cursor-cache.json"
+
+
+def cached_months():
+    """Last known-good month rows, keyed by month.
+
+    Cursor's dashboard returns a hard 500 for some historical months —
+    2025-09 has failed every request since at least 2026-08-26 while every
+    other month, including the current one, succeeds. Losing an entire
+    collection because one immutable past month is broken on their side threw
+    away live data and left the whole Cursor agent on a stale cache.
+    """
+    try:
+        rows = json.loads(CACHE.read_text()).get("monthly") or []
+    except Exception:
+        return {}
+    return {r["month"]: r for r in rows if isinstance(r, dict) and r.get("month")}
 
 
 def tls_context():
@@ -105,12 +123,15 @@ def month_iter():
 
 def main():
     ck = cookie()
+    cache = cached_months()
+    degraded = []
     monthly = []
     totals = {k: 0 for k in EMPTY["totals"]}
     totals["totalCost"] = 0.0
     try:
         for month, s_ms, e_ms in month_iter():
             data = None
+            last_error = None
             for attempt in range(3):
                 try:
                     data = post(
@@ -119,10 +140,29 @@ def main():
                         ck,
                     )
                     break
-                except TimeoutError:
+                except TimeoutError as err:
+                    last_error = "timeout"
                     continue
+                except urllib.error.HTTPError as err:
+                    last_error = f"http {err.code}"
+                    # 4xx is a real client/auth problem and will not improve.
+                    if err.code < 500:
+                        raise
+                    time.sleep(1 + attempt)
             if data is None:
-                bail(f"month {month} failed after retries")
+                # Reuse this month's last known-good row. Past months are
+                # immutable, so a cached value is the correct answer, not a
+                # guess — and it keeps totals monotonic for the collector's
+                # glitch guard.
+                fallback = cache.get(month)
+                degraded.append(f"{month} ({last_error})")
+                if fallback:
+                    monthly.append(fallback)
+                    for k in ("inputTokens", "outputTokens", "cacheCreationTokens",
+                              "cacheReadTokens", "totalTokens"):
+                        totals[k] += fallback.get(k, 0) or 0
+                    totals["totalCost"] += fallback.get("totalCost", 0) or 0
+                continue
             aggs = data.get("aggregations") or []
             if not aggs:
                 continue
@@ -168,6 +208,15 @@ def main():
                 totals["totalCost"] += entry["totalCost"]
     except urllib.error.HTTPError as e:
         bail(f"http {e.code}")
+    if degraded:
+        # stderr is captured to tokenstats-scan.log, so a partial collection is
+        # visible rather than silently indistinguishable from a clean one.
+        served = sum(1 for d in degraded if d.split()[0] in cache)
+        print(
+            f"cursor_usage: {len(degraded)} month(s) unavailable "
+            f"({', '.join(degraded)}); {served} served from cache",
+            file=sys.stderr,
+        )
     json.dump({"totals": totals, "monthly": monthly}, sys.stdout)
 
 
