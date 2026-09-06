@@ -9,53 +9,53 @@
 <text x="280.0" y="102" text-anchor="middle" font-size="11" fill="#6b6256">AI COMPUTE STATEMENT</text>
 <text x="280.0" y="120" text-anchor="middle" font-size="11" fill="#6b6256">BILLING PERIOD: JUL 2025 — SEP 2026</text>
 <text x="280.0" y="140" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
-<g font-size="13"><text x="42" y="159" fill="#211c16">STATEMENT #</text><text x="518" y="159" text-anchor="end" fill="#211c16">MMC_20260906_1E6D2A</text></g>
-<g font-size="13"><text x="42" y="178" fill="#211c16">ISSUED</text><text x="518" y="178" text-anchor="end" fill="#211c16">2026-09-06 11:07 UTC</text></g>
-<g font-size="13"><text x="42" y="197" fill="#211c16">DATA AS OF</text><text x="518" y="197" text-anchor="end" fill="#211c16">2026-09-06 10:57:12 UTC</text></g>
+<g font-size="13"><text x="42" y="159" fill="#211c16">STATEMENT #</text><text x="518" y="159" text-anchor="end" fill="#211c16">MMC_20260906_5EE424</text></g>
+<g font-size="13"><text x="42" y="178" fill="#211c16">ISSUED</text><text x="518" y="178" text-anchor="end" fill="#211c16">2026-09-06 11:15 UTC</text></g>
+<g font-size="13"><text x="42" y="197" fill="#211c16">DATA AS OF</text><text x="518" y="197" text-anchor="end" fill="#211c16">2026-09-06 11:14:43 UTC</text></g>
 <g font-size="13"><text x="42" y="216" fill="#211c16">BILLED TO</text><text x="518" y="216" text-anchor="end" fill="#211c16">MAX @MAXMONEYCASH</text></g>
 <g font-size="13"><text x="42" y="235" fill="#211c16">SERVED BY</text><text x="518" y="235" text-anchor="end" fill="#211c16">7 AGENTS + 8-HEAD CLOUD SWARM</text></g>
-<g font-size="13"><text x="42" y="254" fill="#211c16">FLEET</text><text x="518" y="254" text-anchor="end" fill="#211c16">local 62.9B · cloud 17.3B</text></g>
+<g font-size="13"><text x="42" y="254" fill="#211c16">FLEET</text><text x="518" y="254" text-anchor="end" fill="#211c16">local 63.0B · cloud 17.3B</text></g>
 <text x="280.0" y="273" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
 <g font-size="13" font-weight="700"><text x="42" y="292" fill="#211c16">ITEM</text><text x="518" y="292" text-anchor="end" fill="#211c16">TOKENS</text></g>
 <text x="280.0" y="311" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
-<g font-size="13"><text x="42" y="330" fill="#211c16">CLAUDE CODE</text><text x="518" y="330" text-anchor="end" fill="#211c16">44,461,582,463</text></g>
+<g font-size="13"><text x="42" y="330" fill="#211c16">CLAUDE CODE</text><text x="518" y="330" text-anchor="end" fill="#211c16">44,461,603,761</text></g>
 <g font-size="13"><text x="42" y="349" fill="#211c16">  · OPUS 4.7</text><text x="518" y="349" text-anchor="end" fill="#211c16">7,360,341,247</text></g>
-<g font-size="13"><text x="42" y="366" fill="#211c16">  · OPUS 4.8</text><text x="518" y="366" text-anchor="end" fill="#211c16">19,240,317,726</text></g>
-<g font-size="13"><text x="42" y="383" fill="#211c16">  · FABLE 5</text><text x="518" y="383" text-anchor="end" fill="#211c16">6,514,845,236</text></g>
-<g font-size="13"><text x="42" y="400" fill="#211c16">CODEX</text><text x="518" y="400" text-anchor="end" fill="#211c16">25,370,947,955</text></g>
+<g font-size="13"><text x="42" y="366" fill="#211c16">  · OPUS 4.8</text><text x="518" y="366" text-anchor="end" fill="#211c16">19,240,347,562</text></g>
+<g font-size="13"><text x="42" y="383" fill="#211c16">  · FABLE 5</text><text x="518" y="383" text-anchor="end" fill="#211c16">6,515,425,231</text></g>
+<g font-size="13"><text x="42" y="400" fill="#211c16">CODEX</text><text x="518" y="400" text-anchor="end" fill="#211c16">25,429,853,663</text></g>
 <g font-size="13"><text x="42" y="419" fill="#211c16">CURSOR</text><text x="518" y="419" text-anchor="end" fill="#211c16">4,705,808,508</text></g>
 <g font-size="13"><text x="42" y="438" fill="#211c16">KIMI CODE</text><text x="518" y="438" text-anchor="end" fill="#211c16">2,174,891,985</text></g>
-<g font-size="13"><text x="42" y="457" fill="#211c16">GROK BUILD</text><text x="518" y="457" text-anchor="end" fill="#211c16">1,495,605,570</text></g>
+<g font-size="13"><text x="42" y="457" fill="#211c16">GROK BUILD</text><text x="518" y="457" text-anchor="end" fill="#211c16">1,498,890,447</text></g>
 <g font-size="13"><text x="42" y="476" fill="#211c16">DROID</text><text x="518" y="476" text-anchor="end" fill="#211c16">1,012,880,228</text></g>
 <g font-size="13"><text x="42" y="495" fill="#211c16">HERMES SWARM</text><text x="518" y="495" text-anchor="end" fill="#211c16">782,581,480</text></g>
 <g font-size="13"><text x="42" y="514" fill="#211c16">OPENCODE</text><text x="518" y="514" text-anchor="end" fill="#211c16">65,964,739</text></g>
 <text x="280.0" y="533" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
-<g font-size="13" font-weight="700"><text x="42" y="552" fill="#211c16">SUBTOTAL</text><text x="518" y="552" text-anchor="end" fill="#211c16">80,253,723,757 TOK</text></g>
+<g font-size="13" font-weight="700"><text x="42" y="552" fill="#211c16">SUBTOTAL</text><text x="518" y="552" text-anchor="end" fill="#211c16">80,323,948,083 TOK</text></g>
 <text x="280.0" y="571" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
 <g font-size="13" font-weight="700"><text x="42" y="590" fill="#211c16">LEDGER</text><text x="518" y="590" text-anchor="end" fill="#211c16">READ vs WRITTEN</text></g>
 <text x="280.0" y="609" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
-<g font-size="13" font-weight="700"><text x="42" y="628" fill="#211c16">OUTPUT (WRITTEN)</text><text x="518" y="628" text-anchor="end" fill="#211c16">256,862,573</text></g>
-<g font-size="13"><text x="42" y="647" fill="#211c16">  · CLAUDE CODE</text><text x="518" y="647" text-anchor="end" fill="#211c16">120,764,963 (47%)</text></g>
-<g font-size="13"><text x="42" y="664" fill="#211c16">  · CODEX</text><text x="518" y="664" text-anchor="end" fill="#211c16">72,447,463 (28%)</text></g>
+<g font-size="13" font-weight="700"><text x="42" y="628" fill="#211c16">OUTPUT (WRITTEN)</text><text x="518" y="628" text-anchor="end" fill="#211c16">257,160,312</text></g>
+<g font-size="13"><text x="42" y="647" fill="#211c16">  · CLAUDE CODE</text><text x="518" y="647" text-anchor="end" fill="#211c16">120,764,971 (47%)</text></g>
+<g font-size="13"><text x="42" y="664" fill="#211c16">  · CODEX</text><text x="518" y="664" text-anchor="end" fill="#211c16">72,627,432 (28%)</text></g>
 <g font-size="13"><text x="42" y="681" fill="#211c16">  · CURSOR</text><text x="518" y="681" text-anchor="end" fill="#211c16">31,795,689 (12%)</text></g>
 <g font-size="13"><text x="42" y="698" fill="#211c16">  · KIMI CODE</text><text x="518" y="698" text-anchor="end" fill="#211c16">8,866,467 (3%)</text></g>
-<g font-size="13"><text x="42" y="715" fill="#211c16">  · GROK BUILD</text><text x="518" y="715" text-anchor="end" fill="#211c16">10,620,515 (4%)</text></g>
+<g font-size="13"><text x="42" y="715" fill="#211c16">  · GROK BUILD</text><text x="518" y="715" text-anchor="end" fill="#211c16">10,688,260 (4%)</text></g>
 <g font-size="13"><text x="42" y="732" fill="#211c16">  · DROID</text><text x="518" y="732" text-anchor="end" fill="#211c16">5,780,580 (2%)</text></g>
 <g font-size="13"><text x="42" y="749" fill="#211c16">  · HERMES SWARM</text><text x="518" y="749" text-anchor="end" fill="#211c16">4,339,489 (2%)</text></g>
 <g font-size="13"><text x="42" y="766" fill="#211c16">  · OPENCODE</text><text x="518" y="766" text-anchor="end" fill="#211c16">580,553 (0%)</text></g>
-<g font-size="13"><text x="42" y="783" fill="#6b6256">  ≈ NOVELS WRITTEN</text><text x="518" y="783" text-anchor="end" fill="#6b6256">2,141</text></g>
-<g font-size="13"><text x="42" y="803" fill="#211c16">FRESH INPUT (READ)</text><text x="518" y="803" text-anchor="end" fill="#211c16">1,523,532,747</text></g>
-<g font-size="13"><text x="42" y="822" fill="#211c16">CACHE WRITES</text><text x="518" y="822" text-anchor="end" fill="#211c16">925,300,047</text></g>
-<g font-size="13"><text x="42" y="841" fill="#211c16">CACHE READS</text><text x="518" y="841" text-anchor="end" fill="#211c16">77,544,576,520</text></g>
+<g font-size="13"><text x="42" y="783" fill="#6b6256">  ≈ NOVELS WRITTEN</text><text x="518" y="783" text-anchor="end" fill="#6b6256">2,143</text></g>
+<g font-size="13"><text x="42" y="803" fill="#211c16">FRESH INPUT (READ)</text><text x="518" y="803" text-anchor="end" fill="#211c16">1,525,522,128</text></g>
+<g font-size="13"><text x="42" y="822" fill="#211c16">CACHE WRITES</text><text x="518" y="822" text-anchor="end" fill="#211c16">925,163,370</text></g>
+<g font-size="13"><text x="42" y="841" fill="#211c16">CACHE READS</text><text x="518" y="841" text-anchor="end" fill="#211c16">77,612,621,991</text></g>
 <g font-size="13"><text x="42" y="860" fill="#6b6256">  · CONTEXT RE-READ</text><text x="518" y="860" text-anchor="end" fill="#6b6256">96.6% OF ALL TOK</text></g>
-<g font-size="13"><text x="42" y="880" fill="#211c16">REASONING (DROID)</text><text x="518" y="880" text-anchor="end" fill="#211c16">3,451,870</text></g>
+<g font-size="13"><text x="42" y="880" fill="#211c16">REASONING (DROID)</text><text x="518" y="880" text-anchor="end" fill="#211c16">3,480,282</text></g>
 <text x="280.0" y="900" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
-<g font-size="13" font-weight="700"><text x="42" y="919" fill="#211c16">LIST VALUE</text><text x="518" y="919" text-anchor="end" fill="#211c16">$61,825.87</text></g>
-<g font-size="13"><text x="42" y="943" fill="#211c16">AVG / MONTH</text><text x="518" y="943" text-anchor="end" fill="#211c16">$4,121.72</text></g>
+<g font-size="13" font-weight="700"><text x="42" y="919" fill="#211c16">LIST VALUE</text><text x="518" y="919" text-anchor="end" fill="#211c16">$61,844.27</text></g>
+<g font-size="13"><text x="42" y="943" fill="#211c16">AVG / MONTH</text><text x="518" y="943" text-anchor="end" fill="#211c16">$4,122.95</text></g>
 <text x="280.0" y="963" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
-<text x="280.0" y="982" text-anchor="middle" font-size="12" fill="#211c16">80,253,723,757 TOKENS.</text>
+<text x="280.0" y="982" text-anchor="middle" font-size="12" fill="#211c16">80,323,948,083 TOKENS.</text>
 <text x="280.0" y="1001" text-anchor="middle" font-size="12" fill="#211c16">ZERO REGRETS.</text>
-<text x="280.0" y="1023" text-anchor="middle" font-size="14" fill="#211c16"> | |||  ||||| | ||||| | |||||| ||| |||</text>
-<text x="280.0" y="1039" text-anchor="middle" font-size="10" fill="#6b6256">MMC_20260906_1E6D2A</text>
+<text x="280.0" y="1023" text-anchor="middle" font-size="14" fill="#211c16"> ||||| |||||| |  || ||||||||| ||||||| </text>
+<text x="280.0" y="1039" text-anchor="middle" font-size="10" fill="#6b6256">MMC_20260906_5EE424</text>
 <text x="280.0" y="1059" text-anchor="middle" font-size="12" fill="#211c16" font-weight="700">★ PAID IN FULL · NO REFUNDS ★</text>
 </svg>
