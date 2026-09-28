@@ -104,7 +104,9 @@ collect_required() {
 }
 log "collecting local ccusage…"
 collect_required "local monthly" "$LOCAL/monthly.json" $SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC
-collect_required "local daily" "$LOCAL/daily.json" $SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)"
+DAILY_SINCE=$(date -u -v-35d +%Y-%m-%d)
+collect_required "local daily" "$LOCAL/daily.json" $SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$DAILY_SINCE"
+printf '{"since":"%s","timezone":"UTC","basis":"scanner-request-v1"}\n' "$DAILY_SINCE" > "$LOCAL/daily-coverage.json"
 for agent in claude codex droid kimi opencode; do
   collect_required "local $agent" "$LOCAL/agent-$agent.json" $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown --timezone UTC
 done
@@ -143,6 +145,10 @@ if [ ${#SOURCES[@]} -eq 2 ]; then
 else
   python3 "$REPO_DIR/scripts/merge_token_sources.py" "$MERGED" "local:${SOURCES[0]}"
 fi
+
+# Explicit scan windows must agree; a midnight mismatch is retried, not merged
+# into a partially covered daily boundary. The builder retains this receipt.
+python3 "$REPO_DIR/scripts/token_publication_guards.py" daily-coverage "$LOCAL/daily-coverage.json" "$CLOUD/daily-coverage.json" > "$MERGED/daily-coverage.json"
 
 # --- safety: ccusage monthly is the backbone; if it came back empty/invalid,
 #     abort rather than build (and push) a near-empty tokens.json ---

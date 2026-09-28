@@ -5,6 +5,7 @@ not prove event completeness, provider semantics, or cross-source identity.
 No input is normalized, rescaled, or mutated to make a check pass.
 """
 import argparse
+import datetime
 import json
 import pathlib
 import re
@@ -15,6 +16,7 @@ from token_accounting import COMPONENTS
 NATIVE_AGENTS = ("claude", "codex", "droid", "kimi", "opencode")
 COUNTERS = (*COMPONENTS, "totalTokens")
 MAX_COUNTER = 9_007_199_254_740_991
+DAILY_WINDOW_DAYS = 35  # Both ordinary scanner invocations use --since UTC day - 35.
 
 
 class PublicationBlocked(RuntimeError):
@@ -78,6 +80,65 @@ def source_rows(source, key, path, require_totals=True):
         if sum(row[counter] for row in rows.values()) != declared[counter]:
             block("source_totals_mismatch", f"{path}.totals.{counter}")
     return rows
+
+
+def daily_rows(value, path):
+    if not isinstance(value, list):
+        block("missing_daily_coverage", path)
+    result = {}
+    for i, row in enumerate(value):
+        row_path = f"{path}[{i}]"
+        if not isinstance(row, dict):
+            block("invalid_day", row_path)
+        period = row.get("period")
+        if not isinstance(period, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", period):
+            block("invalid_day", row_path)
+        try:
+            day = datetime.date.fromisoformat(period)
+        except ValueError:
+            block("invalid_day", row_path)
+        if day in result:
+            block("duplicate_day", row_path)
+        counters(row, row_path)
+        result[day] = row
+    return result
+
+
+def validate_daily(source, path="daily"):
+    if not isinstance(source, dict):
+        block("missing_daily_coverage", path)
+    # Explicit successful-empty output is valid. A process failure cannot
+    # manufacture it, and publication still retains prior in-window evidence.
+    return daily_rows(source.get("daily"), path)
+
+
+def validate_daily_coverage(value, path="dailyCoverage"):
+    if not isinstance(value, dict) or set(value) != {"since", "timezone", "basis"} or value.get("timezone") != "UTC" or value.get("basis") != "scanner-request-v1":
+        block("unproven_daily_window", path)
+    since = value.get("since")
+    if not isinstance(since, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", since):
+        block("unproven_daily_window", path)
+    try:
+        datetime.date.fromisoformat(since)
+    except ValueError:
+        block("unproven_daily_window", path)
+    return dict(value)
+
+
+def matching_daily_coverage(values):
+    validated = [validate_daily_coverage(value) for value in values]
+    if not validated or any(value != validated[0] for value in validated[1:]):
+        block("daily_window_mismatch", "dailyCoverage")
+    return validated[0]
+
+
+def generated_time(value, path):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z", value):
+        block("invalid_generated_at", path)
+    try:
+        return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        block("invalid_generated_at", path)
 
 
 def validate_correction_coverage(unified, agents, corrected):
@@ -173,6 +234,20 @@ def validate_publication(previous, candidate):
     authorization. This function deliberately has no force/allow-drop option.
     """
     _artifact(candidate, "candidate")
+    candidate_time = generated_time(candidate.get("generated_at"), "candidate.generated_at")
+    candidate_days = daily_rows(candidate.get("daily"), "candidate.daily")
+    if any(day > candidate_time.date() for day in candidate_days):
+        block("future_daily_record", "candidate.daily")
+    cutoff = None
+    if "dailyCoverage" in candidate:
+        coverage = validate_daily_coverage(candidate["dailyCoverage"], "candidate.dailyCoverage")
+        cutoff = datetime.date.fromisoformat(coverage["since"])
+        try:
+            latest_cutoff = candidate_time.date() - datetime.timedelta(days=DAILY_WINDOW_DAYS)
+        except OverflowError:
+            block("invalid_generated_at", "candidate.generated_at")
+        if cutoff > latest_cutoff:
+            block("unproven_daily_window", "candidate.dailyCoverage.since")
     candidate_sources = _sources(candidate.get("sources"), "candidate.sources")
     candidate_agents = candidate.get("agents")
     if not isinstance(candidate_agents, dict):
@@ -180,6 +255,20 @@ def validate_publication(previous, candidate):
     if previous is None:
         return
     _artifact(previous, "previous")
+    previous_time = generated_time(previous.get("generated_at"), "previous.generated_at")
+    if candidate_time < previous_time:
+        block("older_snapshot", "candidate.generated_at")
+    previous_days = daily_rows(previous.get("daily"), "previous.daily")
+    # Daily is a rolling view, never an additive lifetime source. Only records
+    # before an explicit captured scanner cutoff may expire automatically.
+    # Without coverage provenance, no previous date is silently discarded.
+    for day, old in previous_days.items():
+        if cutoff is not None and day < cutoff:
+            continue
+        path = f"daily[{day.isoformat()}]"
+        if day not in candidate_days:
+            block("missing_previous_day", path)
+        _retain_counts(old, candidate_days[day], path)
     _retain_counts(previous["totals"], candidate["totals"], "totals")
     _retain_months(previous["monthly"], candidate["monthly"], "period", "monthly")
     previous_agents = previous.get("agents")
@@ -203,6 +292,9 @@ def validate_input_directory(directory):
     def load(name):
         with open(directory / name) as source:
             return json.load(source)
+    validate_daily(load("daily.json"))
+    if (directory / "daily-coverage.json").exists():
+        validate_daily_coverage(load("daily-coverage.json"))
     validate_correction_coverage(
         load("monthly.json"),
         {name: load(f"agent-{name}.json") for name in NATIVE_AGENTS},
@@ -215,6 +307,8 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     inputs = commands.add_parser("inputs")
     inputs.add_argument("directory", type=pathlib.Path)
+    coverage = commands.add_parser("daily-coverage")
+    coverage.add_argument("receipts", type=pathlib.Path, nargs="+")
     publication = commands.add_parser("publication")
     publication.add_argument("candidate", type=pathlib.Path)
     publication.add_argument("previous", type=pathlib.Path)
@@ -222,6 +316,12 @@ def main():
     try:
         if args.command == "inputs":
             validate_input_directory(args.directory)
+        elif args.command == "daily-coverage":
+            values = []
+            for path in args.receipts:
+                with path.open() as source:
+                    values.append(json.load(source))
+            json.dump(matching_daily_coverage(values), sys.stdout)
         else:
             with args.candidate.open() as source:
                 candidate = json.load(source)

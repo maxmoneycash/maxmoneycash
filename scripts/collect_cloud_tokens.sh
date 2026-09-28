@@ -43,19 +43,24 @@ REMOTE_DIR="$1"
 CCUSAGE="npx --yes ccusage@20.0.9"
 cd "$REMOTE_DIR"
 
-$CCUSAGE monthly --json --offline --timezone UTC > monthly.json 2>/dev/null || echo '{"monthly":[],"totals":{}}' > monthly.json
-$CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -d '35 days ago' +%Y-%m-%d)" > daily.json 2>/dev/null || echo '{"daily":[],"totals":{}}' > daily.json
+# Every required scan must succeed. set -e propagates its status through SSH
+# to the ordinary collector; failure is never substituted with an empty scan.
+$CCUSAGE monthly --json --offline --timezone UTC > monthly.json
+DAILY_SINCE=$(date -u -d '35 days ago' +%Y-%m-%d)
+$CCUSAGE daily --json --offline --timezone UTC --since "$DAILY_SINCE" > daily.json
+printf '{"since":"%s","timezone":"UTC","basis":"scanner-request-v1"}\n' "$DAILY_SINCE" > daily-coverage.json
 for agent in claude codex droid kimi opencode; do
-  $CCUSAGE "$agent" monthly --json --offline --breakdown > "agent-$agent.json" 2>/dev/null || echo '{"monthly":[],"totals":{}}' > "agent-$agent.json"
+  $CCUSAGE "$agent" monthly --json --offline --breakdown --timezone UTC > "agent-$agent.json"
 done
 
-python3 "$REMOTE_DIR/codex_true_usage.py" > codex-true.json 2>/dev/null || echo '{"totals":{},"monthly":[]}' > codex-true.json
-python3 "$REMOTE_DIR/kimi_true_usage.py" > kimi-true.json 2>/dev/null || echo '{"totals":{},"monthly":[]}' > kimi-true.json
+python3 "$REMOTE_DIR/codex_true_usage.py" > codex-true.json
+python3 "$REMOTE_DIR/kimi_true_usage.py" > kimi-true.json
 
 # Hermes gateway (the swarm's token accounting) lives ONLY in its sqlite
 # state DBs — ccusage can't see it. Dump per-session counters for the local
-# hermes_true_usage.py cache. || fallback keeps the box's other sources alive.
-python3 - > hermes-sessions.json 2>/dev/null <<'PYEOF' || echo '[]' > hermes-sessions.json
+# hermes_true_usage.py cache. An incomplete dump rejects the whole candidate;
+# it does not authorize an empty or partial Hermes correction.
+python3 - > hermes-sessions.json <<'PYEOF'
 import glob, json, sqlite3
 rows = []
 paths = {"main": "/root/.hermes/state.db"}
@@ -72,7 +77,7 @@ for profile, path in paths.items():
             rows.append({"profile": profile, **dict(r)})
         con.close()
     except Exception:
-        pass
+        raise SystemExit("Hermes snapshot incomplete; retry collection and retain the last-good ledger.")
 print(json.dumps(rows))
 PYEOF
 REMOTE

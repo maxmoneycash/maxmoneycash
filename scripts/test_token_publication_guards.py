@@ -46,6 +46,7 @@ def artifact(amounts=(10000,), periods=("2026-09",)):
     months = [{"period": period, **counts(total)} for period, total in zip(periods, amounts)]
     native = source([agent_month(period, total) for period, total in zip(periods, amounts)])
     return {**source(months), "generated_at": "2026-09-27T12:00:00Z",
+            "daily": [],
             "agents": {"claude": native}, "sources": [{"label": "local", "totals": counts(sum(amounts))}],
             "corrections": {"accountingRevision": "synthetic-v1", "codexCumulativeAdjusted": True}}
 
@@ -276,6 +277,145 @@ class CollectorIsolationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             for name in ["codex", "kimi"]:
                 self.assertEqual((local / f"{name}-true.json").read_bytes(), (local / f"agent-{name}.json").read_bytes())
+
+
+class DailyCoverageTests(unittest.TestCase):
+    def coverage(self, since="2026-08-23"):
+        return {"since": since, "timezone": "UTC", "basis": "scanner-request-v1"}
+
+    def test_actual_remote_block_stops_on_each_required_stub_failure(self):
+        script = (ROOT / "collect_cloud_tokens.sh").read_text()
+        remote = script.split("<<'REMOTE'\n", 1)[1].split("\nREMOTE\n", 1)[0]
+        # Run the actual remote shell block locally with shell functions that
+        # replace every scanner. The heredoc Python is inert stdin, never run.
+        stubs = '''
+date() { printf 2026-08-23; }
+npx() {
+  case "$3" in monthly|daily) label="$3" ;; *) label="agent-$3" ;; esac
+  if [ "$FAIL_SOURCE" = "$label" ]; then return 71; fi
+  if [ "$label" = daily ]; then printf '{"daily":[]}'; else printf '{"monthly":[],"totals":{}}'; fi
+}
+python3() {
+  case "$1" in */codex_true_usage.py) label=codex-true ;; */kimi_true_usage.py) label=kimi-true ;; -) label=hermes-dump ;; *) return 99 ;; esac
+  if [ "$FAIL_SOURCE" = "$label" ]; then return 71; fi
+  if [ "$label" = hermes-dump ]; then cat >/dev/null; printf '[]'; else printf '{"monthly":[],"totals":{}}'; fi
+}
+ssh() { return 99; }
+scp() { return 99; }
+'''
+        failures = ["monthly", "daily", *(f"agent-{name}" for name in guards.NATIVE_AGENTS), "codex-true", "kimi-true", "hermes-dump"]
+        for failure in [*failures, "none"]:
+            with tempfile.TemporaryDirectory(prefix="synthetic-remote-block-") as temporary:
+                result = subprocess.run(["/bin/bash", "-c", stubs + remote + '\nprintf completed', "synthetic", temporary],
+                                        env={**os.environ, "FAIL_SOURCE": failure}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0 if failure == "none" else 71, failure)
+                self.assertEqual(result.stdout == "completed", failure == "none", failure)
+                if failure == "daily":
+                    self.assertEqual((pathlib.Path(temporary) / "daily.json").read_bytes(), b"")
+                    self.assertFalse((pathlib.Path(temporary) / "daily-coverage.json").exists())
+
+    def test_each_required_cloud_command_propagates_failure_instead_of_empty_json(self):
+        script = (ROOT / "collect_cloud_tokens.sh").read_text()
+        lines = script.splitlines()
+        prefixes = ["$CCUSAGE monthly ", "$CCUSAGE daily ", '  $CCUSAGE "$agent" monthly ',
+                    'python3 "$REMOTE_DIR/codex_true_usage.py" ', 'python3 "$REMOTE_DIR/kimi_true_usage.py" ']
+        for prefix in prefixes:
+            line = next(line for line in lines if line.startswith(prefix))
+            with tempfile.TemporaryDirectory(prefix="synthetic-cloud-command-") as temporary:
+                shell = 'set -euo pipefail\nsynthetic_failure() { return 71; }\npython3() { return 71; }\nCCUSAGE=synthetic_failure\nREMOTE_DIR=/synthetic\nDAILY_SINCE=2026-08-23\nagent=claude\n' + line
+                result = subprocess.run(["/bin/bash", "-c", shell], cwd=temporary, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 71, prefix)
+                for output in pathlib.Path(temporary).glob("*.json"):
+                    self.assertEqual(output.read_bytes(), b"")
+        # Exercise only the real dump command line with a synthetic process
+        # and synthetic stdin; no Python dump or sqlite reader runs.
+        line = next(line for line in lines if line.startswith("python3 - > hermes-sessions.json"))
+        with tempfile.TemporaryDirectory(prefix="synthetic-cloud-dump-") as temporary:
+            shell = "set -euo pipefail\npython3() { return 72; }\n" + line + "\nsynthetic stdin\nPYEOF\n"
+            result = subprocess.run(["/bin/bash", "-c", shell], cwd=temporary, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 72)
+            self.assertEqual((pathlib.Path(temporary) / "hermes-sessions.json").read_bytes(), b"")
+        self.assertNotIn("except Exception:\n        pass", script)
+
+    def test_input_and_builder_reject_missing_malformed_or_duplicate_daily_rows(self):
+        for daily in [None, {}, {"daily": None}, {"daily": [{"period": "2026-02-30", **counts(1)}]},
+                      {"daily": [{"period": "2026-09-01", **counts(1)}, {"period": "2026-09-01", **counts(1)}]},
+                      {"daily": [{"period": "2026-09-01", "totalTokens": 1}]}]:
+            with tempfile.TemporaryDirectory(prefix="synthetic-daily-input-") as temporary:
+                directory = pathlib.Path(temporary); write_inputs(directory, inputs())
+                (directory / "daily.json").write_text(json.dumps(daily))
+                with self.assertRaises(guards.PublicationBlocked):
+                    guards.validate_input_directory(directory)
+                built = subprocess.run([sys.executable, "-B", str(ROOT / "build_tokens_json.py"), str(directory)], capture_output=True, text=True)
+                self.assertNotEqual(built.returncode, 0)
+                self.assertEqual(built.stdout, "")
+        guards.validate_daily({"daily": []})
+
+    def test_actual_builder_empty_daily_cannot_pass_final_gate_over_previous_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="synthetic-daily-build-") as temporary:
+            directory = pathlib.Path(temporary); write_inputs(directory, inputs())
+            built = subprocess.run([sys.executable, "-B", str(ROOT / "build_tokens_json.py"), str(directory)], capture_output=True, text=True)
+            self.assertEqual(built.returncode, 0, built.stderr)
+            candidate = json.loads(built.stdout)
+            previous = copy.deepcopy(candidate)
+            previous["generated_at"] = "2026-09-01T00:00:00Z"
+            previous["daily"] = [{"period": "2026-09-01", **counts(100)}]
+            with tempfile.TemporaryDirectory(prefix="synthetic-daily-publication-") as target:
+                gate, published = OrdinaryPublicationTests().gate(pathlib.Path(target), candidate, previous)
+                self.assertNotEqual(gate.returncode, 0)
+                self.assertIn("missing_previous_day", gate.stderr)
+                self.assertEqual(published.read_bytes(), json.dumps(previous).encode())
+
+    def test_daily_loss_cannot_be_hidden_by_monthly_or_other_day_growth(self):
+        previous = artifact(); previous["daily"] = [{"period": "2026-09-01", **counts(100)}]
+        for daily in [[], [{"period": "2026-09-01", **counts(99)}, {"period": "2026-09-27", **counts(1000)}]]:
+            candidate = artifact((11000,)); candidate["daily"] = daily
+            candidate["dailyCoverage"] = self.coverage()
+            with self.assertRaises(guards.PublicationBlocked):
+                guards.validate_publication(previous, candidate)
+
+    def test_rolloff_requires_explicit_window_and_preserves_its_inclusive_boundary(self):
+        previous = artifact(); previous["daily"] = [{"period": "2026-08-22", **counts(100)}]
+        candidate = artifact((11000,))
+        with self.assertRaisesRegex(guards.PublicationBlocked, "missing_previous_day"):
+            guards.validate_publication(previous, candidate)
+        candidate["dailyCoverage"] = self.coverage()
+        guards.validate_publication(previous, candidate)
+        previous["daily"][0]["period"] = "2026-08-23"
+        with self.assertRaisesRegex(guards.PublicationBlocked, "missing_previous_day"):
+            guards.validate_publication(previous, candidate)
+        candidate["daily"] = copy.deepcopy(previous["daily"])
+        guards.validate_publication(previous, candidate)
+        # A declared cutoff cannot shorten the existing 35-day scanner scope.
+        candidate["dailyCoverage"] = self.coverage("2026-09-01")
+        with self.assertRaisesRegex(guards.PublicationBlocked, "unproven_daily_window"):
+            guards.validate_publication(previous, candidate)
+
+    def test_only_matching_explicit_source_windows_reach_the_builder(self):
+        receipt = self.coverage()
+        self.assertEqual(guards.matching_daily_coverage([receipt, receipt]), receipt)
+        with self.assertRaisesRegex(guards.PublicationBlocked, "daily_window_mismatch"):
+            guards.matching_daily_coverage([receipt, self.coverage("2026-08-24")])
+        for bad in [{}, {**receipt, "timezone": "local"}, {**receipt, "since": "2026-02-30"}, {**receipt, "basis": "guessed"}]:
+            with self.assertRaises(guards.PublicationBlocked):
+                guards.validate_daily_coverage(bad)
+        with tempfile.TemporaryDirectory(prefix="synthetic-daily-coverage-") as temporary:
+            directory = pathlib.Path(temporary); write_inputs(directory, inputs())
+            (directory / "daily-coverage.json").write_text(json.dumps(receipt))
+            built = subprocess.run([sys.executable, "-B", str(ROOT / "build_tokens_json.py"), str(directory)], capture_output=True, text=True)
+            self.assertEqual(built.returncode, 0, built.stderr)
+            self.assertEqual(json.loads(built.stdout)["dailyCoverage"], receipt)
+
+    def test_cloud_successful_empty_daily_keeps_explicit_request_receipt(self):
+        script = (ROOT / "collect_cloud_tokens.sh").read_text()
+        block = script.split("DAILY_SINCE=$(", 1)[1].split("\nfor agent", 1)[0]
+        block = "DAILY_SINCE=$(" + block
+        with tempfile.TemporaryDirectory(prefix="synthetic-daily-success-") as temporary:
+            shell = 'set -euo pipefail\ndate() { printf 2026-08-23; }\nsynthetic_success() { printf \'{"daily":[]}\'; }\nCCUSAGE=synthetic_success\n' + block
+            result = subprocess.run(["/bin/bash", "-c", shell], cwd=temporary, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads((pathlib.Path(temporary) / "daily.json").read_text()), {"daily": []})
+            self.assertEqual(json.loads((pathlib.Path(temporary) / "daily-coverage.json").read_text()), self.coverage())
 
 
 if __name__ == "__main__":

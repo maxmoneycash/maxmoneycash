@@ -23,7 +23,7 @@ import sys
 
 from model_pricing import list_value
 from token_accounting import COMPONENTS, floor_total_tokens
-from token_publication_guards import PublicationBlocked, validate_correction_coverage
+from token_publication_guards import PublicationBlocked, validate_correction_coverage, validate_daily, validate_daily_coverage
 
 
 PLACEHOLDER_MODELS = {"auto", "default", "unknown"}
@@ -188,6 +188,11 @@ def main():
     d = pathlib.Path(sys.argv[1])
     unified = load(d, "monthly.json")
     daily = load(d, "daily.json")
+    validate_daily(daily)
+    try:
+        daily_coverage = validate_daily_coverage(load(d, "daily-coverage.json"))
+    except FileNotFoundError:
+        daily_coverage = None
     for day in daily["daily"]:
         floor_total_tokens(day)
     agents_raw = {
@@ -495,6 +500,8 @@ def main():
             ),
         },
     }
+    if daily_coverage is not None:
+        out["dailyCoverage"] = daily_coverage
     json.dump(out, sys.stdout)
 
 
