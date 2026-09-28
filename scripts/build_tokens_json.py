@@ -23,6 +23,7 @@ import sys
 
 from model_pricing import list_value
 from token_accounting import COMPONENTS, floor_total_tokens
+from token_publication_guards import PublicationBlocked, validate_correction_coverage
 
 
 PLACEHOLDER_MODELS = {"auto", "default", "unknown"}
@@ -215,10 +216,15 @@ def main():
     except FileNotFoundError:
         sources = []
 
-    codex_rep = {m["month"]: m for m in agents_raw["codex"].get("monthly") or []}
-    codex_tru = {m["month"]: m for m in codex_true.get("monthly") or []}
-    kimi_rep = {m["month"]: m for m in agents_raw["kimi"].get("monthly") or []}
-    kimi_tru = {m["month"]: m for m in kimi_true["monthly"]}
+    # Missing is unknown, never a zero correction. Validate the complete
+    # reported/true/backbone partition before subtraction or output. Separate
+    # live scans can disagree simply because work grew between them; retry
+    # instead of clipping operands to manufacture a consistent snapshot.
+    reported, corrected = validate_correction_coverage(
+        unified, agents_raw, {"codex": codex_true, "kimi": kimi_true}
+    )
+    codex_rep, codex_tru = reported["codex"], corrected["codex"]
+    kimi_rep, kimi_tru = reported["kimi"], corrected["kimi"]
 
     def rep_total(rep):
         return rep.get("totalTokens") or sum(rep.get(c, 0) for c in COMPONENTS)
@@ -240,15 +246,14 @@ def main():
             replace_agent_month(
                 m,
                 crep,
-                codex_tru.get(month, {"models": {}}),
+                codex_tru[month],
                 reported_model_predicate=lambda name: "codex" in name,
             )
 
         # Correct kimi (ccusage reads user-history, missing token metadata).
         krep = kimi_rep.get(month)
-        ktru = kimi_tru.get(month)
-        if krep and rep_total(krep):
-            replace_agent_month(m, krep, infer_single_reported_model(krep, ktru or {"models": {}}))
+        if krep:
+            replace_agent_month(m, krep, infer_single_reported_model(krep, kimi_tru[month]))
 
         # Rebuild the month's cost from the (possibly corrected) model rows.
         breakdowns = []
@@ -494,4 +499,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except PublicationBlocked as error:
+        print(f"Publication blocked: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("Publication blocked: missing/invalid scan input; retry with matching complete snapshots. Keep the last-good ledger and original generated_at.", file=sys.stderr)
+        raise SystemExit(1)

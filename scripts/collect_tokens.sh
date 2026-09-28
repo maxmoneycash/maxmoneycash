@@ -3,7 +3,7 @@
 # them, builds data/tokens.json, and pushes so GitHub Actions re-renders the
 # README cards. Safe to run often (hourly):
 #   - single-run LOCK (two runs can never race the git push)
-#   - monotonic GUARD (a transient glitch can't push near-empty stats)
+#   - complete snapshot and monotonic guards; failures keep the last-good file
 #   - skips when nothing changed (no empty commits on idle hours)
 #   - push survives a dirty tree + interleaving Action commits (autostash + rebase)
 set -euo pipefail
@@ -34,12 +34,8 @@ export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 export TMPDIR="${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR)}"
 cd "$REPO_DIR"
 
-# Hard deadline on every scanner invocation. A scan that used to take seconds
-# wedged for 8 hours on 2026-08-27 (turbotokens codex spinning on a live
-# session file) and froze the whole pipeline — including the server drift
-# check, whose entire job is to not be down for days. A timed-out scan falls
-# through to each call's empty-JSON fallback; the monotonic guards below keep
-# a partial scan from ever shrinking the published ledger.
+# Bound every scanner invocation. A failed or timed-out scan aborts
+# publication and leaves the last-good ledger and original timestamp intact.
 if command -v timeout >/dev/null 2>&1; then
   SCAN_TIMEOUT="timeout 300"
 elif command -v gtimeout >/dev/null 2>&1; then
@@ -80,15 +76,9 @@ if [ -d "$LEGACY_LOCK" ]; then
   log "removing stale pre-upgrade lock (>15m)"
   rm -rf "$LEGACY_LOCK"
 fi
-# Server drift check FIRST, before any scanning. It compares the committed
-# ledger against the public total and re-anchors on >2% drift (observed:
-# restart-burst minting took the server from 68.2B to 270.7B in three days).
-# It must not wait behind the scans: a hung or aborted scan cycle would take
-# the drift protection down with it, which is exactly when it is needed.
-RECONCILE_LOG="$HOME/Library/Logs/tokenstats-reconcile.log"
-python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$RECONCILE_LOG" 2>&1 \
-  && log "server drift check ok" \
-  || log "WARNING: server drift check failed (see $RECONCILE_LOG)"
+# Ordinary collection never performs authoritative server reconciliation.
+# Any real correction is a separate manually reviewed procedure with matching
+# source evidence and an explicit snapshot boundary, including new live work.
 
 TMP=$(mktemp -d)
 LOCAL="$TMP/local"
@@ -99,64 +89,52 @@ trap 'rm -rf "$TMP"' EXIT
 
 # --- collect local ccusage sources SEQUENTIALLY. Parallel bunx/ccusage invocations
 #     race on the package cache and produced empty/partial JSON (the root cause
-#     of the 2026-06-21/22 collection failures). The python true counters can
-#     still run in parallel because they don't touch bunx.
+#     of the 2026-06-21/22 collection failures). Each required scan's status is
+#     checked before proceeding; no background failure becomes an empty source.
 SCAN_LOG="$HOME/Library/Logs/tokenstats-scan.log"
 : > "$SCAN_LOG"
+collect_required() {
+  local label="$1" output="$2"
+  shift 2
+  if "$@" > "$output" 2>>"$SCAN_LOG" && [ -s "$output" ]; then
+    return 0
+  fi
+  log "ERROR: $label collection failed/incomplete — keeping previous tokens.json and its original timestamp; retry collection"
+  return 1
+}
 log "collecting local ccusage…"
-$SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>>"$SCAN_LOG" \
-    || echo '{"monthly":[]}' > "$LOCAL/monthly.json"
-$SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>>"$SCAN_LOG" \
-    || echo '{"daily":[]}' > "$LOCAL/daily.json"
+collect_required "local monthly" "$LOCAL/monthly.json" $SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC
+collect_required "local daily" "$LOCAL/daily.json" $SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)"
 for agent in claude codex droid kimi opencode; do
-  $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>>"$SCAN_LOG" \
-      || echo '{"monthly":[],"totals":{}}' > "$LOCAL/agent-$agent.json"
+  collect_required "local $agent" "$LOCAL/agent-$agent.json" $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown --timezone UTC
 done
 
 log "collecting local true counters…"
-# codex/kimi "true" counters exist to undo ccusage bugs: it re-counts Codex's
-# repeated token_count events, and reads kimi from user-history. turbotokens
-# has neither bug — measured on this dataset, its Codex figure lands within
-# 21,530 tokens (0.0001%) of codex_true_usage.py, and its kimi figure is the
-# larger, more complete one. So under turbotokens the corrections are noise at
-# best and lossy at worst, and codex_true_usage.py is the script that hung the
-# collector for 18h on 2026-08-30. Source both from the counter itself; the
-# legacy parsers stay for the ccusage fallback path.
 if [ "$COUNTER_IS_TURBOTOKENS" = "1" ]; then
-  ( $SCAN_TIMEOUT $CCUSAGE codex monthly --json --offline --breakdown > "$LOCAL/codex-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-  ( $SCAN_TIMEOUT $CCUSAGE kimi monthly --json --offline --breakdown > "$LOCAL/kimi-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+  # Same counter and scope: freeze the outputs already captured above. A
+  # second scan can grow between the subtraction and addition operands.
+  cp "$LOCAL/agent-codex.json" "$LOCAL/codex-true.json"
+  cp "$LOCAL/agent-kimi.json" "$LOCAL/kimi-true.json"
 else
-  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+  collect_required "local Codex correction" "$LOCAL/codex-true.json" $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/codex_true_usage.py"
+  collect_required "local Kimi correction" "$LOCAL/kimi-true.json" $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/kimi_true_usage.py"
 fi
-( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>>"$SCAN_LOG" \
-    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/grok-true.json" ) &
-# Cursor dashboard (network); fall back to the committed cache on any failure
-( if $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>>"$SCAN_LOG" && [ -s "$LOCAL/cursor.json" ]; then
-    cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
-  elif [ -f "$REPO_DIR/data/cursor-cache.json" ]; then
-    cp "$REPO_DIR/data/cursor-cache.json" "$LOCAL/cursor.json"
-  else echo '{"totals":{},"monthly":[]}' > "$LOCAL/cursor.json"; fi ) &
-wait
+collect_required "local Grok" "$LOCAL/grok-true.json" $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/grok_true_usage.py"
+# Failed dashboard input keeps the entire last-good publication. Reusing a
+# cached slice must not label missing input as a fresh complete collection.
+collect_required "Cursor dashboard" "$LOCAL/cursor.json" $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py"
+python3 "$REPO_DIR/scripts/token_publication_guards.py" inputs "$LOCAL"
 log "local collected"
 
-# --- collect from the cloud agent-host. Best-effort: if the box is offline or
-#     unreachable, we still publish the local stats.
+# Cloud is part of the established source scope. It cannot be dropped even
+# when local growth would conceal its missing tokens.
 if bash "$REPO_DIR/scripts/collect_cloud_tokens.sh" "$CLOUD" >>"$TMP/cloud.log" 2>&1; then
+  python3 "$REPO_DIR/scripts/token_publication_guards.py" inputs "$CLOUD"
   log "cloud collected"
   SOURCES=("$LOCAL" "$CLOUD")
 else
-  log "WARNING: cloud collection failed (see $TMP/cloud.log); using local only"
-  # Keep hermes history alive from the committed cache so the box being
-  # offline can't shrink the totals (hermes-true must exist in exactly ONE
-  # source dir — merge sums same-named files across sources).
-  python3 "$REPO_DIR/scripts/hermes_true_usage.py" > "$LOCAL/hermes-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/hermes-true.json"
-  SOURCES=("$LOCAL")
+  log "ERROR: cloud collection failed/incomplete — keeping previous tokens.json and its original timestamp; retry collection"
+  exit 1
 fi
 
 # --- merge local + cloud sources into a single combined input directory
@@ -178,23 +156,17 @@ fi
 # live logs still prove. See scripts/make_cloud_baseline.py.
 python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" "$REPO_DIR/data/cloud-baseline.json" > "$TMP/tokens.out"
 
-# --- safety: all-time totals normally only grow; a drop = a collection glitch.
-#     The one exception is the first audited Codex cumulative-delta correction,
-#     which intentionally removes duplicated token_count events. ---
+# BEGIN ordinary publication gate
+# No percentage, accounting revision, or correction flag authorizes a loss.
+# Check every retained source/month, so growth elsewhere cannot conceal it.
+python3 "$REPO_DIR/scripts/token_publication_guards.py" publication "$TMP/tokens.out" "$REPO_DIR/data/tokens.json"
 OLD=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['totals']['totalTokens'])" 2>/dev/null || echo 0)
 OLD_TIME=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['generated_at'])" 2>/dev/null || echo "")
 NEW=$(python3 -c "import json;print(json.load(open('$TMP/tokens.out'))['totals']['totalTokens'])")
-OLD_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('data/tokens.json')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')" 2>/dev/null || echo 0)
-NEW_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('$TMP/tokens.out')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')")
-OLD_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in json.load(open('data/tokens.json')).get('sources',[]))))" 2>/dev/null || echo "")
-NEW_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in json.load(open('$TMP/tokens.out')).get('sources',[]))))")
-if [ "$NEW" -lt "$((OLD * 98 / 100))" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] && [ "$NEW_CODEX_CORRECTED" = 1 ] && [ "$OLD_SOURCES" = "$NEW_SOURCES" ]; }; then
-  log "ERROR: new total $NEW < 98% of old $OLD — glitch, keeping previous tokens.json"; exit 1
-fi
-if [ "$NEW" -lt "$OLD" ]; then
-  log "audited correction: removing $((OLD - NEW)) duplicated Codex tokens"
-fi
 mv "$TMP/tokens.out" data/tokens.json
+# END ordinary publication gate
+# Promote the dashboard cache only with the accepted complete publication.
+cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
 
 if [ "${TOKENSTATS_NO_GIT:-0}" = "1" ]; then
   log "audit mode: rebuilt token artifacts without committing or pushing"
