@@ -23,6 +23,9 @@ import sys
 
 from model_pricing import list_value
 from token_accounting import COMPONENTS, audit_aggregate, floor_total_tokens
+from conservation_receipt import Recorder
+
+RECEIPT = Recorder()
 
 
 PLACEHOLDER_MODELS = {"auto", "default", "unknown"}
@@ -38,6 +41,8 @@ ACCOUNTING_REVISION = "turbotokens-counter-v4"
 
 
 def load(d, name):
+    if RECEIPT.enabled:
+        return RECEIPT.load(d / name, name)
     with open(d / name) as f:
         text = f.read()
     if not text.strip():
@@ -184,6 +189,8 @@ def conserve_agent_rows(agent):
 
 
 def main():
+    global RECEIPT
+    RECEIPT = Recorder.from_environment("build")
     d = pathlib.Path(sys.argv[1])
     unified = load(d, "monthly.json")
     daily = load(d, "daily.json")
@@ -232,6 +239,7 @@ def main():
     for m in unified["monthly"]:
         m = dict(m)
         month = m["period"]
+        RECEIPT.snapshot("monthly.before-codex", {"monthly": [m]})
 
         # ccusage's Codex adapter sums repeated cumulative token_count events.
         # Replace that slice before adding side sources or the frozen baseline.
@@ -244,11 +252,15 @@ def main():
                 reported_model_predicate=lambda name: "codex" in name,
             )
 
+        RECEIPT.snapshot("monthly.after-codex", {"monthly": [m]})
+
         # Correct kimi (ccusage reads user-history, missing token metadata).
         krep = kimi_rep.get(month)
         ktru = kimi_tru.get(month)
         if krep and rep_total(krep):
             replace_agent_month(m, krep, infer_single_reported_model(krep, ktru or {"models": {}}))
+
+        RECEIPT.snapshot("monthly.after-kimi", {"monthly": [m]})
 
         # Rebuild the month's cost from the (possibly corrected) model rows.
         breakdowns = []
@@ -259,6 +271,7 @@ def main():
         m["modelBreakdowns"] = breakdowns
         m["totalCost"] = total_cost
         floor_total_tokens(m)
+        RECEIPT.snapshot("monthly.after-correction-floor", {"monthly": [m]})
         monthly.append(m)
 
     # Merge a token-accounted side source (cursor dashboard, grok logs) into the
@@ -299,8 +312,11 @@ def main():
                     m.setdefault("modelsUsed", []).append(model)
 
     merge_source(cursor, "cursor")  # token accounting from 2025-07 (earlier was request-based)
+    RECEIPT.snapshot("monthly.after-cursor", {"monthly": monthly})
     merge_source(grok, "grok")
+    RECEIPT.snapshot("monthly.after-grok", {"monthly": monthly})
     merge_source(hermes, "hermes")  # cloud swarm gateway; only visible in its sqlite DBs
+    RECEIPT.snapshot("monthly.after-hermes", {"monthly": monthly})
     if rep_total(hermes.get("totals") or {}) > 0:
         # monthly.json only describes ccusage's direct/mirrored cloud logs.
         # Preserve the Hermes side ledger as its own source so README fleet
@@ -317,9 +333,12 @@ def main():
     baseline = None
     if len(sys.argv) > 2:
         try:
-            baseline = json.load(open(sys.argv[2]))
+            baseline = (RECEIPT.load(sys.argv[2], "baseline.json", empty_missing=False)
+                        if RECEIPT.enabled else json.load(open(sys.argv[2])))
         except FileNotFoundError:
             baseline = None
+    else:
+        RECEIPT.omitted("baseline.json")
     if baseline:
         for raw_month in baseline.get("monthly", []):
             bm = dict(raw_month)
@@ -356,6 +375,8 @@ def main():
             for c in COMPONENTS + ["totalTokens", "totalCost"]:
                 dd[c] = dd.get(c, 0) + bd.get(c, 0)
 
+    RECEIPT.snapshot("monthly.after-baseline", {"monthly": monthly})
+
     # One public row per real model. Placeholder router labels remain counted
     # in all-time totals but are intentionally left unattributed.
     for m in monthly:
@@ -366,6 +387,7 @@ def main():
         floor_total_tokens(day)
 
     monthly.sort(key=lambda m: m["period"])
+    RECEIPT.snapshot("monthly.after-final-floor", {"monthly": monthly})
 
     # List-price equivalent. `cost` stays a faithful record of what a provider
     # actually quoted — subscription agents (codex, kimi, grok, hermes) quote
@@ -411,8 +433,10 @@ def main():
         "totals": copy.deepcopy(hermes.get("totals") or {}),
         "monthly": copy.deepcopy(hermes.get("monthly") or []),
     }
+    RECEIPT.snapshot("providers.before-floor", {"agents": agents})
     for agent in agents.values():
         conserve_agent_rows(agent)
+    RECEIPT.snapshot("providers.after-floor", {"agents": agents})
 
     if baseline:
         for name, b in (baseline.get("agents") or {}).items():
@@ -447,8 +471,10 @@ def main():
             "totals": baseline.get("totals", {}),
         }]
 
+    RECEIPT.snapshot("providers.after-baseline", {"agents": agents})
     for agent in agents.values():
         conserve_agent_rows(agent)
+    RECEIPT.snapshot("providers.after-final-floor", {"agents": agents})
     for source in sources:
         if isinstance(source.get("totals"), dict):
             floor_total_tokens(source["totals"])
@@ -491,7 +517,11 @@ def main():
         },
     }
     out["corrections"]["aggregateAuditV1"] = audit_aggregate(totals, monthly, agents)
-    json.dump(out, sys.stdout)
+    RECEIPT.snapshot("final", {"totals": totals, "monthly": monthly, "agents": agents})
+    json.dump(out, RECEIPT.stdout(sys.stdout))
+    if RECEIPT.enabled:
+        sys.stdout.flush()  # The receipt binds emitted candidate JSON, before collector guards.
+    RECEIPT.finish()
 
 
 if __name__ == "__main__":
