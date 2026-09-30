@@ -324,6 +324,7 @@ runpy.run_path(sys.argv[0], run_name="__main__")
             with self.assertRaises(OSError):
                 receipt.PrivateStore(root / "link")
             weak = root / "weak"; weak.mkdir(mode=0o755)
+            weak.chmod(0o755)  # Establish unsafe permissions even under umask 077.
             with self.assertRaises(receipt.DiagnosticError):
                 receipt.PrivateStore(weak)
 
