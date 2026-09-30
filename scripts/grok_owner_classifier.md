@@ -63,8 +63,16 @@ accepted history. No record is silently skipped to produce a partial candidate.
 - Duplicate active/rotated witnesses with the same identity, original timestamp,
   payload and attribution count once. A native key mapping to different loops
   holds. One structured identity with changed token payload holds. Equal instants
-  with different timestamp text hold instead of guessing that two strings are
-  duplicates. Missing-prompt versus explicit-zero aliases also hold.
+  within one source/session with different timestamp text hold regardless of
+  loop index, including against continuation. Changing both timestamp text and
+  loop cannot bypass native overlap checks. Missing-prompt versus explicit-zero
+  aliases also hold.
+- Preserve optional raw `src` as `sourceLabel` evidence; it is not an independent
+  source identity. Different or missing-versus-present labels for the same
+  structured event hold as `source_witness_conflict`. Two nonidentical raw
+  envelopes for the same event and origin also hold, even when their normalized
+  payloads match; neither witness silently replaces the other. Exact replay and
+  matching active/rotated witnesses remain order independent.
 - Parse every old side ID. Distinct old keys mapping to the same structured
   identity hold. Verify per-month calls and input+cache-read against the parsed
   IDs' original text month and prompt counts. This strengthens the global calls
@@ -87,6 +95,8 @@ accepted history. No record is silently skipped to produce a partial candidate.
 - All counter arithmetic must fit uint64. Bound combined current/continuation
   records at 100,000 and encoded input/output at 64 MiB, with bounded ASCII
   identity/model text. Capacity exhaustion holds; no truncation or eviction.
+  Excessively nested JSON-shaped input returns `invalid_json_value`, including
+  when the shared legacy-cache encoder reaches its recursion limit.
 
 These are deliberately narrower admission rules than all variants accepted by
 the native/side parsers. Caller scope/completeness declarations are necessary but

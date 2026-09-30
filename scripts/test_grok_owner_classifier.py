@@ -130,6 +130,62 @@ class OwnerClassifierTests(unittest.TestCase):
         for timestamp in ["2101-01-02T14:00:00+02:00", "2101-01-02T12:00:00.000Z"]:
             self.held("timestamp_alias", [inference(), inference(timestamp=timestamp)])
 
+    def test_timestamp_alias_cannot_evade_native_collision_by_changing_loop(self):
+        first = inference(loop=1)
+        alias = inference(loop=2, timestamp="2101-01-02T14:00:00+02:00")
+        for rows in [[first, alias], [alias, first]]:
+            self.held("timestamp_alias", rows)
+        previous = self.proposed([first])["continuation"]
+        self.held("timestamp_alias", [alias], continuation=previous)
+
+    def test_different_raw_source_witnesses_hold_in_every_order_and_origin(self):
+        for origin in ["active", "rotated"]:
+            for label in [None, "source-a"]:
+                first, other = inference(), inference(origin=origin)
+                if label is not None:
+                    first["record"]["src"] = label
+                other["record"]["src"] = "source-b"
+                for rows in [[first, other], [other, first]]:
+                    self.held("source_witness_conflict", rows)
+                previous = self.proposed([first])["continuation"]
+                self.held("source_witness_conflict", [other], continuation=previous)
+
+    def test_same_origin_witness_cannot_silently_replace_equivalent_raw_evidence(self):
+        explicit = inference(reasoning=0)
+        omitted = copy.deepcopy(explicit)
+        del omitted["record"]["ctx"]["reasoning_tokens"]
+        for rows in [[explicit, omitted], [omitted, explicit]]:
+            self.held("source_witness_conflict", rows)
+        previous = self.proposed([explicit])["continuation"]
+        self.held("source_witness_conflict", [omitted], continuation=previous)
+
+    def test_matching_raw_source_is_preserved_without_order_dependence(self):
+        first, rotated = inference(), inference(origin="rotated")
+        for row in [first, rotated]:
+            row["record"]["src"] = "source-a"
+        one = self.proposed([first, rotated])
+        self.assertEqual(one, self.proposed([rotated, first]))
+        self.assertEqual(one["events"][0]["sourceLabel"], "source-a")
+        self.assertEqual(one["newUsage"]["totalTokens"], 125)
+
+    def test_deep_baseline_metadata_returns_fixed_hold_without_mutation(self):
+        old = baseline()
+        nested = []
+        for _ in range(1500):
+            nested = [nested]
+        old["monthly"]["2098-01"]["metadata"] = nested
+        result = owner.classify_owner(old, [], scope())
+        self.assertEqual(result, {"protocol": owner.PROTOCOL, "status": "held", "reason": "invalid_json_value",
+                                 "publicationAllowed": False, "lifetimeCertified": False})
+        self.assertEqual(old["seen"], baseline()["seen"])
+        month = old["monthly"]["2098-01"]
+        self.assertEqual({k: v for k, v in month.items() if k != "metadata"}, baseline()["monthly"]["2098-01"])
+        self.assertIs(month["metadata"], nested)
+        for _ in range(1500):
+            self.assertEqual(len(nested), 1)
+            nested = nested[0]
+        self.assertEqual(nested, [])
+
     def test_nanosecond_distinct_timestamps_do_not_collapse_to_native_message_milliseconds(self):
         rows = [inference(timestamp="2101-01-02T12:00:00.000000001Z"),
                 inference(timestamp="2101-01-02T12:00:00.000000002Z")]

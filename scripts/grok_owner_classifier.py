@@ -124,7 +124,7 @@ def parse_record(envelope, source):
                 if "prompt_tokens" in ctx else None)
     native_key = f'{raw["sid"]}:{raw["ts"]}:{prompt-cache_read}:{completion}:{cache_read}:{reasoning}:{native_model}'
     event = {"identity": {"sourceID": source, "sessionID": raw["sid"], "instantUTC": key[2], "loopIndex": key[3]},
-             "timestampText": raw["ts"], "sideKey": side_key, "nativeKey": native_key,
+             "timestampText": raw["ts"], "sourceLabel": raw.get("src"), "sideKey": side_key, "nativeKey": native_key,
              "nativeModel": native_model, "ownerModel": owner_model, "utcMonth": key[2][:7],
              "payload": {"promptTokens": prompt if "prompt_tokens" in ctx else None,
                          "cachedPromptTokens": cached, "completionTokens": completion, "reasoningTokens": reasoning},
@@ -173,9 +173,14 @@ def _classify(legacy_cache, records, scope, continuation):
                 "legacy_period_coverage")
 
     events, native_identities, witnesses, retained = {}, {}, {}, set()
+    timestamp_by_instant = {}
     for is_previous, batch in [(True, previous), (False, records)]:
         for envelope in batch:
             key, event = parse_record(envelope, source)
+            # Loop is absent from native identity. Timestamp aliases must not
+            # evade its collision guard by changing both text and loop.
+            old_timestamp = timestamp_by_instant.setdefault(key[:3], event["timestampText"])
+            require(old_timestamp == event["timestampText"], "timestamp_alias")
             # Neither producer key may silently collapse distinct evidence.
             old_key = native_identities.get(event["nativeKey"])
             require(old_key is None or old_key == key, "native_key_collision")
@@ -183,10 +188,14 @@ def _classify(legacy_cache, records, scope, continuation):
             if key in events:
                 require(events[key]["timestampText"] == event["timestampText"], "timestamp_alias")
                 require(events[key]["payload"] == event["payload"], "changed_payload")
+                require(events[key]["sourceLabel"] == event["sourceLabel"], "source_witness_conflict")
                 require(events[key] == event, "conflicting_model_evidence")
             else:
                 events[key] = event
-            witnesses.setdefault(key, {})[envelope["origin"]] = copy.deepcopy(envelope)
+            by_origin = witnesses.setdefault(key, {})
+            old_witness = by_origin.get(envelope["origin"])
+            require(old_witness is None or old_witness == envelope, "source_witness_conflict")
+            by_origin[envelope["origin"]] = copy.deepcopy(envelope)
             if is_previous:
                 retained.add(key)
 
@@ -245,6 +254,9 @@ def classify_owner(legacy_cache, records, scope, continuation=None):
     """
     try:
         return _classify(legacy_cache, records, scope, continuation)
+    except RecursionError:
+        return {"protocol": PROTOCOL, "status": "held", "reason": "invalid_json_value",
+                "publicationAllowed": False, "lifetimeCertified": False}
     except (OwnershipHeld, CollectionHeld) as error:
         return {"protocol": PROTOCOL, "status": "held", "reason": str(error),
                 "publicationAllowed": False, "lifetimeCertified": False}
