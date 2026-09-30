@@ -160,6 +160,11 @@ else
 fi
 
 # --- merge local + cloud sources into a single combined input directory
+# Optional private diagnostics; no additional collection or public accounting change.
+if [ -n "${TOKENSTATS_RECEIPT_DIR:-}" ]; then
+  TOKENSTATS_RECEIPT_RUN_ID=$(python3 -c 'import uuid; print(uuid.uuid4().hex)' 2>/dev/null) || TOKENSTATS_RECEIPT_RUN_ID=""
+  export TOKENSTATS_RECEIPT_RUN_ID
+fi
 if [ ${#SOURCES[@]} -eq 2 ]; then
   python3 "$REPO_DIR/scripts/merge_token_sources.py" "$MERGED" "local:${SOURCES[0]}" "cloud:${SOURCES[1]}"
 else

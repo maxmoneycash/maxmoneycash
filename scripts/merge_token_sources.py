@@ -14,18 +14,28 @@ import pathlib
 import sys
 
 from token_accounting import COMPONENTS, floor_total_tokens
+from conservation_receipt import Recorder
 
 
 AGENTS = ["claude", "codex", "droid", "kimi", "opencode"]
 TRUE_SOURCES = ["codex-true", "kimi-true", "grok-true", "cursor", "hermes-true"]
+RECEIPT = Recorder()
 
 
-def load(d, name):
+def load(d, name, source=None):
+    if RECEIPT.enabled:
+        return RECEIPT.load(d / name, name, source)
     with open(d / name) as f:
         text = f.read()
     if not text.strip():
         raise FileNotFoundError(d / name)
     return json.loads(text)
+
+
+def save(d, name, value):
+    text = json.dumps(value)
+    (d / name).write_text(text)
+    RECEIPT.output(name, text, value)
 
 
 def merge_monthly(sources):
@@ -226,6 +236,8 @@ def merge_true(sources):
 
 
 def main():
+    global RECEIPT
+    RECEIPT = Recorder.from_environment("merge")
     if len(sys.argv) < 3:
         print("usage: merge_token_sources.py <out_dir> <label>:<src_dir> [<label>:<src_dir> ...]", file=sys.stderr)
         sys.exit(1)
@@ -243,46 +255,47 @@ def main():
 
     # Save per-source totals so renderers can show local vs cloud split.
     sources = []
-    for label, d in zip(labels, src_dirs):
+    for source, (label, d) in enumerate(zip(labels, src_dirs)):
         try:
-            monthly = load(d, "monthly.json")
+            monthly = load(d, "monthly.json", source)
             totals = dict(monthly.get("totals", {}))
             floor_total_tokens(totals)
         except FileNotFoundError:
             totals = {}
         sources.append({"label": label, "totals": totals})
-    (out_dir / "sources.json").write_text(json.dumps(sources))
+    save(out_dir, "sources.json", sources)
 
     # monthly
-    monthly_sources = [load(d, "monthly.json") for d in src_dirs]
-    (out_dir / "monthly.json").write_text(json.dumps(merge_monthly(monthly_sources)))
+    monthly_sources = [load(d, "monthly.json", source) for source, d in enumerate(src_dirs)]
+    save(out_dir, "monthly.json", merge_monthly(monthly_sources))
 
     # daily
-    daily_sources = [load(d, "daily.json") for d in src_dirs]
-    (out_dir / "daily.json").write_text(json.dumps(merge_daily(daily_sources)))
+    daily_sources = [load(d, "daily.json", source) for source, d in enumerate(src_dirs)]
+    save(out_dir, "daily.json", merge_daily(daily_sources))
 
     # agents
     for agent in AGENTS:
         agent_sources = []
-        for d in src_dirs:
+        for source, d in enumerate(src_dirs):
             try:
-                agent_sources.append(load(d, f"agent-{agent}.json"))
+                agent_sources.append(load(d, f"agent-{agent}.json", source))
             except FileNotFoundError:
                 pass
         if agent_sources:
-            (out_dir / f"agent-{agent}.json").write_text(json.dumps(merge_agent(agent_sources)))
+            save(out_dir, f"agent-{agent}.json", merge_agent(agent_sources))
 
     # true counters / side sources
     for name in TRUE_SOURCES:
         true_sources = []
-        for d in src_dirs:
+        for source, d in enumerate(src_dirs):
             try:
-                true_sources.append(load(d, f"{name}.json"))
+                true_sources.append(load(d, f"{name}.json", source))
             except FileNotFoundError:
                 pass
         if true_sources:
-            (out_dir / f"{name}.json").write_text(json.dumps(merge_true(true_sources)))
+            save(out_dir, f"{name}.json", merge_true(true_sources))
 
+    RECEIPT.finish()
     print(f"merged {len(src_dirs)} source(s) into {out_dir}")
 
 
