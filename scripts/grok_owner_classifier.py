@@ -158,11 +158,12 @@ def _classify(legacy_cache, records, scope, continuation):
         require(type(previous) is list and len(previous) <= MAX_RECORDS, "record_capacity")
     require(len(previous) + len(records) <= MAX_RECORDS, "record_capacity")
     encoded({"legacy": legacy_cache, "records": records, "scope": scope, "previous": previous})
-    legacy_by_identity, period_proof = {}, {}
+    legacy_by_identity, legacy_instants, period_proof = {}, set(), {}
     for side_key in legacy_cache["seen"]:
         key, old_period, prompt = legacy_identity(source, side_key)
         require(key not in legacy_by_identity, "legacy_identity_alias")
         legacy_by_identity[key] = side_key
+        legacy_instants.add(key[:3])
         count, prompts = period_proof.get(old_period, (0, 0))
         period_proof[old_period] = (count + 1, uint(prompts + prompt))
     require(set(period_proof) <= set(legacy_cache["monthly"]), "legacy_period_coverage")
@@ -201,6 +202,12 @@ def _classify(legacy_cache, records, scope, continuation):
             require(key not in retained, "continuation_overlaps_baseline")
             disposition = "covered"
         else:
+            # Native batch identity omits loop. The old cache has no per-event
+            # completion/reasoning/model payload, so a new loop at a retained
+            # source/session/instant may still be the same native event. A
+            # current old-loop witness cannot authenticate that missing past
+            # payload. Preserve the baseline and hold this whole proposal.
+            require(key[:3] not in legacy_instants, "legacy_loop_overlap_unknown")
             disposition = "retained" if key in retained else "new"
             add_usage(retained_usage if key in retained else added_now, event["usage"])
             month = additions.setdefault(event["utcMonth"], {**empty_usage(), "calls": 0, "models": {}})

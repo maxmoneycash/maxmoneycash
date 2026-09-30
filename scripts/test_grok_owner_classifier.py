@@ -178,6 +178,44 @@ class OwnerClassifierTests(unittest.TestCase):
         self.held("legacy_record_alias", [inference(session="synthetic-cache", timestamp="2098-01-02T14:00:00+02:00", prompt=77)])
         self.held("legacy_record_alias", [inference(session="synthetic-cache", timestamp="2098-01-02T12:00:00Z", prompt=None)])
 
+    def test_missing_legacy_raw_cannot_prove_new_loop_disjoint(self):
+        old = baseline()
+        usage = {"inputTokens": 60, "outputTokens": 25, "cacheCreationTokens": 0,
+                 "cacheReadTokens": 40, "totalTokens": 125}
+        old["seen"] = ["synthetic-collision|2101-01-02T12:00:00Z|1|100"]
+        old["monthly"] = {"2101-01": {**usage, "calls": 1, "models": {"unknown": dict(usage)}}}
+        current = inference(session="synthetic-collision", loop=2)
+        self.held("legacy_loop_overlap_unknown", [current], legacy=old)
+
+    def test_legacy_new_loop_guard_covers_timezone_and_precision_aliases(self):
+        for timestamp in ["2098-01-02T12:00:00Z", "2098-01-02T14:00:00+02:00",
+                          "2098-01-02T12:00:00.000000000Z"]:
+            self.held("legacy_loop_overlap_unknown", [inference(session="synthetic-cache", timestamp=timestamp,
+                                                                 loop=2, prompt=77)])
+
+    def test_current_legacy_witness_does_not_certify_the_missing_historical_payload(self):
+        old_witness = inference(session="synthetic-cache", timestamp="2098-01-02T12:00:00Z", prompt=77,
+                                completion=0, reasoning=0)
+        # Different current payload means native keys differ, but the archived
+        # event's true per-event payload is unavailable. Neither input order
+        # may silently turn that uncertainty into fresh work.
+        candidate = inference(session="synthetic-cache", timestamp="2098-01-02T12:00:00Z", loop=2, prompt=77)
+        for rows in [[old_witness, candidate], [candidate, old_witness]]:
+            self.held("legacy_loop_overlap_unknown", rows)
+
+    def test_legacy_loop_guard_applies_to_untrusted_continuation_too(self):
+        previous = self.proposed([])["continuation"]
+        previous["admittedRecords"] = [inference(session="synthetic-cache", timestamp="2098-01-02T12:00:00Z",
+                                                  loop=2, prompt=77)]
+        self.held("legacy_loop_overlap_unknown", continuation=previous)
+
+    def test_distinct_instant_or_session_after_legacy_still_admits_known_new_work(self):
+        for row in [inference(session="synthetic-cache", timestamp="2098-01-02T12:00:01Z", loop=2, prompt=77),
+                    inference(session="synthetic-other", timestamp="2098-01-02T12:00:00Z", loop=2, prompt=77)]:
+            result = self.proposed([row])
+            self.assertEqual(result["newUsage"]["totalTokens"], 102)
+            self.assertEqual(result["proposedTotals"]["totalTokens"], 179)
+
     def test_unknown_legacy_ids_and_missing_loop_hold_without_guessing(self):
         for key in ["unknown", "synthetic-cache|2098-01-02T12:00:00Z||77",
                     "synthetic-cache|2098-01-02T12:00:00Z|1|None"]:

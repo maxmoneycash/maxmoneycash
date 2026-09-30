@@ -69,6 +69,12 @@ accepted history. No record is silently skipped to produce a partial candidate.
   identity hold. Verify per-month calls and input+cache-read against the parsed
   IDs' original text month and prompt counts. This strengthens the global calls
   check without moving old periods. A baseline alias is never fresh work.
+- Native identity omits loop index. If an otherwise new loop shares a retained
+  legacy source/session/UTC instant, hold with `legacy_loop_overlap_unknown`:
+  the old cache lacks the per-event payload needed to disprove native overlap.
+  Current old-loop raw witnesses do not certify the missing historical payload,
+  even if their current native keys differ. Timestamp-text aliases are included
+  in this guard. The rule also applies to supplied continuation evidence.
 - An exact old accepted key is covered and adds zero; preserve its existing
   counters/model allocation. The cache does not contain a historical payload for
   each ID, so a changed payload whose original record is absent cannot be
