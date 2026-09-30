@@ -22,7 +22,7 @@ import pathlib
 import sys
 
 from model_pricing import list_value
-from token_accounting import COMPONENTS, floor_total_tokens
+from token_accounting import COMPONENTS, audit_aggregate, floor_total_tokens
 
 
 PLACEHOLDER_MODELS = {"auto", "default", "unknown"}
@@ -490,6 +490,7 @@ def main():
             ),
         },
     }
+    out["corrections"]["aggregateAuditV1"] = audit_aggregate(totals, monthly, agents)
     json.dump(out, sys.stdout)
 
 
