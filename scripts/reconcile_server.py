@@ -13,6 +13,12 @@ ledger and posts an authoritative reconcile when they diverge by more than
 DRIFT_THRESHOLD. Within one 15-minute collector cycle any future re-inflation
 self-heals instead of sitting wrong for days.
 
+The per-model ledger drifts independently. Observed 2026-10-07: the server's
+by_model summed to 205.7B (most models exactly 2.00x the audited ledger) while
+the headline sat within 0.03%, so a headline-only check never fired and
+commits.sh hid the model breakdown as inconsistent. Model-sum drift past the
+same threshold now triggers the same reconcile.
+
 The operator token is read from the login Keychain (service: cm-ingest-token),
 never from the repo or environment files.
 
@@ -57,8 +63,14 @@ def _curl(args, timeout):
     return json.loads(out.stdout)
 
 
-def server_total():
-    return _curl([f"{API}/api/usage?handle={HANDLE}"], 20)["tokens"]["total"]
+def server_tokens():
+    return _curl([f"{API}/api/usage?handle={HANDLE}"], 20)["tokens"]
+
+
+def model_tokens(rows):
+    """Tokens across model rows, counted the way commits.sh checks them."""
+    return sum((r.get("in") or 0) + (r.get("out") or 0) + (r.get("cacheRead") or 0)
+               + (r.get("cacheWrite") or 0) for r in rows or [])
 
 
 def build_payload(ledger):
@@ -106,14 +118,20 @@ def main():
     ledger = json.loads(LEDGER.read_text())
     audited = ledger["totals"]["totalTokens"]
     try:
-        current = server_total()
+        server = server_tokens()
+        current = server["total"]
     except Exception as exc:
         print(f"reconcile: server unreachable ({exc}); skipping")
         return 1
 
+    payload = build_payload(ledger)
     drift = abs(current - audited) / audited
     print(f"reconcile: server {current:,} vs ledger {audited:,} ({drift:+.2%} drift)")
-    if drift <= DRIFT_THRESHOLD and not force:
+    ledger_models = model_tokens(payload["tokens"]["by_model"])
+    server_models = model_tokens(server.get("by_model"))
+    model_drift = abs(server_models - ledger_models) / ledger_models if ledger_models else 0.0
+    print(f"reconcile: model rows {server_models:,} vs ledger {ledger_models:,} ({model_drift:+.2%} drift)")
+    if drift <= DRIFT_THRESHOLD and model_drift <= DRIFT_THRESHOLD and not force:
         print("reconcile: within threshold; nothing to do")
         return 0
 
@@ -121,7 +139,6 @@ def main():
     if not token:
         print("reconcile: DRIFT DETECTED but no Keychain token (service cm-ingest-token)")
         return 1
-    payload = build_payload(ledger)
     if dry:
         print("reconcile: dry run; would post authoritative reconcile")
         return 0
