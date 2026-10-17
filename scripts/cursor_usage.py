@@ -11,6 +11,7 @@ gracefully.
 import base64
 import datetime
 import json
+import os
 import pathlib
 import ssl
 import sqlite3
@@ -38,6 +39,13 @@ EMPTY = {
 # cannot contribute token-accounted rows and only slow or destabilize refreshes.
 START = (2025, 7)
 CACHE = pathlib.Path(__file__).resolve().parent.parent / "data" / "cursor-cache.json"
+# Wall-clock budget for dashboard requests, well inside the collector's 300s
+# per-scan deadline. Fetching all ~16 months oldest-first used to run into that
+# deadline on every collection since 2026-09-24: the whole script was killed,
+# the cache never updated, and the current month was never counted. Months are
+# now fetched newest-first (only recent months can still change) and, once the
+# budget is spent, the rest are served from their last known-good cached rows.
+BUDGET_SEC = float(os.environ.get("CURSOR_BUDGET_SEC", "150"))
 
 
 def cached_months():
@@ -121,91 +129,109 @@ def month_iter():
         y, m = ny, nm
 
 
+def month_entry(month, aggs):
+    entry = {
+        "month": month, "inputTokens": 0, "outputTokens": 0,
+        "cacheCreationTokens": 0, "cacheReadTokens": 0,
+        "totalTokens": 0, "totalCost": 0.0, "models": {},
+    }
+    for a in aggs:
+        mi = int(a.get("inputTokens") or 0)
+        mo = int(a.get("outputTokens") or 0)
+        mw = int(a.get("cacheWriteTokens") or 0)
+        mr = int(a.get("cacheReadTokens") or 0)
+        cents = float(a.get("totalCents") or 0)
+        model = a.get("modelIntent") or a.get("model") or "cursor-unknown"
+        entry["inputTokens"] += mi
+        entry["outputTokens"] += mo
+        entry["cacheCreationTokens"] += mw
+        entry["cacheReadTokens"] += mr
+        entry["totalCost"] += cents / 100
+        tot = mi + mo + mw + mr
+        if tot:
+            mm = entry["models"].setdefault(model, {
+                "inputTokens": 0, "outputTokens": 0,
+                "cacheCreationTokens": 0, "cacheReadTokens": 0,
+                "totalTokens": 0, "cost": 0.0,
+            })
+            mm["inputTokens"] += mi
+            mm["outputTokens"] += mo
+            mm["cacheCreationTokens"] += mw
+            mm["cacheReadTokens"] += mr
+            mm["totalTokens"] += tot
+            mm["cost"] += cents / 100
+    entry["totalTokens"] = (
+        entry["inputTokens"] + entry["outputTokens"]
+        + entry["cacheCreationTokens"] + entry["cacheReadTokens"]
+    )
+    return entry
+
+
+def collect(months, fetch, cache, clock=time.monotonic, budget=BUDGET_SEC,
+            sleep=time.sleep):
+    """Fetch months newest-first within the time budget; any month not
+    fetched (budget spent, timeouts, 5xx) reuses its cached row. Raises
+    urllib.error.HTTPError for 4xx."""
+    started = clock()
+    rows = {}
+    degraded = []
+    for month, s_ms, e_ms in sorted(months, reverse=True):
+        data = None
+        last_error = "time budget"
+        for attempt in range(3):
+            if clock() - started > budget:
+                break
+            try:
+                data = fetch(s_ms, e_ms)
+                break
+            except TimeoutError:
+                last_error = "timeout"
+                continue
+            except urllib.error.HTTPError as err:
+                last_error = f"http {err.code}"
+                # 4xx is a real client/auth problem and will not improve.
+                if err.code < 500:
+                    raise
+                sleep(1 + attempt)
+        if data is None:
+            # Reuse this month's last known-good row. Past months are
+            # immutable, so a cached value is the correct answer, not a
+            # guess — and it keeps totals monotonic for the collector's
+            # glitch guard.
+            degraded.append(f"{month} ({last_error})")
+            if cache.get(month):
+                rows[month] = cache[month]
+            continue
+        aggs = data.get("aggregations") or []
+        if not aggs:
+            continue
+        entry = month_entry(month, aggs)
+        if entry["totalTokens"] or entry["totalCost"]:
+            rows[month] = entry
+    monthly = [rows[m] for m in sorted(rows)]
+    totals = {k: 0 for k in EMPTY["totals"]}
+    totals["totalCost"] = 0.0
+    for row in monthly:
+        for k in ("inputTokens", "outputTokens", "cacheCreationTokens",
+                  "cacheReadTokens", "totalTokens"):
+            totals[k] += row.get(k, 0) or 0
+        totals["totalCost"] += row.get("totalCost", 0) or 0
+    return {"totals": totals, "monthly": monthly}, degraded
+
+
 def main():
     ck = cookie()
     cache = cached_months()
-    degraded = []
-    monthly = []
-    totals = {k: 0 for k in EMPTY["totals"]}
-    totals["totalCost"] = 0.0
+
+    def fetch(s_ms, e_ms):
+        return post(
+            "/api/dashboard/get-aggregated-usage-events",
+            {"teamId": -1, "startDate": str(s_ms), "endDate": str(e_ms)},
+            ck,
+        )
+
     try:
-        for month, s_ms, e_ms in month_iter():
-            data = None
-            last_error = None
-            for attempt in range(3):
-                try:
-                    data = post(
-                        "/api/dashboard/get-aggregated-usage-events",
-                        {"teamId": -1, "startDate": str(s_ms), "endDate": str(e_ms)},
-                        ck,
-                    )
-                    break
-                except TimeoutError as err:
-                    last_error = "timeout"
-                    continue
-                except urllib.error.HTTPError as err:
-                    last_error = f"http {err.code}"
-                    # 4xx is a real client/auth problem and will not improve.
-                    if err.code < 500:
-                        raise
-                    time.sleep(1 + attempt)
-            if data is None:
-                # Reuse this month's last known-good row. Past months are
-                # immutable, so a cached value is the correct answer, not a
-                # guess — and it keeps totals monotonic for the collector's
-                # glitch guard.
-                fallback = cache.get(month)
-                degraded.append(f"{month} ({last_error})")
-                if fallback:
-                    monthly.append(fallback)
-                    for k in ("inputTokens", "outputTokens", "cacheCreationTokens",
-                              "cacheReadTokens", "totalTokens"):
-                        totals[k] += fallback.get(k, 0) or 0
-                    totals["totalCost"] += fallback.get("totalCost", 0) or 0
-                continue
-            aggs = data.get("aggregations") or []
-            if not aggs:
-                continue
-            entry = {
-                "month": month, "inputTokens": 0, "outputTokens": 0,
-                "cacheCreationTokens": 0, "cacheReadTokens": 0,
-                "totalTokens": 0, "totalCost": 0.0, "models": {},
-            }
-            for a in aggs:
-                mi = int(a.get("inputTokens") or 0)
-                mo = int(a.get("outputTokens") or 0)
-                mw = int(a.get("cacheWriteTokens") or 0)
-                mr = int(a.get("cacheReadTokens") or 0)
-                cents = float(a.get("totalCents") or 0)
-                model = a.get("modelIntent") or a.get("model") or "cursor-unknown"
-                entry["inputTokens"] += mi
-                entry["outputTokens"] += mo
-                entry["cacheCreationTokens"] += mw
-                entry["cacheReadTokens"] += mr
-                entry["totalCost"] += cents / 100
-                tot = mi + mo + mw + mr
-                if tot:
-                    mm = entry["models"].setdefault(model, {
-                        "inputTokens": 0, "outputTokens": 0,
-                        "cacheCreationTokens": 0, "cacheReadTokens": 0,
-                        "totalTokens": 0, "cost": 0.0,
-                    })
-                    mm["inputTokens"] += mi
-                    mm["outputTokens"] += mo
-                    mm["cacheCreationTokens"] += mw
-                    mm["cacheReadTokens"] += mr
-                    mm["totalTokens"] += tot
-                    mm["cost"] += cents / 100
-            entry["totalTokens"] = (
-                entry["inputTokens"] + entry["outputTokens"]
-                + entry["cacheCreationTokens"] + entry["cacheReadTokens"]
-            )
-            if entry["totalTokens"] or entry["totalCost"]:
-                monthly.append(entry)
-                for k in ("inputTokens", "outputTokens", "cacheCreationTokens",
-                          "cacheReadTokens", "totalTokens"):
-                    totals[k] += entry[k]
-                totals["totalCost"] += entry["totalCost"]
+        out, degraded = collect(list(month_iter()), fetch, cache)
     except urllib.error.HTTPError as e:
         bail(f"http {e.code}")
     if degraded:
@@ -217,7 +243,7 @@ def main():
             f"({', '.join(degraded)}); {served} served from cache",
             file=sys.stderr,
         )
-    json.dump({"totals": totals, "monthly": monthly}, sys.stdout)
+    json.dump(out, sys.stdout)
 
 
 if __name__ == "__main__":

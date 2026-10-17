@@ -196,6 +196,10 @@ fi
 run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
   python3 "$REPO_DIR/scripts/grok_true_usage.py" &
 # Cursor dashboard (network); fall back to the committed cache on any failure.
+# This is the step that kept hitting the 300s deadline: the true-counter phase
+# sat at exactly 5:00 (codex/kimi/grok finish in under a minute) and
+# data/cursor-cache.json has not changed since 2026-09-24. cursor_usage.py now
+# fetches newest-first under its own 150s budget (CURSOR_BUDGET_SEC).
 ( started=$SECONDS rc=0
   if [ "$OFFLINE" = "1" ]; then
     rc=offline

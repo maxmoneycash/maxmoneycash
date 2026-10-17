@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
 from collections import defaultdict
 
 
@@ -32,6 +33,7 @@ accounting = load_module("token_accounting")
 baseline = load_module("make_cloud_baseline")
 purge = load_module("make_purge_baseline")
 reconcile = load_module("reconcile_server")
+cursor_usage = load_module("cursor_usage")
 heatmaps = load_module("render_heatmaps")
 
 COMPONENT_KEYS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
@@ -1241,6 +1243,38 @@ class TokenPipelineTests(unittest.TestCase):
         self.assertEqual(keychain_reads, [])
         self.assertIn("WOULD POST", out)
         self.assertIn("total=1,000,000", out)
+
+    # --- cursor dashboard time budget -----------------------------------------
+
+    def test_cursor_fetches_newest_months_first_and_caches_the_rest(self):
+        months = [(f"2026-{m:02d}", m, m) for m in range(1, 11)]
+        cache = {f"2026-{m:02d}": {"month": f"2026-{m:02d}", "inputTokens": 1, "outputTokens": 0,
+                                    "cacheCreationTokens": 0, "cacheReadTokens": 0,
+                                    "totalTokens": 1, "totalCost": 0.0, "models": {}}
+                 for m in range(1, 10)}
+        clock = {"t": 0.0}
+        fetched = []
+
+        def fetch(s_ms, e_ms):
+            clock["t"] += 40  # every request is slow
+            fetched.append(s_ms)
+            return {"aggregations": [{"modelIntent": "gpt-5", "inputTokens": 10 * s_ms}]}
+
+        out, degraded = cursor_usage.collect(months, fetch, cache, clock=lambda: clock["t"],
+                                             budget=100, sleep=lambda _: None)
+        self.assertEqual(fetched, [10, 9, 8])  # newest first, then the budget ran out
+        by_month = {r["month"]: r["totalTokens"] for r in out["monthly"]}
+        self.assertEqual(by_month["2026-10"], 100)  # the current month is live
+        self.assertEqual(by_month["2026-08"], 80)
+        self.assertEqual(by_month["2026-01"], 1)    # served from cache
+        self.assertEqual([r["month"] for r in out["monthly"]], sorted(by_month))
+        self.assertEqual(out["totals"]["totalTokens"], sum(by_month.values()))
+        self.assertEqual(len(degraded), 7)
+
+        def forbidden(s_ms, e_ms):
+            raise urllib.error.HTTPError("u", 401, "no", {}, None)
+        with self.assertRaises(urllib.error.HTTPError):
+            cursor_usage.collect(months, forbidden, cache, clock=lambda: 0, sleep=lambda _: None)
 
     @staticmethod
     def token_event(input_tokens, cached_tokens, output_tokens, total_tokens, timestamp):
