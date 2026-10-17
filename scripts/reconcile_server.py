@@ -24,15 +24,22 @@ state, so it is only allowed when the ledger can be trusted to be current:
 The operator token is read from the login Keychain (service: cm-ingest-token),
 never from the repo or environment files, and only when a POST will be sent.
 
+It also refuses when the server's own total is missing, zero or not a number
+(a broken read must never look like "production is 100% low").
+
 Usage: reconcile_server.py [--dry-run] [--force] [--ledger PATH]
   --dry-run  print the decision and the would-be payload totals; never reads
              the Keychain, never POSTs
   --force    post even inside the thresholds (never with a stale ledger)
-  --ledger   audit a different tokens.json (default data/tokens.json)
+  --ledger   audit a different tokens.json. Always a dry run: only the repo's
+             own data/tokens.json is ever posted.
 Exit 0: nothing to do, dry run, or reconcile accepted. 1: server unreachable,
-no token, or POST failed. 2: refused (stale or unusable ledger).
+no token, or POST failed. 2: refused (stale or unusable ledger or server
+total, or a POST of any ledger but data/tokens.json).
 """
+import argparse
 import datetime
+import math
 import json
 import pathlib
 import subprocess
@@ -76,7 +83,7 @@ def _curl(args, timeout):
 
 
 def server_total():
-    return _curl([f"{API}/api/usage?handle={HANDLE}"], 20)["tokens"]["total"]
+    return ((_curl([f"{API}/api/usage?handle={HANDLE}"], 20) or {}).get("tokens") or {}).get("total")
 
 
 def build_payload(ledger):
@@ -143,6 +150,18 @@ def stale_reason(ledger, now):
     return None
 
 
+def usable_total(value):
+    """A positive integer token count, or None. bool is not a count, and a
+    float is accepted only when it is a finite whole number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        value = int(value)
+    if isinstance(value, int) and value > 0:
+        return value
+    return None
+
+
 def decide(server, audited, force=False):
     """Return (action, reason); action is one of none / raise / lower."""
     ratio = server / audited
@@ -167,28 +186,43 @@ def payload_summary(payload):
 
 
 def main(argv=None, now=None):
-    argv = sys.argv[1:] if argv is None else argv
-    force = "--force" in argv
-    dry = "--dry-run" in argv
+    ap = argparse.ArgumentParser(description="commits.sh server drift check")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true")
+    ap.add_argument("--ledger", type=pathlib.Path)
+    args = ap.parse_args(sys.argv[1:] if argv is None else argv)
+    force, dry = args.force, args.dry_run
     ledger_path = LEDGER
-    if "--ledger" in argv:
-        ledger_path = pathlib.Path(argv[argv.index("--ledger") + 1])
+    if args.ledger is not None:
+        # An audited copy (a sandboxed rebuild, a fresh scan without its
+        # baselines) must never be posted: a fresh 97.8B scan would otherwise
+        # pass the age check and lower production at 1.35x.
+        ledger_path = args.ledger
+        if not dry:
+            print("reconcile: --ledger audits only; running as --dry-run")
+        dry = True
     now = now or datetime.datetime.now(datetime.timezone.utc)
 
     ledger = json.loads(pathlib.Path(ledger_path).read_text())
-    audited = ledger["totals"]["totalTokens"]
+    raw_audited = (ledger.get("totals") or {}).get("totalTokens")
+    audited = usable_total(raw_audited)
     reason = stale_reason(ledger, now)
-    if reason is None and not audited > 0:
-        reason = f"ledger total {audited!r} is not positive"
+    if reason is None and audited is None:
+        reason = f"ledger total {raw_audited!r} is not a positive token count"
     if reason:
         print(f"reconcile: REFUSED, not posting: {reason}")
         return 2
 
     try:
-        current = server_total()
+        raw_current = server_total()
     except Exception as exc:
         print(f"reconcile: server unreachable ({exc}); skipping")
         return 1
+    current = usable_total(raw_current)
+    if current is None:
+        print(f"reconcile: REFUSED, not posting: server total {raw_current!r} "
+              "is not a positive token count")
+        return 2
 
     drift = (current - audited) / audited
     print(f"reconcile: server {current:,} vs ledger {audited:,} ({drift:+.2%} drift)")
@@ -205,6 +239,9 @@ def main(argv=None, now=None):
         print(f"reconcile: dry run payload {payload_summary(payload)}")
         return 0
 
+    if pathlib.Path(ledger_path).resolve() != LEDGER.resolve():
+        print(f"reconcile: REFUSED, not posting: {ledger_path} is not {LEDGER}")
+        return 2
     token = keychain_token()
     if not token:
         print(f"reconcile: {verb} needed ({why}) but no Keychain token (service cm-ingest-token)")

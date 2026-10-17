@@ -29,7 +29,8 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CACHE = ROOT / "data" / "grok-cache.json"
+# TOKENSTATS_CACHE_DIR: a sandboxed audit run keeps its caches out of data/.
+CACHE = pathlib.Path(os.environ.get("TOKENSTATS_CACHE_DIR") or ROOT / "data") / "grok-cache.json"
 GROK_HOME = pathlib.Path(os.environ.get("GROK_HOME", pathlib.Path.home() / ".grok"))
 UNKNOWN_MODEL = "unknown"
 CACHE_VERSION = 2

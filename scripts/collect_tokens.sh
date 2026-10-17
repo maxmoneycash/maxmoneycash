@@ -8,6 +8,7 @@
 #   - push survives a dirty tree + interleaving Action commits (autostash + rebase)
 set -euo pipefail
 
+CALLER_PWD="$(pwd -P)"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # turbotokens is the counter. It is CLI-compatible with ccusage for every
 # invocation below, ~19x faster end to end on this dataset (2m23s vs 45m+), and
@@ -54,12 +55,16 @@ log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 # --- sandboxed audit run ------------------------------------------------------
 # TOKENSTATS_AUDIT_DIR=<dir> rebuilds the ledger without touching anything that
 # is published: the built ledger goes to <dir>/tokens.json (data/tokens.json is
-# only read, as the guard's reference), scan logs go to <dir>/, the server drift
-# check is skipped, and nothing is committed or pushed. The accumulating side
-# caches (data/grok-cache.json, data/hermes-cache.json, data/cursor-cache.json)
-# are still refreshed in place, as in a normal run. Unlike TOKENSTATS_NO_GIT
-# (which still replaces data/tokens.json), this is safe on the live checkout.
-#   TOKENSTATS_OFFLINE=1           no network: Cursor from data/cursor-cache.json,
+# only read, as the guard's reference), scan logs go to <dir>/, the side caches
+# (grok/hermes/cursor) are copied to <dir>/cache/ and updated there
+# (TOKENSTATS_CACHE_DIR), the server drift check is skipped, and nothing is
+# committed or pushed. <dir> must be outside every checkout of this repository:
+# a relative path resolves against the caller's directory, and a dir inside a
+# checkout (e.g. "data") is refused, since writing tokens.json there with a
+# fresh generated_at would hand the next live reconcile a ledger it trusts.
+# Unlike TOKENSTATS_NO_GIT (which still replaces data/tokens.json), this is
+# safe on the live checkout.
+#   TOKENSTATS_OFFLINE=1           no network: Cursor from its cached rows,
 #                                  cloud box skipped (Hermes from its cache)
 #   TOKENSTATS_STRICT_SCANS=1      abort before building if any scan failed or
 #                                  timed out (a partial scan must never be
@@ -70,12 +75,33 @@ AUDIT_DIR="${TOKENSTATS_AUDIT_DIR:-}"
 OFFLINE="${TOKENSTATS_OFFLINE:-0}"
 STRICT_SCANS="${TOKENSTATS_STRICT_SCANS:-0}"
 if [ -n "$AUDIT_DIR" ]; then
-  mkdir -p "$AUDIT_DIR"
-  AUDIT_DIR="$(cd "$AUDIT_DIR" && pwd)"
+  case "$AUDIT_DIR" in /*) ;; *) AUDIT_DIR="$CALLER_PWD/$AUDIT_DIR" ;; esac
+  # Physical path even when it does not exist yet (symlinks and .. resolved).
+  AUDIT_DIR="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$AUDIT_DIR")"
+  REPO_REAL="$(cd "$REPO_DIR" && pwd -P)"
+  COMMON_REAL="$( (cd "$REPO_REAL" && cd "$(git rev-parse --git-common-dir)" && pwd -P) 2>/dev/null )" || COMMON_REAL=""
+  probe="$AUDIT_DIR"
+  while [ ! -d "$probe" ]; do probe="$(dirname "$probe")"; done
+  PROBE_COMMON="$( (cd "$probe" && cd "$(git rev-parse --git-common-dir)" && pwd -P) 2>/dev/null )" || PROBE_COMMON=""
+  case "$AUDIT_DIR/" in
+    "$REPO_REAL"/*) INSIDE_REPO=1 ;;
+    *) INSIDE_REPO=0 ;;
+  esac
+  if [ "$INSIDE_REPO" = "1" ] || { [ -n "$COMMON_REAL" ] && [ "$PROBE_COMMON" = "$COMMON_REAL" ]; }; then
+    log "ERROR: TOKENSTATS_AUDIT_DIR $AUDIT_DIR is inside a checkout of this repository; use a directory outside it"
+    exit 2
+  fi
+  mkdir -p "$AUDIT_DIR/cache"
+  for cache in grok-cache.json hermes-cache.json cursor-cache.json; do
+    if [ -f "$REPO_DIR/data/$cache" ]; then cp "$REPO_DIR/data/$cache" "$AUDIT_DIR/cache/$cache"; fi
+  done
+  export TOKENSTATS_CACHE_DIR="$AUDIT_DIR/cache"
   LOG_DIR="$AUDIT_DIR"
 else
+  unset TOKENSTATS_CACHE_DIR  # a live run updates the committed caches in data/
   LOG_DIR="$HOME/Library/Logs"
 fi
+CACHE_DIR="${TOKENSTATS_CACHE_DIR:-$REPO_DIR/data}"
 
 # --- single-run lock: never let two collections overlap (they'd race git) ---
 # `lockf` holds an OS-level exclusive lock on fd 9 for this shell's lifetime.
@@ -209,13 +235,13 @@ run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
   fi
   took=$((SECONDS - started))
   if [ "$rc" = "0" ]; then
-    cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
+    cp "$LOCAL/cursor.json" "$CACHE_DIR/cursor-cache.json"
     echo "cursor ok ${took}s" >> "$SCAN_TIMES"
-  elif [ -f "$REPO_DIR/data/cursor-cache.json" ]; then
-    cp "$REPO_DIR/data/cursor-cache.json" "$LOCAL/cursor.json"
+  elif [ -f "$CACHE_DIR/cursor-cache.json" ]; then
+    cp "$CACHE_DIR/cursor-cache.json" "$LOCAL/cursor.json"
     echo "cursor cache($rc) ${took}s" >> "$SCAN_TIMES"
     if [ "$rc" != "offline" ]; then
-      log "WARNING: cursor dashboard failed ($rc) after ${took}s; using data/cursor-cache.json"
+      log "WARNING: cursor dashboard failed ($rc) after ${took}s; using $CACHE_DIR/cursor-cache.json"
     fi
   else
     echo "$EMPTY_TRUE" > "$LOCAL/cursor.json"

@@ -38,7 +38,11 @@ EMPTY = {
 # Cursor's dashboard was request-counted before July 2025, so earlier calls
 # cannot contribute token-accounted rows and only slow or destabilize refreshes.
 START = (2025, 7)
-CACHE = pathlib.Path(__file__).resolve().parent.parent / "data" / "cursor-cache.json"
+# TOKENSTATS_CACHE_DIR: a sandboxed audit run keeps its caches out of data/.
+CACHE = pathlib.Path(
+    os.environ.get("TOKENSTATS_CACHE_DIR")
+    or pathlib.Path(__file__).resolve().parent.parent / "data"
+) / "cursor-cache.json"
 # Wall-clock budget for dashboard requests, well inside the collector's 300s
 # per-scan deadline. Fetching all ~16 months oldest-first used to run into that
 # deadline on every collection since 2026-09-24: the whole script was killed,

@@ -34,11 +34,13 @@ Outputs {totals, monthly:[...]} (cursor/codex schema) to stdout.
 """
 import datetime
 import json
+import os
 import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CACHE = ROOT / "data" / "hermes-cache.json"
+# TOKENSTATS_CACHE_DIR: a sandboxed audit run keeps its caches out of data/.
+CACHE = pathlib.Path(os.environ.get("TOKENSTATS_CACHE_DIR") or ROOT / "data") / "hermes-cache.json"
 COMPONENTS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
 
 

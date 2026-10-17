@@ -18,7 +18,14 @@ still accruing). The open month and later belong to the fresh scans, and a
 finished month the fresh scan still fully covers (fresh total >= old total)
 contributes nothing. Row totals are the exact difference of the two totals and
 components are fitted under them, so fresh + baseline reproduces every finished
-month's headline exactly.
+month's total, components and cost exactly, and every per-agent row exactly
+down to each model. The unified monthly modelBreakdowns are not always exact:
+where the old build had dropped an orphan row (the Codex replacement removes
+other "*codex*" rows when Codex has a month), the fresh build keeps it, and
+build_tokens_json.py's cap_model_breakdowns rescales the merged rows to the
+month's components. For the 2026-10-12 purge that moved model attribution in
+2026-04, 2026-07 and 2026-08 (e.g. Apr gpt-5.3-codex +169.7M, gpt-5.5 -77.1M;
+Jul gpt-5.6-sol -127.3M) and finished-month list value by +$3.11.
 
 A scan that timed out looks exactly like purged data: frozen into the baseline,
 it would double count as soon as the scan recovered. So the fresh rebuild must
@@ -46,9 +53,14 @@ Usage (outputs stay in $S; data/tokens.json is only read):
 --out writes atomically and only on success; a refusal leaves the file as it was.
 
 build_tokens_json.py adds data/local-purge-baseline.json into every build
-(collect_tokens.sh passes it after data/cloud-baseline.json). After any later
-transcript deletion, re-run this against the last ledger built before it: the
-fresh builds exclude the purge baseline, so the new file replaces the old one.
+(collect_tokens.sh passes it after data/cloud-baseline.json).
+
+After any later transcript deletion, re-run the same procedure against the
+last good ledger built BEFORE that deletion (it already carries the current
+local-purge-baseline). The fresh builds exclude the purge baseline
+(TOKENSTATS_PURGE_BASELINE=none), so old - fresh is everything purged so far,
+the old purge plus the new one, and the output replaces data/local-purge-
+baseline.json as a whole. Never add a second purge baseline on top.
 """
 import argparse
 import json
@@ -236,10 +248,14 @@ def validate_fresh(old, fresh, name, allow_vanished=()):
     new_rev = (fresh.get("corrections") or {}).get("accountingRevision")
     if old_rev != new_rev:
         raise BaselineError(f"{name}: accounting revision {new_rev!r} != old {old_rev!r}")
-    if labels != source_labels(old):
+    # The old ledger may already carry a purge baseline (a re-run after a
+    # later deletion): old - fresh then covers the previous purge too, and
+    # the new file replaces the old one.
+    old_labels = [label for label in source_labels(old) if label != LABEL]
+    if labels != old_labels:
         raise BaselineError(
             f"{name}: sources {labels} differ from the old ledger's "
-            f"{source_labels(old)} (e.g. the cloud box answered in one but not "
+            f"{old_labels} (e.g. the cloud box answered in one but not "
             "the other); rebuild with the same source set")
     for agent in sorted((old.get("agents") or {})):
         if agent_total(old, agent) > 0 and agent_total(fresh, agent) <= 0 \

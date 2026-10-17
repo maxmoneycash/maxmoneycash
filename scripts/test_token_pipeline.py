@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import contextlib
 import datetime
+import hashlib
 import importlib.util
 import io
 import json
+import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -105,6 +108,9 @@ def build_ledger(directory, *baselines):
     ))
 
 
+MISSING = object()
+
+
 class FakeServer:
     """Stands in for curl: GET /api/usage answers `total`, POST /api/ingest
     accepts the payload. Records every call; the network is never touched."""
@@ -118,11 +124,118 @@ class FakeServer:
         if "-X" in args and args[args.index("-X") + 1] == "POST":
             payload = json.loads(args[args.index("--data-binary") + 1])
             return {"reconciled": True, "accepted": {"total": payload["tokens"]["total"]}}
-        return {"tokens": {"total": self.total}}
+        return {"tokens": {} if self.total is MISSING else {"total": self.total}}
 
     @property
     def posts(self):
         return [c for c in self.calls if "POST" in c]
+
+
+# Loaded into every python3 the collector starts (PYTHONPATH): records and
+# answers curl, `security` and urlopen in-process, so a shell-level test can
+# never reach the network or the Keychain even if a guard under test breaks.
+# GET answers an absurd production total so that any reconcile that gets past
+# its guards would try to POST (and be recorded, not sent).
+INTERCEPT = r'''
+import json, os, subprocess, urllib.request
+_LOG = os.environ["TOKENSTATS_INTERCEPT_LOG"]
+_run = subprocess.run
+def _record(kind, argv):
+    with open(_LOG, "a") as fh:
+        fh.write(json.dumps([kind, [a for a in argv if "Bearer" not in a]]) + "\n")
+def run(args, *a, **kw):
+    argv = [str(x) for x in args] if isinstance(args, (list, tuple)) else [str(args)]
+    name = os.path.basename(argv[0])
+    if name == "security":
+        _record("security", argv[:2])
+        return subprocess.CompletedProcess(argv, 0, "test-token\n", "")
+    if name == "curl":
+        posting = "-X" in argv
+        _record("POST" if posting else "GET", argv[-1:] if not posting else ["POST"])
+        body = {"reconciled": True, "accepted": {"total": 1}} if posting else {"tokens": {"total": 10 ** 15}}
+        return subprocess.CompletedProcess(argv, 0, json.dumps(body), "")
+    return _run(args, *a, **kw)
+subprocess.run = run
+def urlopen(*a, **kw):
+    _record("urlopen", [str(a[0])[:60]])
+    raise OSError("network blocked by test")
+urllib.request.urlopen = urlopen
+'''
+
+
+def stale_ledger(generated_at="2026-10-13T05:49:22Z", total=126_563_586_184):
+    comps = dict(zip(COMPONENT_KEYS, (1, 1, 1, total - 3)))
+    return {
+        "generated_at": generated_at,
+        "totals": {**comps, "totalTokens": total, "totalCost": 0.0, "listValueUsd": 0.0},
+        "monthly": [{"period": "2026-10", **comps, "totalTokens": total, "totalCost": 0.0,
+                     "modelBreakdowns": [{"modelName": "claude-opus-4-8", **comps, "cost": 0.0}]}],
+        "daily": [], "agents": {"claude": {"totals": {"totalTokens": total}, "monthly": []}},
+        "sources": [], "corrections": {"accountingRevision": build.ACCOUNTING_REVISION},
+    }
+
+
+class CollectorSandbox:
+    """A throwaway git repo holding a copy of scripts/ and data/, plus a
+    HOME, fake lockf, interceptor and empty agent logs, for running
+    collect_tokens.sh end to end without touching anything real."""
+
+    def __init__(self, tmp, ledger):
+        self.tmp = pathlib.Path(tmp)
+        self.repo = self.tmp / "repo"
+        (self.repo / "data").mkdir(parents=True)
+        shutil.copytree(ROOT, self.repo / "scripts",
+                        ignore=shutil.ignore_patterns("__pycache__", "agent-host", "launchd"))
+        for name in ("cloud-baseline.json", "grok-cache.json", "hermes-cache.json",
+                     "cursor-cache.json", "local-purge-baseline.json"):
+            source = ROOT.parent / "data" / name
+            if source.exists():
+                shutil.copy(source, self.repo / "data" / name)
+        (self.repo / "data" / "tokens.json").write_text(json.dumps(ledger))
+        git = ["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+        subprocess.run(git[:3] + ["init", "-q"], check=True)
+        subprocess.run(git + ["add", "."], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "fixture"], check=True)
+        self.home = self.tmp / "home"
+        (self.home / "Library" / "Logs").mkdir(parents=True)
+        (self.tmp / "tmpdir").mkdir()
+        self.bin = self.tmp / "bin"
+        self.bin.mkdir()
+        lockf = self.bin / "lockf"
+        lockf.write_text("#!/bin/sh\nexit 0\n")  # macOS-only tool; the lock is not under test
+        lockf.chmod(0o755)
+        self.site = self.tmp / "site"
+        self.site.mkdir()
+        (self.site / "sitecustomize.py").write_text(INTERCEPT)
+        self.intercept_log = self.tmp / "intercept.log"
+        self.intercept_log.write_text("")
+        self.grok_home = self.tmp / "grok"
+        (self.grok_home / "logs").mkdir(parents=True)
+
+    def run(self, cwd=None, script=None, **env):
+        full_env = {
+            "PATH": f"{self.bin}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+            "HOME": str(self.home),
+            "TMPDIR": str(self.tmp / "tmpdir"),
+            "PYTHONPATH": str(self.site),
+            "TOKENSTATS_INTERCEPT_LOG": str(self.intercept_log),
+            "GROK_HOME": str(self.grok_home),
+            "CCUSAGE": "false",            # every scan fails fast
+            "TOKENSTATS_OFFLINE": "1",     # no Cursor, no cloud box
+            "TOKENSTATS_SCAN_TIMEOUT": "60",
+            **env,
+        }
+        return subprocess.run(
+            ["bash", str(script or self.repo / "scripts" / "collect_tokens.sh")],
+            cwd=str(cwd or self.tmp), env=full_env, capture_output=True, text=True, timeout=600,
+        )
+
+    def intercepted(self):
+        return [json.loads(line) for line in self.intercept_log.read_text().splitlines()]
+
+    def digest(self, *names):
+        return {n: hashlib.sha256((self.repo / "data" / n).read_bytes()).hexdigest()
+                for n in names if (self.repo / "data" / n).exists()}
 
 
 class TokenPipelineTests(unittest.TestCase):
@@ -1172,16 +1285,153 @@ class TokenPipelineTests(unittest.TestCase):
         for row in data["daily"]:
             self.assertLess(row["period"], data["open_month"])
 
+
+    def test_purge_baseline_rerun_after_a_later_deletion_replaces_the_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp, cloud, old, fresh = self.purge_fixture(tmp)
+            first = tmp / "first-baseline.json"
+            first.write_text(json.dumps(purge.compute_baseline(old, fresh, "2026-10")))
+            # The ledger that shipped with the first baseline, built in November.
+            shipped = build_ledger(tmp / "purged", cloud, first)
+            shipped["generated_at"] = "2026-11-02T00:00:00Z"
+            self.assertIn(purge.LABEL, purge.source_labels(shipped))
+            # A second cleanup takes more of August and part of September and
+            # October; November keeps accruing.
+            again = json.loads(json.dumps(self.PURGED_USAGE))
+            again["codex"]["2026-08"] = {"gpt-5.5": (10, 1, 0, 100)}
+            again["claude"]["2026-09"] = {"claude-opus-4-8": (2, 1, 0, 20)}
+            again["claude"]["2026-10"] = {"claude-opus-4-8": (1, 1, 1, 10)}
+            again["claude"]["2026-11"] = {"claude-opus-4-8": (7, 7, 7, 70)}
+            write_scan(tmp / "purged-again", again, self.PURGED_DAILY)
+            fresh_again = build_ledger(tmp / "purged-again", cloud)  # no purge baseline
+            fresh_again["generated_at"] = "2026-11-05T00:00:00Z"
+            dirs = []
+            for name in ("again-a", "again-b"):
+                d = tmp / name
+                d.mkdir()
+                (d / "tokens.json").write_text(json.dumps(fresh_again))
+                (d / "scan-failures.txt").write_text("")
+                dirs.append(str(d))
+            shipped_path = tmp / "shipped.json"
+            shipped_path.write_text(json.dumps(shipped))
+            second = tmp / "second-baseline.json"
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(purge.main([str(shipped_path), *dirs, "--out", str(second)]), 0,
+                                 err.getvalue())
+            replaced = json.loads(second.read_text())
+            self.assertEqual(replaced["open_month"], "2026-11")
+            rebuilt = build_ledger(tmp / "purged-again", cloud, second)
+
+        shipped_m = {m["period"]: m for m in shipped["monthly"]}
+        rebuilt_m = {m["period"]: m for m in rebuilt["monthly"]}
+        fresh_m = {m["period"]: m for m in fresh_again["monthly"]}
+        for period, row in shipped_m.items():  # every finished month, both purges restored
+            for key in COMPONENT_KEYS + ["totalTokens"]:
+                self.assertEqual(rebuilt_m[period][key], row[key], (period, key))
+        self.assertEqual(rebuilt_m["2026-11"]["totalTokens"], fresh_m["2026-11"]["totalTokens"])
+        self.assertEqual(sum(1 for s in rebuilt["sources"] if s["label"] == purge.LABEL), 1)
+        first_aug = next(m for m in json.loads(json.dumps(purge.compute_baseline(old, fresh, "2026-10")))["monthly"]
+                         if m["period"] == "2026-08")
+        second_aug = next(m for m in replaced["monthly"] if m["period"] == "2026-08")
+        self.assertGreater(second_aug["totalTokens"], first_aug["totalTokens"])
+
+    # --- collect_tokens.sh in a sandbox repo ----------------------------------
+
+    def test_hook_path_reconcile_with_a_stale_ledger_makes_no_post(self):
+        """The SessionEnd hook runs collect_tokens.sh, whose first step is
+        reconcile_server.py against data/tokens.json. With the Oct 13 ledger it
+        must refuse before any network call; the positive control (a fresh
+        ledger, production absurdly high) shows the harness does see a POST."""
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger())
+            before = box.digest("tokens.json")
+            result = box.run(TOKENSTATS_STRICT_SCANS="1")
+            log = (box.home / "Library" / "Logs" / "tokenstats-reconcile.log").read_text()
+            self.assertIn("REFUSED, not posting", log, result.stdout + result.stderr)
+            self.assertIn("server drift check refused or failed", result.stdout)
+            self.assertEqual(box.intercepted(), [])  # no GET, no Keychain, no POST
+            self.assertEqual(result.returncode, 3, result.stdout)  # strict: stops before building
+            self.assertEqual(box.digest("tokens.json"), before)
+
+            fresh_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            (box.repo / "data" / "tokens.json").write_text(json.dumps(stale_ledger(fresh_now)))
+            box.run(TOKENSTATS_STRICT_SCANS="1")
+            kinds = [kind for kind, _ in box.intercepted()]
+            self.assertEqual(kinds, ["GET", "security", "POST"])  # recorded, never sent
+
+    def test_audit_dir_inside_any_checkout_of_the_repo_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger())
+            worktree = box.tmp / "worktree"
+            subprocess.run(["git", "-C", str(box.repo), "worktree", "add", "-q", "--detach",
+                            str(worktree)], check=True)
+            (box.tmp / "elsewhere").mkdir()
+            (box.tmp / "link").symlink_to(box.repo / "data")
+            before = box.digest("tokens.json", "grok-cache.json")
+            script = worktree / "scripts" / "collect_tokens.sh"
+            cases = [
+                (worktree, "data"),                                   # relative, in the worktree
+                (worktree, "."),
+                (worktree, "data/new/deeper"),
+                (box.tmp, str(box.repo / "data")),                    # another checkout, same repo
+                (box.tmp, str(box.tmp / "elsewhere" / ".." / "repo" / "data")),
+                (box.tmp, str(box.tmp / "nope" / ".." / "repo" / "data")),
+                (box.tmp, str(box.tmp / "link")),                     # symlink into a checkout
+                (box.tmp, str(box.repo / ".git" / "audit")),
+            ]
+            for cwd, audit_dir in cases:
+                result = box.run(cwd=cwd, script=script, TOKENSTATS_AUDIT_DIR=audit_dir)
+                self.assertEqual(result.returncode, 2, (audit_dir, result.stdout, result.stderr))
+                self.assertIn("inside a checkout of this repository", result.stdout)
+            self.assertFalse((worktree / "data" / "cache").exists())
+            self.assertFalse((worktree / "data" / "new").exists())
+            self.assertFalse((box.repo / "data" / "cache").exists())
+            self.assertFalse((box.repo / ".git" / "audit").exists())
+            self.assertFalse((box.tmp / "nope").exists())
+            self.assertEqual(box.digest("tokens.json", "grok-cache.json"), before)
+            self.assertEqual(box.intercepted(), [])
+
+    def test_audit_run_keeps_side_caches_and_ledger_out_of_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger())
+            # One new Grok inference, so grok_true_usage.py must rewrite its cache.
+            (box.grok_home / "logs" / "unified.jsonl").write_text(json.dumps({
+                "msg": "shell.turn.inference_done", "ts": "2026-10-17T10:00:00.000Z",
+                "sid": "sandbox-session", "ctx": {"prompt_tokens": 100, "cached_prompt_tokens": 40,
+                                                  "completion_tokens": 7, "loop_index": 0},
+            }) + "\n")
+            names = ("tokens.json", "grok-cache.json", "hermes-cache.json", "cursor-cache.json")
+            before = box.digest(*names)
+            audit = box.tmp / "audit"
+            result = box.run(TOKENSTATS_AUDIT_DIR=str(audit))
+            self.assertIn("audit mode", result.stdout, result.stderr)
+            self.assertEqual(box.digest(*names), before)  # data/ byte-identical
+            status = subprocess.run(["git", "-C", str(box.repo), "status", "--porcelain", "--", "data"],
+                                    capture_output=True, text=True, check=True).stdout
+            self.assertEqual(status, "")
+            grok = json.loads((audit / "cache" / "grok-cache.json").read_text())
+            self.assertIn("2026-10", grok["monthly"])
+            self.assertTrue(any("sandbox-session" in seen for seen in grok["seen"]))
+            for name in ("hermes-cache.json", "cursor-cache.json"):
+                if (box.repo / "data" / name).exists():
+                    self.assertTrue((audit / "cache" / name).exists(), name)
+            self.assertEqual(box.intercepted(), [])
+
     # --- reconcile guards (network mocked) ------------------------------------
 
     NOW = datetime.datetime(2026, 10, 18, 12, 0, tzinfo=datetime.timezone.utc)
 
-    def run_reconcile(self, server_total, ledger_age_hours=0.25, extra=()):
+    def run_reconcile(self, server_total, ledger_age_hours=0.25, extra=(),
+                      ledger_flag=False, ledger_total=1_000_000):
+        """Run main() against a temp ledger with curl and the Keychain mocked.
+        The temp file stands in for data/tokens.json (reconcile.LEDGER) unless
+        ledger_flag passes it with --ledger instead."""
         with tempfile.TemporaryDirectory() as tmp:
             ledger = {
                 "generated_at": (self.NOW - datetime.timedelta(hours=ledger_age_hours))
                 .strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "totals": {"totalTokens": 1_000_000, "inputTokens": 100_000,
+                "totals": {"totalTokens": ledger_total, "inputTokens": 100_000,
                            "outputTokens": 50_000, "cacheCreationTokens": 50_000,
                            "cacheReadTokens": 800_000, "totalCost": 10.0,
                            "listValueUsd": 12.0},
@@ -1195,15 +1445,20 @@ class TokenPipelineTests(unittest.TestCase):
             path.write_text(json.dumps(ledger))
             server = FakeServer(server_total)
             keychain_reads = []
-            saved = reconcile._curl, reconcile.keychain_token
+            saved = reconcile._curl, reconcile.keychain_token, reconcile.LEDGER
             reconcile._curl = server
             reconcile.keychain_token = lambda: keychain_reads.append(1) or "test-token"
+            argv = list(extra)
+            if ledger_flag:
+                argv += ["--ledger", str(path)]
+            else:
+                reconcile.LEDGER = path
             out = io.StringIO()
             try:
                 with contextlib.redirect_stdout(out):
-                    code = reconcile.main(["--ledger", str(path), *extra], now=self.NOW)
+                    code = reconcile.main(argv, now=self.NOW)
             finally:
-                reconcile._curl, reconcile.keychain_token = saved
+                reconcile._curl, reconcile.keychain_token, reconcile.LEDGER = saved
         return code, server, keychain_reads, out.getvalue()
 
     def test_reconcile_refuses_a_stale_ledger_without_any_network_call(self):
@@ -1243,6 +1498,34 @@ class TokenPipelineTests(unittest.TestCase):
         self.assertEqual(keychain_reads, [])
         self.assertIn("WOULD POST", out)
         self.assertIn("total=1,000,000", out)
+
+    def test_reconcile_ledger_flag_is_always_a_dry_run(self):
+        # Reviewer probe: a fresh 97.8B audit build passed with --ledger used
+        # to POST and lower 131.6B production (1.346x is past the 1.10x floor).
+        for extra in ((), ("--force",)):
+            code, server, keychain_reads, out = self.run_reconcile(
+                1_346_000, ledger_flag=True, extra=extra)
+            self.assertEqual(code, 0)
+            self.assertEqual(server.posts, [], extra)
+            self.assertEqual(keychain_reads, [], extra)
+            self.assertIn("--ledger audits only", out)
+            self.assertIn("WOULD POST", out)
+
+    def test_reconcile_refuses_unusable_server_or_ledger_totals(self):
+        for total in (0, None, MISSING, "131573155351", True, -5, 1.5, float("nan")):
+            code, server, keychain_reads, out = self.run_reconcile(total)
+            self.assertEqual(code, 2, total)
+            self.assertEqual(server.posts, [], total)
+            self.assertEqual(keychain_reads, [], total)
+            self.assertIn("REFUSED", out)
+            self.assertIn("server total", out)
+        for total in (0, True, None, "1000000"):
+            code, server, keychain_reads, out = self.run_reconcile(2_000_000, ledger_total=total)
+            self.assertEqual((code, server.calls, keychain_reads), (2, [], []), total)
+            self.assertIn("ledger total", out)
+        # A whole-number float total is a count (JSON has no int type).
+        code, server, _, _ = self.run_reconcile(2_000_000.0)
+        self.assertEqual((code, len(server.posts)), (0, 1))
 
     # --- cursor dashboard time budget -----------------------------------------
 
