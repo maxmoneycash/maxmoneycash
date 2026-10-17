@@ -40,15 +40,42 @@ cd "$REPO_DIR"
 # check, whose entire job is to not be down for days. A timed-out scan falls
 # through to each call's empty-JSON fallback; the monotonic guards below keep
 # a partial scan from ever shrinking the published ledger.
+SCAN_TIMEOUT_SEC="${TOKENSTATS_SCAN_TIMEOUT:-300}"
 if command -v timeout >/dev/null 2>&1; then
-  SCAN_TIMEOUT="timeout 300"
+  SCAN_TIMEOUT="timeout $SCAN_TIMEOUT_SEC"
 elif command -v gtimeout >/dev/null 2>&1; then
-  SCAN_TIMEOUT="gtimeout 300"
+  SCAN_TIMEOUT="gtimeout $SCAN_TIMEOUT_SEC"
 else
   SCAN_TIMEOUT=""
 fi
 
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
+
+# --- sandboxed audit run ------------------------------------------------------
+# TOKENSTATS_AUDIT_DIR=<dir> rebuilds the ledger without touching anything that
+# is published: the built ledger goes to <dir>/tokens.json (data/tokens.json is
+# only read, as the guard's reference), scan logs go to <dir>/, the server drift
+# check is skipped, and nothing is committed or pushed. The accumulating side
+# caches (data/grok-cache.json, data/hermes-cache.json, data/cursor-cache.json)
+# are still refreshed in place, as in a normal run. Unlike TOKENSTATS_NO_GIT
+# (which still replaces data/tokens.json), this is safe on the live checkout.
+#   TOKENSTATS_OFFLINE=1           no network: Cursor from data/cursor-cache.json,
+#                                  cloud box skipped (Hermes from its cache)
+#   TOKENSTATS_STRICT_SCANS=1      abort before building if any scan failed or
+#                                  timed out (a partial scan must never be
+#                                  frozen into a baseline; make_purge_baseline.py)
+#   TOKENSTATS_PURGE_BASELINE=none build without data/local-purge-baseline.json
+#   TOKENSTATS_SCAN_TIMEOUT=<sec>  per-scan deadline (default 300)
+AUDIT_DIR="${TOKENSTATS_AUDIT_DIR:-}"
+OFFLINE="${TOKENSTATS_OFFLINE:-0}"
+STRICT_SCANS="${TOKENSTATS_STRICT_SCANS:-0}"
+if [ -n "$AUDIT_DIR" ]; then
+  mkdir -p "$AUDIT_DIR"
+  AUDIT_DIR="$(cd "$AUDIT_DIR" && pwd)"
+  LOG_DIR="$AUDIT_DIR"
+else
+  LOG_DIR="$HOME/Library/Logs"
+fi
 
 # --- single-run lock: never let two collections overlap (they'd race git) ---
 # `lockf` holds an OS-level exclusive lock on fd 9 for this shell's lifetime.
@@ -66,7 +93,7 @@ fi
 # fails closed; only an old lock with no live owner is removed. All new
 # revisions are already serialized above, so they cannot race this migration.
 LEGACY_LOCK="$(git rev-parse --git-path tokenstats.lock)"
-if [ -d "$LEGACY_LOCK" ]; then
+if [ -z "$AUDIT_DIR" ] && [ -d "$LEGACY_LOCK" ]; then
   OWNER_PID=""
   if [ -f "$LEGACY_LOCK/pid" ]; then
     read -r OWNER_PID < "$LEGACY_LOCK/pid" || OWNER_PID=""
@@ -85,12 +112,17 @@ fi
 # restart-burst minting took the server from 68.2B to 270.7B in three days).
 # It must not wait behind the scans: a hung or aborted scan cycle would take
 # the drift protection down with it, which is exactly when it is needed.
-RECONCILE_LOG="$HOME/Library/Logs/tokenstats-reconcile.log"
-python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$RECONCILE_LOG" 2>&1 \
-  && log "server drift check ok" \
-  || log "WARNING: server drift check failed (see $RECONCILE_LOG)"
+if [ -n "$AUDIT_DIR" ]; then
+  log "audit mode ($AUDIT_DIR): skipping server drift check"
+else
+  RECONCILE_LOG="$HOME/Library/Logs/tokenstats-reconcile.log"
+  python3 "$REPO_DIR/scripts/reconcile_server.py" >> "$RECONCILE_LOG" 2>&1 \
+    && log "server drift check ok" \
+    || log "WARNING: server drift check refused or failed (see $RECONCILE_LOG)"
+fi
 
-TMP=$(mktemp -d)
+# Under $TMPDIR explicitly: macOS mktemp without a template ignores TMPDIR.
+TMP=$(mktemp -d "${TMPDIR%/}/tokenstats.XXXXXX")
 LOCAL="$TMP/local"
 CLOUD="$TMP/cloud"
 MERGED="$TMP/merged"
@@ -101,16 +133,43 @@ trap 'rm -rf "$TMP"' EXIT
 #     race on the package cache and produced empty/partial JSON (the root cause
 #     of the 2026-06-21/22 collection failures). The python true counters can
 #     still run in parallel because they don't touch bunx.
-SCAN_LOG="$HOME/Library/Logs/tokenstats-scan.log"
+SCAN_LOG="$LOG_DIR/tokenstats-scan.log"
 : > "$SCAN_LOG"
+# Every scan is named in the log with its duration. A failed or timed-out scan
+# still falls back to empty JSON (the guards below catch the drop), but it is
+# recorded in $SCAN_FAILURES instead of vanishing silently, and a strict run
+# refuses to build from it.
+SCAN_FAILURES="$TMP/scan-failures.txt"
+SCAN_TIMES="$TMP/scan-times.txt"
+: > "$SCAN_FAILURES"
+: > "$SCAN_TIMES"
+# run_scan <name> <out-file> <fallback-json> <command...>
+run_scan() {
+  local name="$1" out="$2" fallback="$3" started=$SECONDS rc=0 took
+  shift 3
+  $SCAN_TIMEOUT "$@" > "$out" 2>>"$SCAN_LOG" || rc=$?
+  took=$((SECONDS - started))
+  if [ "$rc" -eq 0 ]; then
+    echo "$name ok ${took}s" >> "$SCAN_TIMES"
+    return 0
+  fi
+  echo "$fallback" > "$out"
+  if [ "$rc" -eq 124 ]; then
+    log "WARNING: $name timed out after ${took}s (limit ${SCAN_TIMEOUT_SEC}s); empty fallback"
+  else
+    log "WARNING: $name failed (exit $rc) after ${took}s; empty fallback"
+  fi
+  echo "$name exit=$rc ${took}s" >> "$SCAN_FAILURES"
+}
+
 log "collecting local ccusage…"
-$SCAN_TIMEOUT $CCUSAGE monthly --json --offline --timezone UTC > "$LOCAL/monthly.json" 2>>"$SCAN_LOG" \
-    || echo '{"monthly":[]}' > "$LOCAL/monthly.json"
-$SCAN_TIMEOUT $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)" > "$LOCAL/daily.json" 2>>"$SCAN_LOG" \
-    || echo '{"daily":[]}' > "$LOCAL/daily.json"
+run_scan monthly "$LOCAL/monthly.json" '{"monthly":[]}' \
+  $CCUSAGE monthly --json --offline --timezone UTC
+run_scan daily "$LOCAL/daily.json" '{"daily":[]}' \
+  $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)"
 for agent in claude codex droid kimi opencode; do
-  $SCAN_TIMEOUT $CCUSAGE "$agent" monthly --json --offline --breakdown > "$LOCAL/agent-$agent.json" 2>>"$SCAN_LOG" \
-      || echo '{"monthly":[],"totals":{}}' > "$LOCAL/agent-$agent.json"
+  run_scan "agent-$agent" "$LOCAL/agent-$agent.json" '{"monthly":[],"totals":{}}' \
+    $CCUSAGE "$agent" monthly --json --offline --breakdown
 done
 
 log "collecting local true counters…"
@@ -122,31 +181,58 @@ log "collecting local true counters…"
 # best and lossy at worst, and codex_true_usage.py is the script that hung the
 # collector for 18h on 2026-08-30. Source both from the counter itself; the
 # legacy parsers stay for the ccusage fallback path.
+EMPTY_TRUE='{"totals":{},"monthly":[]}'
 if [ "$COUNTER_IS_TURBOTOKENS" = "1" ]; then
-  ( $SCAN_TIMEOUT $CCUSAGE codex monthly --json --offline --breakdown > "$LOCAL/codex-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-  ( $SCAN_TIMEOUT $CCUSAGE kimi monthly --json --offline --breakdown > "$LOCAL/kimi-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+  run_scan codex-true "$LOCAL/codex-true.json" "$EMPTY_TRUE" \
+    $CCUSAGE codex monthly --json --offline --breakdown &
+  run_scan kimi-true "$LOCAL/kimi-true.json" "$EMPTY_TRUE" \
+    $CCUSAGE kimi monthly --json --offline --breakdown &
 else
-  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/codex_true_usage.py" > "$LOCAL/codex-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/codex-true.json" ) &
-  ( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/kimi_true_usage.py" > "$LOCAL/kimi-true.json" 2>>"$SCAN_LOG" \
-      || echo '{"totals":{},"monthly":[]}' > "$LOCAL/kimi-true.json" ) &
+  run_scan codex-true "$LOCAL/codex-true.json" "$EMPTY_TRUE" \
+    python3 "$REPO_DIR/scripts/codex_true_usage.py" &
+  run_scan kimi-true "$LOCAL/kimi-true.json" "$EMPTY_TRUE" \
+    python3 "$REPO_DIR/scripts/kimi_true_usage.py" &
 fi
-( $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/grok_true_usage.py" > "$LOCAL/grok-true.json" 2>>"$SCAN_LOG" \
-    || echo '{"totals":{},"monthly":[]}' > "$LOCAL/grok-true.json" ) &
-# Cursor dashboard (network); fall back to the committed cache on any failure
-( if $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>>"$SCAN_LOG" && [ -s "$LOCAL/cursor.json" ]; then
+run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
+  python3 "$REPO_DIR/scripts/grok_true_usage.py" &
+# Cursor dashboard (network); fall back to the committed cache on any failure.
+( started=$SECONDS rc=0
+  if [ "$OFFLINE" = "1" ]; then
+    rc=offline
+  else
+    $SCAN_TIMEOUT python3 "$REPO_DIR/scripts/cursor_usage.py" > "$LOCAL/cursor.json" 2>>"$SCAN_LOG" || rc=$?
+    if [ "$rc" = "0" ] && [ ! -s "$LOCAL/cursor.json" ]; then rc=empty; fi
+  fi
+  took=$((SECONDS - started))
+  if [ "$rc" = "0" ]; then
     cp "$LOCAL/cursor.json" "$REPO_DIR/data/cursor-cache.json"
+    echo "cursor ok ${took}s" >> "$SCAN_TIMES"
   elif [ -f "$REPO_DIR/data/cursor-cache.json" ]; then
     cp "$REPO_DIR/data/cursor-cache.json" "$LOCAL/cursor.json"
-  else echo '{"totals":{},"monthly":[]}' > "$LOCAL/cursor.json"; fi ) &
+    echo "cursor cache($rc) ${took}s" >> "$SCAN_TIMES"
+    if [ "$rc" != "offline" ]; then
+      log "WARNING: cursor dashboard failed ($rc) after ${took}s; using data/cursor-cache.json"
+    fi
+  else
+    echo "$EMPTY_TRUE" > "$LOCAL/cursor.json"
+    echo "cursor exit=$rc ${took}s" >> "$SCAN_FAILURES"
+  fi ) &
 wait
-log "local collected"
+log "local collected ($(tr '\n' ' ' < "$SCAN_TIMES"))"
+if [ -s "$SCAN_FAILURES" ] && [ "$STRICT_SCANS" = "1" ]; then
+  log "ERROR: strict scans: $(tr '\n' ' ' < "$SCAN_FAILURES")— not building"
+  [ -n "$AUDIT_DIR" ] && cp "$SCAN_FAILURES" "$AUDIT_DIR/scan-failures.txt"
+  exit 3
+fi
 
 # --- collect from the cloud agent-host. Best-effort: if the box is offline or
 #     unreachable, we still publish the local stats.
-if bash "$REPO_DIR/scripts/collect_cloud_tokens.sh" "$CLOUD" >>"$TMP/cloud.log" 2>&1; then
+if [ "$OFFLINE" = "1" ]; then
+  log "offline: skipping cloud box; Hermes from its committed cache"
+  run_scan hermes-cache "$LOCAL/hermes-true.json" "$EMPTY_TRUE" \
+    python3 "$REPO_DIR/scripts/hermes_true_usage.py"
+  SOURCES=("$LOCAL")
+elif bash "$REPO_DIR/scripts/collect_cloud_tokens.sh" "$CLOUD" >>"$TMP/cloud.log" 2>&1; then
   log "cloud collected"
   SOURCES=("$LOCAL" "$CLOUD")
 else
@@ -173,10 +259,23 @@ if ! python3 -c "import json,sys; d=json.load(open('$MERGED/monthly.json')); sys
 fi
 
 # Atomic write so a failed build can never truncate data/tokens.json.
-# data/cloud-baseline.json = frozen usage of the old agent box (its raw logs
-# were destroyed in the 2026-07-05 hermes rebuild) — added on top of what the
-# live logs still prove. See scripts/make_cloud_baseline.py.
-python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" "$REPO_DIR/data/cloud-baseline.json" > "$TMP/tokens.out"
+# Frozen baselines are added on top of what the live logs still prove:
+#   data/cloud-baseline.json       old agent box, raw logs destroyed in the
+#                                  2026-07-05 hermes rebuild (make_cloud_baseline.py)
+#   data/local-purge-baseline.json this Mac's Claude Code/Codex transcripts
+#                                  deleted by the 2026-10-12 disk cleanup
+#                                  (make_purge_baseline.py)
+BASELINES=("$REPO_DIR/data/cloud-baseline.json")
+PURGE_BASELINE="${TOKENSTATS_PURGE_BASELINE:-$REPO_DIR/data/local-purge-baseline.json}"
+if [ "$PURGE_BASELINE" != "none" ]; then
+  BASELINES+=("$PURGE_BASELINE")
+fi
+python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" "${BASELINES[@]}" > "$TMP/tokens.out"
+if [ -n "$AUDIT_DIR" ]; then
+  cp "$TMP/tokens.out" "$AUDIT_DIR/tokens.json"
+  cp "$SCAN_FAILURES" "$AUDIT_DIR/scan-failures.txt"
+  cp "$SCAN_TIMES" "$AUDIT_DIR/scan-times.txt"
+fi
 
 # --- safety: all-time totals normally only grow; a drop = a collection glitch.
 #     The one exception is the first audited Codex cumulative-delta correction,
@@ -193,6 +292,10 @@ if [ "$NEW" -lt "$((OLD * 98 / 100))" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] &&
 fi
 if [ "$NEW" -lt "$OLD" ]; then
   log "audited correction: removing $((OLD - NEW)) duplicated Codex tokens"
+fi
+if [ -n "$AUDIT_DIR" ]; then
+  log "audit mode: guard accepts new total $NEW (old $OLD); wrote $AUDIT_DIR/tokens.json, data/tokens.json untouched"
+  exit 0
 fi
 mv "$TMP/tokens.out" data/tokens.json
 

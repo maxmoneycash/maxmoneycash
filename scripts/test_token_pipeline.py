@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
+import contextlib
+import datetime
 import importlib.util
+import io
 import json
 import pathlib
 import subprocess
@@ -27,7 +30,76 @@ grok_usage = load_module("grok_true_usage")
 common = load_module("common")
 accounting = load_module("token_accounting")
 baseline = load_module("make_cloud_baseline")
+purge = load_module("make_purge_baseline")
 heatmaps = load_module("render_heatmaps")
+
+COMPONENT_KEYS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
+
+
+def usage_row(values, cost=0.0):
+    row = dict(zip(COMPONENT_KEYS, values))
+    row["totalTokens"] = sum(values)
+    row["cost"] = cost
+    return row
+
+
+def write_scan(directory, usage, daily):
+    """Write a collector input dir from {agent: {month: {model: (i, o, cw, cr)}}}.
+
+    Claude rows carry a quoted cost; Codex rows report zero (subscription)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    cost_of = lambda agent, v: round((v[0] + v[1]) / 1000, 6) if agent == "claude" else 0.0
+    months = sorted({m for per_agent in usage.values() for m in per_agent})
+    monthly = []
+    for month in months:
+        breakdowns, agents = [], []
+        for agent in sorted(usage):
+            for model, v in sorted(usage[agent].get(month, {}).items()):
+                breakdowns.append({"modelName": model, **dict(zip(COMPONENT_KEYS, v)),
+                                   "cost": cost_of(agent, v)})
+                if agent not in agents:
+                    agents.append(agent)
+        row = {c: sum(b[c] for b in breakdowns) for c in COMPONENT_KEYS}
+        monthly.append({
+            "agent": "all", "period": month, **row,
+            "totalTokens": sum(row.values()),
+            "totalCost": sum(b["cost"] for b in breakdowns),
+            "modelsUsed": [b["modelName"] for b in breakdowns],
+            "modelBreakdowns": breakdowns,
+            "metadata": {"agents": agents},
+        })
+    (directory / "monthly.json").write_text(json.dumps({"monthly": monthly}))
+    (directory / "daily.json").write_text(json.dumps({"daily": [
+        {"agent": "all", "period": day, **dict(zip(COMPONENT_KEYS, v)),
+         "totalTokens": sum(v), "totalCost": 0.0, "modelsUsed": [],
+         "modelBreakdowns": [], "metadata": {"agents": []}}
+        for day, v in sorted(daily.items())
+    ]}))
+    empty = {"totals": {}, "monthly": []}
+    for agent in ("claude", "codex", "droid", "kimi", "opencode"):
+        rows = []
+        for month, models in sorted(usage.get(agent, {}).items()):
+            comps = {c: sum(dict(zip(COMPONENT_KEYS, v))[c] for v in models.values())
+                     for c in COMPONENT_KEYS}
+            rows.append({
+                "month": month, **comps, "totalTokens": sum(comps.values()),
+                "totalCost": sum(cost_of(agent, v) for v in models.values()),
+                "models": {m: usage_row(v, cost_of(agent, v)) for m, v in models.items()},
+            })
+        totals = {c: sum(r[c] for r in rows) for c in COMPONENT_KEYS + ["totalTokens", "totalCost"]}
+        doc = {"totals": totals, "monthly": rows} if rows else empty
+        (directory / f"agent-{agent}.json").write_text(json.dumps(doc))
+    # Under turbotokens the true counters are the counter's own agent reports.
+    (directory / "codex-true.json").write_text((directory / "agent-codex.json").read_text())
+    (directory / "kimi-true.json").write_text(json.dumps(empty))
+
+
+def build_ledger(directory, *baselines):
+    return json.loads(subprocess.check_output(
+        [sys.executable, str(ROOT / "build_tokens_json.py"), str(directory),
+         *[str(b) for b in baselines]],
+        text=True,
+    ))
 
 
 class TokenPipelineTests(unittest.TestCase):
@@ -856,6 +928,226 @@ class TokenPipelineTests(unittest.TestCase):
         })
         self.assertEqual(len(rounded), 1)
         self.assertEqual(rounded[0]["inputTokens"], 1)
+
+
+    # --- local purge baseline (2026-10-12 transcript deletion) ---------------
+
+    FULL_USAGE = {
+        "claude": {
+            "2026-08": {"claude-opus-4-8": (100, 50, 10, 1000), "claude-haiku-4-5": (20, 10, 0, 70)},
+            "2026-09": {"claude-opus-4-8": (10, 5, 1, 100)},
+            "2026-10": {"claude-opus-4-8": (1, 1, 1, 10)},
+        },
+        "codex": {
+            "2026-08": {"gpt-5.5": (200, 20, 0, 2000)},
+            "2026-10": {"gpt-6-sol": (5, 5, 0, 50)},
+        },
+    }
+    # After the purge: August lost most Claude and Codex transcripts, the
+    # Haiku session entirely; September survived; October kept accruing.
+    PURGED_USAGE = {
+        "claude": {
+            "2026-08": {"claude-opus-4-8": (40, 20, 4, 400)},
+            "2026-09": {"claude-opus-4-8": (10, 5, 1, 100)},
+            "2026-10": {"claude-opus-4-8": (3, 3, 3, 30)},
+        },
+        "codex": {
+            "2026-08": {"gpt-5.5": (50, 5, 0, 500)},
+            "2026-10": {"gpt-6-sol": (9, 9, 0, 90)},
+        },
+    }
+    FULL_DAILY = {"2026-09-20": (10, 5, 1, 100), "2026-10-02": (1, 1, 1, 10)}
+    PURGED_DAILY = {"2026-09-20": (4, 2, 0, 40), "2026-10-02": (3, 3, 3, 30)}
+
+    def purge_fixture(self, tmp):
+        tmp = pathlib.Path(tmp)
+        cloud = tmp / "cloud-baseline.json"
+        cloud.write_text(json.dumps({
+            "totals": {**dict(zip(COMPONENT_KEYS, (1, 2, 3, 994))), "totalTokens": 1000, "totalCost": 0.5},
+            "monthly": [{
+                "agent": "all", "period": "2026-06",
+                **dict(zip(COMPONENT_KEYS, (1, 2, 3, 994))), "totalTokens": 1000, "totalCost": 0.5,
+                "modelsUsed": ["claude-opus-4-8"],
+                "modelBreakdowns": [{"modelName": "claude-opus-4-8",
+                                     **dict(zip(COMPONENT_KEYS, (1, 2, 3, 994))), "cost": 0.5}],
+                "metadata": {"agents": ["claude"]},
+            }],
+            "daily": [],
+            "agents": {"claude": {
+                "totals": {**dict(zip(COMPONENT_KEYS, (1, 2, 3, 994))), "totalTokens": 1000, "totalCost": 0.5},
+                "monthly": [{"month": "2026-06", **dict(zip(COMPONENT_KEYS, (1, 2, 3, 994))),
+                             "totalTokens": 1000, "totalCost": 0.5, "models": {}}],
+            }},
+        }))
+        write_scan(tmp / "full", self.FULL_USAGE, self.FULL_DAILY)
+        write_scan(tmp / "purged", self.PURGED_USAGE, self.PURGED_DAILY)
+        old = build_ledger(tmp / "full", cloud)
+        old["generated_at"] = "2026-10-13T05:49:22Z"
+        fresh = build_ledger(tmp / "purged", cloud)
+        return tmp, cloud, old, fresh
+
+    def test_purge_baseline_is_old_minus_fresh_per_month_agent_and_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, old, fresh = self.purge_fixture(tmp)
+        result = purge.compute_baseline(old, fresh, "2026-10")
+
+        # Only August lost usage: September is fully covered by the fresh
+        # scan, October is the open month, and June is the cloud baseline
+        # present on both sides.
+        self.assertEqual([m["period"] for m in result["monthly"]], ["2026-08"])
+        august = result["monthly"][0]
+        lost = {"claude-opus-4-8": (60, 30, 6, 600), "claude-haiku-4-5": (20, 10, 0, 70),
+                "gpt-5.5": (150, 15, 0, 1500)}
+        self.assertEqual(
+            {b["modelName"]: tuple(b[c] for c in COMPONENT_KEYS) for b in august["modelBreakdowns"]},
+            lost,
+        )
+        self.assertEqual(august["totalTokens"], sum(sum(v) for v in lost.values()))
+        self.assertEqual(august["metadata"]["agents"], ["claude", "codex"])
+        self.assertAlmostEqual(august["totalCost"], (60 + 30) / 1000 + (20 + 10) / 1000)
+
+        self.assertEqual(sorted(result["agents"]), ["claude", "codex"])
+        claude = result["agents"]["claude"]
+        self.assertEqual([r["month"] for r in claude["monthly"]], ["2026-08"])
+        self.assertEqual(claude["monthly"][0]["models"]["claude-haiku-4-5"]["totalTokens"], 100)
+        self.assertEqual(claude["totals"]["totalTokens"], 696 + 100)
+        self.assertEqual(result["agents"]["codex"]["totals"]["totalTokens"], 1665)
+
+        # September's day lost usage too; October's day belongs to the scan.
+        self.assertEqual([(d["period"], d["totalTokens"]) for d in result["daily"]],
+                         [("2026-09-20", 70)])
+        # A day before the fresh scan's 35-day window is out of range, not purged.
+        early = json.loads(json.dumps(old))
+        early["daily"].insert(0, dict(early["daily"][0], period="2026-09-01"))
+        self.assertEqual([d["period"] for d in purge.compute_baseline(early, fresh, "2026-10")["daily"]],
+                         ["2026-09-20"])
+        self.assertEqual(result["totals"]["totalTokens"],
+                         sum(m["totalTokens"] for m in result["monthly"]))
+        self.assertEqual(result["label"], purge.LABEL)
+
+        # Floors: a model that GREW in a finished month never goes negative,
+        # and attributed models stay within the month's components.
+        grown = json.loads(json.dumps(fresh))
+        for row in grown["monthly"]:
+            if row["period"] == "2026-08":
+                row["modelBreakdowns"].append({"modelName": "gpt-5.4", **dict(zip(COMPONENT_KEYS, (5, 0, 0, 0))), "cost": 0})
+        floored = purge.compute_baseline(old, grown, "2026-10")
+        for month in floored["monthly"]:
+            for c in COMPONENT_KEYS:
+                self.assertGreaterEqual(month[c], 0)
+                self.assertLessEqual(sum(b[c] for b in month["modelBreakdowns"]), month[c])
+
+    def test_rebuild_with_purge_baseline_restores_finished_months_and_keeps_open_month_fresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp, cloud, old, fresh = self.purge_fixture(tmp)
+            baseline_path = tmp / "local-purge-baseline.json"
+            baseline_path.write_text(json.dumps(purge.compute_baseline(old, fresh, "2026-10")))
+            rebuilt = build_ledger(tmp / "purged", cloud, baseline_path)
+
+        old_m = {m["period"]: m for m in old["monthly"]}
+        new_m = {m["period"]: m for m in rebuilt["monthly"]}
+        fresh_m = {m["period"]: m for m in fresh["monthly"]}
+        models = lambda m: {b["modelName"]: tuple(b[c] for c in COMPONENT_KEYS) for b in m["modelBreakdowns"]}
+        for period in ("2026-06", "2026-08", "2026-09"):
+            for key in COMPONENT_KEYS + ["totalTokens"]:
+                self.assertEqual(new_m[period][key], old_m[period][key], (period, key))
+            self.assertEqual(models(new_m[period]), models(old_m[period]))
+            self.assertAlmostEqual(new_m[period]["totalCost"], old_m[period]["totalCost"])
+            self.assertAlmostEqual(new_m[period]["listValueUsd"], old_m[period]["listValueUsd"])
+        self.assertEqual(new_m["2026-10"]["totalTokens"], fresh_m["2026-10"]["totalTokens"])
+        self.assertEqual(models(new_m["2026-10"]), models(fresh_m["2026-10"]))
+        self.assertEqual(
+            rebuilt["totals"]["totalTokens"],
+            old["totals"]["totalTokens"] - old_m["2026-10"]["totalTokens"]
+            + fresh_m["2026-10"]["totalTokens"],
+        )
+        self.assertGreater(rebuilt["totals"]["totalTokens"], old["totals"]["totalTokens"])
+
+        for agent in ("claude", "codex"):
+            old_a = {r["month"]: r for r in old["agents"][agent]["monthly"]}
+            new_a = {r["month"]: r for r in rebuilt["agents"][agent]["monthly"]}
+            fresh_a = {r["month"]: r for r in fresh["agents"][agent]["monthly"]}
+            for month in old_a:
+                expected = fresh_a if month == "2026-10" else old_a
+                self.assertEqual(new_a[month]["totalTokens"], expected[month]["totalTokens"], (agent, month))
+        days = {d["period"]: d["totalTokens"] for d in rebuilt["daily"]}
+        self.assertEqual(days, {"2026-09-20": 116, "2026-10-02": 39})
+        self.assertEqual(
+            sorted(s["label"] for s in rebuilt["sources"]),
+            ["cloud-baseline", "local-purge-baseline"],
+        )
+        self.assert_components_conserved(rebuilt["totals"])
+
+    def test_purge_baseline_refuses_partial_or_disagreeing_scans(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp, _, old, fresh = self.purge_fixture(tmp)
+
+            def audit_dir(name, ledger, failures=""):
+                d = tmp / name
+                d.mkdir()
+                (d / "tokens.json").write_text(json.dumps(ledger))
+                (d / "scan-failures.txt").write_text(failures)
+                return d
+
+            old_path = tmp / "last-good.json"
+            old_path.write_text(json.dumps(old))
+            a = audit_dir("fresh-a", fresh)
+            b = audit_dir("fresh-b", fresh)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(purge.main([str(old_path), str(a), str(b)]), 0)
+            written = json.loads(out.getvalue())
+            self.assertEqual(written["open_month"], "2026-10")
+            self.assertGreater(written["agreement"]["finished_rows_compared"], 0)
+
+            # A finished month that moved between the two runs: refuse.
+            moved = json.loads(json.dumps(fresh))
+            next(m for m in moved["monthly"] if m["period"] == "2026-08")["totalTokens"] += 1
+            # ...while the open month may keep growing between runs.
+            grown = json.loads(json.dumps(fresh))
+            next(m for m in grown["monthly"] if m["period"] == "2026-10")["totalTokens"] += 99
+            self.assertGreater(purge.check_agreement(fresh, grown, "2026-10"), 0)
+            # A timed-out scan, an agent that vanished, an already-patched
+            # build, and a non-purged agent losing usage: refuse.
+            vanished = json.loads(json.dumps(fresh))
+            vanished["agents"]["codex"] = {"totals": {}, "monthly": []}
+            patched = json.loads(json.dumps(fresh))
+            patched["sources"].append({"label": purge.LABEL, "totals": {}})
+            cases = [
+                (audit_dir("moved", moved), "disagree on 1 finished-month row(s): monthly/2026-08"),
+                (audit_dir("timed-out", fresh, "grok-true exit=124 300s\n"), "timed out: grok-true exit=124"),
+                (audit_dir("vanished", vanished), "agent 'codex' has no usage at all"),
+                (audit_dir("patched", patched), "already includes local-purge-baseline"),
+            ]
+            for second, reason in cases:
+                err = io.StringIO()
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(err):
+                    self.assertEqual(purge.main([str(old_path), str(a), str(second)]), 2, second)
+                self.assertIn("REFUSED", err.getvalue())
+                self.assertIn(reason, err.getvalue())
+                self.assertEqual(stdout.getvalue(), "")  # nothing to redirect into the data file
+            with self.assertRaises(purge.BaselineError):
+                purge.compute_baseline(old, fresh, "2026-10", purged_agents=("claude",))
+
+    def test_committed_purge_baseline_is_conserved_and_finished_months_only(self):
+        path = ROOT.parent / "data" / "local-purge-baseline.json"
+        if not path.exists():
+            self.skipTest("no committed purge baseline")
+        data = json.loads(path.read_text())
+        self.assertEqual(data["label"], purge.LABEL)
+        for row in data["monthly"]:
+            self.assertLess(row["period"], data["open_month"])
+            self.assert_components_conserved(row)
+            for c in COMPONENT_KEYS:
+                self.assertLessEqual(sum(b[c] for b in row["modelBreakdowns"]), row[c])
+        self.assertEqual(data["totals"]["totalTokens"], sum(r["totalTokens"] for r in data["monthly"]))
+        for agent in data["agents"].values():
+            for row in agent["monthly"]:
+                self.assertLess(row["month"], data["open_month"])
+                self.assert_components_conserved(row)
+        for row in data["daily"]:
+            self.assertLess(row["period"], data["open_month"])
 
     @staticmethod
     def token_event(input_tokens, cached_tokens, output_tokens, total_tokens, timestamp):

@@ -7,13 +7,18 @@ scripts/kimi_true_usage.py's wire.jsonl parsing.
 Unified months/totals are then rebuilt so everything sums exactly.
 
 Usage: python3 build_tokens_json.py <dir with monthly.json daily.json
-agent-*.json codex-true.json kimi-true.json> [baseline.json]  → tokens.json
+agent-*.json codex-true.json kimi-true.json> [baseline.json ...]  → tokens.json
 on stdout.
 
-The optional baseline (data/cloud-baseline.json, made by make_cloud_baseline.py)
-is the frozen contribution of the old cloud box whose raw logs were destroyed
-in the 2026-07-05 rebuild; it is added on top of everything recounted from
-live logs.
+Each optional baseline is a frozen slice of usage whose raw logs no longer
+exist, added on top of everything recounted from live logs:
+  data/cloud-baseline.json        old cloud box, logs destroyed in the
+                                  2026-07-05 rebuild (make_cloud_baseline.py)
+  data/local-purge-baseline.json  this Mac's transcripts deleted by the
+                                  2026-10-12 disk cleanup (make_purge_baseline.py)
+A baseline's "label" names its sources[] row (default "cloud-baseline").
+A missing baseline file is skipped; the collector's monotonic guard then
+refuses the smaller total.
 """
 import datetime
 import copy
@@ -310,17 +315,21 @@ def main():
             "totals": copy.deepcopy(hermes.get("totals") or {}),
         }]
 
-    # --- frozen cloud baseline: usage from the old agent box whose logs were
-    #     destroyed in the 2026-07-05 hermes rebuild. Everything above is
-    #     recounted from raw logs on every run; this slice has no raw logs
-    #     left, so it is added back verbatim. ---
-    baseline = None
-    if len(sys.argv) > 2:
+    # --- frozen baselines: usage whose raw logs no longer exist (the old cloud
+    #     box, purged local transcripts). Everything above is recounted from
+    #     raw logs on every run; these slices have no raw logs left, so they
+    #     are added back verbatim. ---
+    baselines = []
+    for path in sys.argv[2:]:
         try:
-            baseline = json.load(open(sys.argv[2]))
+            with open(path) as fh:
+                loaded = json.load(fh)
         except FileNotFoundError:
-            baseline = None
-    if baseline:
+            print(f"build_tokens_json: baseline {path} missing; skipped", file=sys.stderr)
+            continue
+        if loaded:
+            baselines.append(loaded)
+    for baseline in baselines:
         for raw_month in baseline.get("monthly", []):
             bm = dict(raw_month)
             floor_total_tokens(bm)
@@ -414,7 +423,7 @@ def main():
     for agent in agents.values():
         conserve_agent_rows(agent)
 
-    if baseline:
+    for baseline in baselines:
         for name, b in (baseline.get("agents") or {}).items():
             a = agents.setdefault(name, {"totals": {}, "monthly": []})
             at = a["totals"]
@@ -443,8 +452,8 @@ def main():
                         m.setdefault("modelsUsed", []).append(model)
             a["monthly"].sort(key=lambda m: m["month"])
         sources = list(sources) + [{
-            "label": "cloud-baseline",
-            "totals": baseline.get("totals", {}),
+            "label": baseline.get("label") or "cloud-baseline",
+            "totals": copy.deepcopy(baseline.get("totals", {})),
         }]
 
     for agent in agents.values():
