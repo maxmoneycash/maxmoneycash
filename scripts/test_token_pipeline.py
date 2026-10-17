@@ -37,6 +37,7 @@ baseline = load_module("make_cloud_baseline")
 purge = load_module("make_purge_baseline")
 reconcile = load_module("reconcile_server")
 cursor_usage = load_module("cursor_usage")
+audit_guard = load_module("audit_dir_guard")
 heatmaps = load_module("render_heatmaps")
 
 COMPONENT_KEYS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
@@ -1380,6 +1381,8 @@ class TokenPipelineTests(unittest.TestCase):
                 (box.tmp, str(box.tmp / "link")),                     # symlink into a checkout
                 (box.tmp, str(box.repo / ".git" / "audit")),
             ]
+            refused, _, _ = self.guard_fixture(box)
+            cases += [(box.tmp, str(path)) for path in refused]   # wrong case, symlinked parent, clones
             for cwd, audit_dir in cases:
                 result = box.run(cwd=cwd, script=script, TOKENSTATS_AUDIT_DIR=audit_dir)
                 self.assertEqual(result.returncode, 2, (audit_dir, result.stdout, result.stderr))
@@ -1389,8 +1392,52 @@ class TokenPipelineTests(unittest.TestCase):
             self.assertFalse((box.repo / "data" / "cache").exists())
             self.assertFalse((box.repo / ".git" / "audit").exists())
             self.assertFalse((box.tmp / "nope").exists())
+            self.assertFalse((box.tmp / "clone" / "data" / "cache").exists())
+            self.assertFalse((box.tmp / "clone" / "deep").exists())
+            self.assertFalse((box.tmp / "origin-only" / "out").exists())
             self.assertEqual(box.digest("tokens.json", "grok-cache.json"), before)
             self.assertEqual(box.intercepted(), [])
+
+    def guard_fixture(self, box):
+        """Other spellings and copies of the sandbox repo, for the audit guard."""
+        t = box.tmp
+        (t / "alias").symlink_to(t, target_is_directory=True)          # symlinked parent
+        subprocess.run(["git", "clone", "-q", str(box.repo), str(t / "clone")], check=True)
+        subprocess.run(["git", "init", "-q", str(t / "origin-only")], check=True)
+        subprocess.run(["git", "-C", str(t / "origin-only"), "remote", "add", "origin",
+                        "https://github.com/MaxMoneyCash/maxmoneycash.git"], check=True)
+        (t / "elsewhere").mkdir(exist_ok=True)
+        refused = [
+            t / "alias" / "repo" / "data",
+            t / "alias" / "alias" / "repo" / "data" / "new",
+            t / "clone" / "data",                     # separate full clone
+            t / "clone" / "deep" / "er",
+            t / "origin-only" / "out",                # same origin, no collector checked out
+        ]
+        wrong_case = t / "REPO" / "data"
+        case_insensitive = wrong_case.exists()
+        if case_insensitive:                         # APFS default: same directory
+            refused += [wrong_case, t / "Repo" / "DATA" / "new", t / "alias" / "REPO" / ".GIT" / "x"]
+        allowed = [t / "elsewhere", t / "elsewhere" / "new" / "dir", t / "alias" / "elsewhere"]
+        return refused, allowed, case_insensitive
+
+    def test_audit_dir_guard_compares_directories_by_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger())
+            refused, allowed, case_insensitive = self.guard_fixture(box)
+            missing = [path for path in refused + allowed if not path.exists()]
+            for path in refused:
+                self.assertIsNotNone(audit_guard.refusal(str(path), str(box.repo)), path)
+            for path in allowed:
+                self.assertIsNone(audit_guard.refusal(str(path), str(box.repo)), path)
+            if not case_insensitive:
+                # Case-sensitive disk (CI): REPO really is another directory.
+                self.assertIsNone(audit_guard.refusal(str(box.tmp / "REPO" / "data"), str(box.repo)))
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(audit_guard.main([str(refused[0]), str(box.repo)]), 2)
+            self.assertTrue(out.getvalue().startswith("REFUSED: "))
+            self.assertEqual([path for path in missing if path.exists()], [])  # nothing created
 
     def test_audit_run_keeps_side_caches_and_ledger_out_of_data(self):
         with tempfile.TemporaryDirectory() as tmp:

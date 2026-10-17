@@ -60,8 +60,9 @@ log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 # (TOKENSTATS_CACHE_DIR), the server drift check is skipped, and nothing is
 # committed or pushed. <dir> must be outside every checkout of this repository:
 # a relative path resolves against the caller's directory, and a dir inside a
-# checkout (e.g. "data") is refused, since writing tokens.json there with a
-# fresh generated_at would hand the next live reconcile a ledger it trusts.
+# checkout (e.g. "data", any spelling of it) is refused by
+# scripts/audit_dir_guard.py, since writing tokens.json there with a fresh
+# generated_at would hand the next live reconcile a ledger it trusts.
 # Unlike TOKENSTATS_NO_GIT (which still replaces data/tokens.json), this is
 # safe on the live checkout.
 #   TOKENSTATS_OFFLINE=1           no network: Cursor from its cached rows,
@@ -76,21 +77,14 @@ OFFLINE="${TOKENSTATS_OFFLINE:-0}"
 STRICT_SCANS="${TOKENSTATS_STRICT_SCANS:-0}"
 if [ -n "$AUDIT_DIR" ]; then
   case "$AUDIT_DIR" in /*) ;; *) AUDIT_DIR="$CALLER_PWD/$AUDIT_DIR" ;; esac
-  # Physical path even when it does not exist yet (symlinks and .. resolved).
-  AUDIT_DIR="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$AUDIT_DIR")"
-  REPO_REAL="$(cd "$REPO_DIR" && pwd -P)"
-  COMMON_REAL="$( (cd "$REPO_REAL" && cd "$(git rev-parse --git-common-dir)" && pwd -P) 2>/dev/null )" || COMMON_REAL=""
-  probe="$AUDIT_DIR"
-  while [ ! -d "$probe" ]; do probe="$(dirname "$probe")"; done
-  PROBE_COMMON="$( (cd "$probe" && cd "$(git rev-parse --git-common-dir)" && pwd -P) 2>/dev/null )" || PROBE_COMMON=""
-  case "$AUDIT_DIR/" in
-    "$REPO_REAL"/*) INSIDE_REPO=1 ;;
-    *) INSIDE_REPO=0 ;;
-  esac
-  if [ "$INSIDE_REPO" = "1" ] || { [ -n "$COMMON_REAL" ] && [ "$PROBE_COMMON" = "$COMMON_REAL" ]; }; then
-    log "ERROR: TOKENSTATS_AUDIT_DIR $AUDIT_DIR is inside a checkout of this repository; use a directory outside it"
+  # Compared by directory identity (device + inode), not spelling: the disk is
+  # case-insensitive, so ~/MAXMONEYCASH/data is the live data/. Fails closed.
+  if ! GUARD_OUT="$(python3 "$REPO_DIR/scripts/audit_dir_guard.py" "$AUDIT_DIR" "$REPO_DIR")"; then
+    log "ERROR: TOKENSTATS_AUDIT_DIR is inside a checkout of this repository: ${GUARD_OUT#REFUSED: }"
     exit 2
   fi
+  if [ -z "$GUARD_OUT" ]; then log "ERROR: audit dir guard printed nothing"; exit 2; fi
+  AUDIT_DIR="$GUARD_OUT"
   mkdir -p "$AUDIT_DIR/cache"
   for cache in grok-cache.json hermes-cache.json cursor-cache.json; do
     if [ -f "$REPO_DIR/data/$cache" ]; then cp "$REPO_DIR/data/$cache" "$AUDIT_DIR/cache/$cache"; fi
