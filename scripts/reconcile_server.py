@@ -8,17 +8,31 @@ public total reached 270.7B — 3.88x its own component sum — three days after
 clean 68.2B reconcile, with cost still correct. Only an operator ingest with
 ``reconcile: true`` re-anchors it (total = max(incoming.total, componentFloor)).
 
-This runs after every collection: compares the server headline to the audited
-ledger and posts an authoritative reconcile when they diverge by more than
-DRIFT_THRESHOLD. Within one 15-minute collector cycle any future re-inflation
-self-heals instead of sitting wrong for days.
+This runs before every collection: compares the server headline to the audited
+ledger and posts an authoritative reconcile when they diverge. A reconcile sets
+every server counter exactly (lower included) and erases other publishers'
+state, so it is only allowed when the ledger can be trusted to be current:
+
+  - the ledger must be fresh: generated_at at most MAX_LEDGER_AGE (2 h) old.
+    A frozen ledger (collection refused for days, e.g. after the 2026-10-12
+    transcript purge) must never pull production back to an old value.
+  - RAISE production when it is more than DRIFT_THRESHOLD (2%) below the ledger.
+  - LOWER production only when it is at least LOWER_RATIO (1.10x) the ledger.
+    Every past inflation was a whole multiple (1.87x, 3.88x, ~1.97x); a few
+    percent above the ledger is live usage the ledger has not caught up with.
 
 The operator token is read from the login Keychain (service: cm-ingest-token),
-never from the repo or environment files.
+never from the repo or environment files, and only when a POST will be sent.
 
-Usage: reconcile_server.py [--force] [--dry-run]
-Exit 0 on no-drift or successful reconcile; 1 on failure to check or post.
+Usage: reconcile_server.py [--dry-run] [--force] [--ledger PATH]
+  --dry-run  print the decision and the would-be payload totals; never reads
+             the Keychain, never POSTs
+  --force    post even inside the thresholds (never with a stale ledger)
+  --ledger   audit a different tokens.json (default data/tokens.json)
+Exit 0: nothing to do, dry run, or reconcile accepted. 1: server unreachable,
+no token, or POST failed. 2: refused (stale or unusable ledger).
 """
+import datetime
 import json
 import pathlib
 import subprocess
@@ -31,6 +45,10 @@ LEDGER = pathlib.Path(__file__).resolve().parent.parent / "data" / "tokens.json"
 # Live drift between a 2s pulse and a committed artifact is <0.2%; restart
 # minting shows up as whole multiples. 2% separates them with a wide margin.
 DRIFT_THRESHOLD = 0.02
+# Lower production only at a whole-multiple-like inflation, never on a few
+# percent of not-yet-collected live usage.
+LOWER_RATIO = 1.10
+MAX_LEDGER_AGE = datetime.timedelta(hours=2)
 MAX_MODEL_ROWS = 128
 
 
@@ -99,33 +117,99 @@ def build_payload(ledger):
     }
 
 
-def main():
-    force = "--force" in sys.argv
-    dry = "--dry-run" in sys.argv
+def parse_time(value):
+    try:
+        return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return None
 
-    ledger = json.loads(LEDGER.read_text())
+
+def ledger_age(ledger, now):
+    generated = parse_time(ledger.get("generated_at"))
+    return None if generated is None else now - generated
+
+
+def stale_reason(ledger, now):
+    age = ledger_age(ledger, now)
+    if age is None:
+        return f"ledger generated_at {ledger.get('generated_at')!r} is unreadable"
+    if age > MAX_LEDGER_AGE:
+        hours = age.total_seconds() / 3600
+        return (f"ledger generated_at {ledger['generated_at']} is {hours:.1f}h old "
+                f"(limit {MAX_LEDGER_AGE.total_seconds() / 3600:g}h)")
+    if age < -datetime.timedelta(minutes=5):
+        return f"ledger generated_at {ledger['generated_at']} is in the future"
+    return None
+
+
+def decide(server, audited, force=False):
+    """Return (action, reason); action is one of none / raise / lower."""
+    ratio = server / audited
+    if server < audited * (1 - DRIFT_THRESHOLD):
+        return "raise", f"server {ratio:.4f}x ledger, more than {DRIFT_THRESHOLD:.0%} low"
+    if ratio >= LOWER_RATIO:
+        return "lower", f"server {ratio:.4f}x ledger, at or above the {LOWER_RATIO:.2f}x lowering floor"
+    if force and server != audited:
+        return ("raise" if server < audited else "lower"), f"forced at {ratio:.4f}x"
+    if server > audited * (1 + DRIFT_THRESHOLD):
+        return "none", (f"server {ratio:.4f}x ledger: above, but below the "
+                        f"{LOWER_RATIO:.2f}x lowering floor; not lowering")
+    return "none", f"server {ratio:.4f}x ledger, within {DRIFT_THRESHOLD:.0%}"
+
+
+def payload_summary(payload):
+    t = payload["tokens"]
+    return (f"total={t['total']:,} cost_usd_total={t['cost_usd_total']:,.2f} "
+            f"input={t['input_total']:,} output={t['output_total']:,} "
+            f"cache_read={t['cache_read_total']:,} cache_write={t['cache_write_total']:,} "
+            f"models={t['models_used']} apps={t['apps_used']}")
+
+
+def main(argv=None, now=None):
+    argv = sys.argv[1:] if argv is None else argv
+    force = "--force" in argv
+    dry = "--dry-run" in argv
+    ledger_path = LEDGER
+    if "--ledger" in argv:
+        ledger_path = pathlib.Path(argv[argv.index("--ledger") + 1])
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+
+    ledger = json.loads(pathlib.Path(ledger_path).read_text())
     audited = ledger["totals"]["totalTokens"]
+    reason = stale_reason(ledger, now)
+    if reason is None and not audited > 0:
+        reason = f"ledger total {audited!r} is not positive"
+    if reason:
+        print(f"reconcile: REFUSED, not posting: {reason}")
+        return 2
+
     try:
         current = server_total()
     except Exception as exc:
         print(f"reconcile: server unreachable ({exc}); skipping")
         return 1
 
-    drift = abs(current - audited) / audited
+    drift = (current - audited) / audited
     print(f"reconcile: server {current:,} vs ledger {audited:,} ({drift:+.2%} drift)")
-    if drift <= DRIFT_THRESHOLD and not force:
-        print("reconcile: within threshold; nothing to do")
+    action, why = decide(current, audited, force)
+    if action == "none":
+        print(f"reconcile: nothing to do ({why})")
+        return 0
+
+    payload = build_payload(ledger)
+    verb = "raise" if action == "raise" else "lower"
+    if dry:
+        print(f"reconcile: dry run; WOULD POST a reconcile to {verb} production "
+              f"{current:,} -> {audited:,} ({why})")
+        print(f"reconcile: dry run payload {payload_summary(payload)}")
         return 0
 
     token = keychain_token()
     if not token:
-        print("reconcile: DRIFT DETECTED but no Keychain token (service cm-ingest-token)")
+        print(f"reconcile: {verb} needed ({why}) but no Keychain token (service cm-ingest-token)")
         return 1
-    payload = build_payload(ledger)
-    if dry:
-        print("reconcile: dry run; would post authoritative reconcile")
-        return 0
-
+    print(f"reconcile: posting to {verb} production ({why})")
     body = _curl([
         "-X", "POST", f"{API}/api/ingest",
         "-H", f"authorization: Bearer {token}",

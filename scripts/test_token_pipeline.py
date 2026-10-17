@@ -31,6 +31,7 @@ common = load_module("common")
 accounting = load_module("token_accounting")
 baseline = load_module("make_cloud_baseline")
 purge = load_module("make_purge_baseline")
+reconcile = load_module("reconcile_server")
 heatmaps = load_module("render_heatmaps")
 
 COMPONENT_KEYS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
@@ -100,6 +101,26 @@ def build_ledger(directory, *baselines):
          *[str(b) for b in baselines]],
         text=True,
     ))
+
+
+class FakeServer:
+    """Stands in for curl: GET /api/usage answers `total`, POST /api/ingest
+    accepts the payload. Records every call; the network is never touched."""
+
+    def __init__(self, total):
+        self.total = total
+        self.calls = []
+
+    def __call__(self, args, timeout):
+        self.calls.append(list(args))
+        if "-X" in args and args[args.index("-X") + 1] == "POST":
+            payload = json.loads(args[args.index("--data-binary") + 1])
+            return {"reconciled": True, "accepted": {"total": payload["tokens"]["total"]}}
+        return {"tokens": {"total": self.total}}
+
+    @property
+    def posts(self):
+        return [c for c in self.calls if "POST" in c]
 
 
 class TokenPipelineTests(unittest.TestCase):
@@ -1148,6 +1169,78 @@ class TokenPipelineTests(unittest.TestCase):
                 self.assert_components_conserved(row)
         for row in data["daily"]:
             self.assertLess(row["period"], data["open_month"])
+
+    # --- reconcile guards (network mocked) ------------------------------------
+
+    NOW = datetime.datetime(2026, 10, 18, 12, 0, tzinfo=datetime.timezone.utc)
+
+    def run_reconcile(self, server_total, ledger_age_hours=0.25, extra=()):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = {
+                "generated_at": (self.NOW - datetime.timedelta(hours=ledger_age_hours))
+                .strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "totals": {"totalTokens": 1_000_000, "inputTokens": 100_000,
+                           "outputTokens": 50_000, "cacheCreationTokens": 50_000,
+                           "cacheReadTokens": 800_000, "totalCost": 10.0,
+                           "listValueUsd": 12.0},
+                "monthly": [{"period": "2026-10", "modelBreakdowns": [{
+                    "modelName": "claude-opus-4-8", "inputTokens": 100_000,
+                    "outputTokens": 50_000, "cacheCreationTokens": 50_000,
+                    "cacheReadTokens": 800_000, "cost": 10.0, "listValue": 12.0}]}],
+                "agents": {"claude": {"totals": {"totalTokens": 1_000_000}}},
+            }
+            path = pathlib.Path(tmp) / "tokens.json"
+            path.write_text(json.dumps(ledger))
+            server = FakeServer(server_total)
+            keychain_reads = []
+            saved = reconcile._curl, reconcile.keychain_token
+            reconcile._curl = server
+            reconcile.keychain_token = lambda: keychain_reads.append(1) or "test-token"
+            out = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(out):
+                    code = reconcile.main(["--ledger", str(path), *extra], now=self.NOW)
+            finally:
+                reconcile._curl, reconcile.keychain_token = saved
+        return code, server, keychain_reads, out.getvalue()
+
+    def test_reconcile_refuses_a_stale_ledger_without_any_network_call(self):
+        code, server, keychain_reads, out = self.run_reconcile(2_000_000, ledger_age_hours=3)
+        self.assertEqual(code, 2)
+        self.assertEqual(server.calls, [])
+        self.assertEqual(keychain_reads, [])
+        self.assertIn("REFUSED", out)
+
+    def test_reconcile_lowers_production_only_at_the_inflation_floor(self):
+        code, server, _, out = self.run_reconcile(2_000_000)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(server.posts), 1)
+        payload = json.loads(server.posts[0][server.posts[0].index("--data-binary") + 1])
+        self.assertTrue(payload["reconcile"])
+        self.assertEqual(payload["tokens"]["total"], 1_000_000)
+        self.assertIn("lower", out)
+
+        for above in (1_030_000, 1_099_000):
+            code, server, keychain_reads, out = self.run_reconcile(above)
+            self.assertEqual((code, server.posts, keychain_reads), (0, [], []), above)
+            self.assertIn("not lowering", out)
+
+    def test_reconcile_raises_production_past_two_percent_drift(self):
+        code, server, _, out = self.run_reconcile(950_000)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(server.posts), 1)
+        self.assertIn("raise", out)
+        code, server, _, _ = self.run_reconcile(985_000)
+        self.assertEqual((code, server.posts), (0, []))
+
+    def test_reconcile_dry_run_reports_without_keychain_or_post(self):
+        code, server, keychain_reads, out = self.run_reconcile(2_000_000, extra=["--dry-run"])
+        self.assertEqual(code, 0)
+        self.assertEqual(server.posts, [])
+        self.assertEqual(len(server.calls), 1)  # the read-only GET
+        self.assertEqual(keychain_reads, [])
+        self.assertIn("WOULD POST", out)
+        self.assertIn("total=1,000,000", out)
 
     @staticmethod
     def token_event(input_tokens, cached_tokens, output_tokens, total_tokens, timestamp):
