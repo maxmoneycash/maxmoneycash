@@ -314,6 +314,14 @@ NEW_SOURCES=$(python3 -c "import json;print(','.join(sorted(x['label'] for x in 
 if [ "$NEW" -lt "$((OLD * 98 / 100))" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] && [ "$NEW_CODEX_CORRECTED" = 1 ] && [ "$OLD_SOURCES" = "$NEW_SOURCES" ]; }; then
   log "ERROR: new total $NEW < 98% of old $OLD — glitch, keeping previous tokens.json"; exit 1
 fi
+# --- safety: each agent's all-time total only grows as well. A timed-out scan
+#     falls back to empty and can erase one agent while the overall total
+#     still rises (2026-10-20: Codex 39.85B -> 22.69B). Same audited Codex
+#     correction exception as above. ---
+AGENT_DROPS=$(python3 "$REPO_DIR/scripts/agent_drops.py" data/tokens.json "$TMP/tokens.out")
+if [ -n "$AGENT_DROPS" ] && ! { [ "$OLD_CODEX_CORRECTED" = 0 ] && [ "$NEW_CODEX_CORRECTED" = 1 ] && [ "$OLD_SOURCES" = "$NEW_SOURCES" ]; }; then
+  log "ERROR: agent total dropped ($AGENT_DROPS) — scan glitch, keeping previous tokens.json"; exit 1
+fi
 if [ "$NEW" -lt "$OLD" ]; then
   log "audited correction: removing $((OLD - NEW)) duplicated Codex tokens"
 fi

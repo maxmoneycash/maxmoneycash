@@ -38,6 +38,7 @@ purge = load_module("make_purge_baseline")
 reconcile = load_module("reconcile_server")
 cursor_usage = load_module("cursor_usage")
 audit_guard = load_module("audit_dir_guard")
+agent_drops = load_module("agent_drops")
 heatmaps = load_module("render_heatmaps")
 
 COMPONENT_KEYS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens"]
@@ -1438,6 +1439,76 @@ class TokenPipelineTests(unittest.TestCase):
                 self.assertEqual(audit_guard.main([str(refused[0]), str(box.repo)]), 2)
             self.assertTrue(out.getvalue().startswith("REFUSED: "))
             self.assertEqual([path for path in missing if path.exists()], [])  # nothing created
+
+    # --- per-agent drop guard ---------------------------------------------------
+
+    def test_agent_drop_guard_names_an_agent_a_failed_scan_erased(self):
+        old = {"agents": {"codex": {"totals": {"totalTokens": 39_852_796_916}},
+                          "claude": {"totals": {"totalTokens": 90_000_000_000}}}}
+        new = {"agents": {"codex": {"totals": {"totalTokens": 22_686_433_567}},
+                          "claude": {"totals": {"totalTokens": 90_400_000_000}}}}
+        self.assertEqual(agent_drops.drops(old, new), ["codex 39852796916->22686433567"])
+        self.assertEqual(agent_drops.drops(old, old), [])
+        one = {"agents": {"kimi": {"totals": {"totalTokens": 1_000_000}}}}
+        self.assertEqual(agent_drops.drops(one, {"agents": {"kimi": {"totals": {"totalTokens": 996_000}}}}), [],
+                         "rounding noise is not a lost source")
+        self.assertEqual(agent_drops.drops(one, {"agents": {}}), ["kimi 1000000->0"])
+        self.assertEqual(agent_drops.drops({}, new), [], "a first ledger has nothing to lose")
+        self.assertEqual(agent_drops.drops(new, {**new, "agents": {**new["agents"], "droid": {}}}), [])
+
+    def fake_counter(self, box, codex_fails):
+        """A stand-in for turbotokens whose Codex scans fail like the 300 s
+        timeouts of 2026-10-20 while every other scan succeeds."""
+        comps = {"inputTokens": 1, "outputTokens": 1, "cacheCreationTokens": 1, "cacheReadTokens": 97}
+        breakdown = {"modelName": "claude-opus-4-8", **comps, "cost": 0}
+        model = {**comps, "totalTokens": 100, "cost": 0}
+        def row(key, period):
+            return {key: period, **comps, "totalTokens": 100, "totalCost": 0,
+                    "modelsUsed": ["claude-opus-4-8"], "modelBreakdowns": [breakdown],
+                    "metadata": {"agents": []}, "models": {"claude-opus-4-8": model}}
+        fixtures = box.tmp / "fake-counter"
+        fixtures.mkdir()
+        (fixtures / "monthly.json").write_text(json.dumps({"monthly": [row("period", "2026-10")]}))
+        (fixtures / "daily.json").write_text(json.dumps({"daily": [row("period", "2026-10-20")]}))
+        (fixtures / "agent.json").write_text(json.dumps({"monthly": [row("month", "2026-10")],
+                                                         "totals": {**comps, "totalTokens": 100}}))
+        fake = box.bin / "fake-turbotokens"
+        codex = "exit 124" if codex_fails else 'cat "$D/agent.json"'
+        fake.write_text("#!/bin/sh\n"
+                        f"D='{fixtures}'\n"
+                        'case "$1" in\n'
+                        '  monthly) cat "$D/monthly.json" ;;\n'
+                        '  daily) cat "$D/daily.json" ;;\n'
+                        f"  codex) {codex} ;;\n"
+                        '  *) cat "$D/agent.json" ;;\n'
+                        "esac\n")
+        fake.chmod(0o755)
+        return fake
+
+    def test_collector_refuses_a_ledger_where_a_failed_scan_erased_an_agent(self):
+        """2026-10-20: agent-codex and codex-true timed out and fell back to empty;
+        Codex fell from 39.85B to 22.69B while the overall total still grew, so
+        the total guard alone published it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = stale_ledger(generated_at="2026-10-20T16:14:31Z", total=1_000)
+            ledger["agents"]["codex"] = {"totals": {"totalTokens": 10 ** 13}, "monthly": []}
+            box = CollectorSandbox(tmp, ledger)
+            before = box.digest("tokens.json")
+            fake = self.fake_counter(box, codex_fails=True)
+            result = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(box.tmp / "audit"))
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("agent total dropped (codex", result.stdout)
+            self.assertNotIn("guard accepts", result.stdout)
+            self.assertEqual(box.digest("tokens.json"), before)
+            self.assertFalse((box.tmp / "audit" / "tokens.json").exists() and "guard accepts" in result.stdout)
+
+    def test_collector_accepts_the_same_ledger_when_every_agent_holds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger(generated_at="2026-10-20T16:14:31Z", total=1_000))
+            fake = self.fake_counter(box, codex_fails=False)
+            result = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(box.tmp / "audit"))
+            self.assertIn("guard accepts", result.stdout, result.stdout + result.stderr)
+            self.assertNotIn("agent total dropped", result.stdout)
 
     def test_audit_run_keeps_side_caches_and_ledger_out_of_data(self):
         with tempfile.TemporaryDirectory() as tmp:
