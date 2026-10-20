@@ -41,7 +41,11 @@ cd "$REPO_DIR"
 # check, whose entire job is to not be down for days. A timed-out scan falls
 # through to each call's empty-JSON fallback; the monotonic guards below keep
 # a partial scan from ever shrinking the published ledger.
-SCAN_TIMEOUT_SEC="${TOKENSTATS_SCAN_TIMEOUT:-300}"
+# 900 s, not 300: on 2026-10-20 (load average ~330 from other work) the monthly
+# scan overran 300 s on every cycle from 17:48Z, so nothing published for hours
+# and the drift check refused the stale ledger; a 900 s run finished every scan
+# in under 3 minutes. Still a hard bound on a wedged scan.
+SCAN_TIMEOUT_SEC="${TOKENSTATS_SCAN_TIMEOUT:-900}"
 if command -v timeout >/dev/null 2>&1; then
   SCAN_TIMEOUT="timeout $SCAN_TIMEOUT_SEC"
 elif command -v gtimeout >/dev/null 2>&1; then
@@ -71,7 +75,7 @@ log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 #                                  timed out (a partial scan must never be
 #                                  frozen into a baseline; make_purge_baseline.py)
 #   TOKENSTATS_PURGE_BASELINE=none build without data/local-purge-baseline.json
-#   TOKENSTATS_SCAN_TIMEOUT=<sec>  per-scan deadline (default 300)
+#   TOKENSTATS_SCAN_TIMEOUT=<sec>  per-scan deadline (default 900)
 AUDIT_DIR="${TOKENSTATS_AUDIT_DIR:-}"
 OFFLINE="${TOKENSTATS_OFFLINE:-0}"
 STRICT_SCANS="${TOKENSTATS_STRICT_SCANS:-0}"
