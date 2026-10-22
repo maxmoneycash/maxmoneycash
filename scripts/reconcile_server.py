@@ -55,6 +55,9 @@ DRIFT_THRESHOLD = 0.02
 # Lower production only at a whole-multiple-like inflation, never on a few
 # percent of not-yet-collected live usage.
 LOWER_RATIO = 1.10
+# Per-model rows summing to more than this multiple of the total are replaced
+# with the ledger's rows, without ever lowering the total.
+MODEL_DRIFT_RATIO = 1.10
 MAX_LEDGER_AGE = datetime.timedelta(hours=2)
 MAX_MODEL_ROWS = 128
 
@@ -82,8 +85,25 @@ def _curl(args, timeout):
     return json.loads(out.stdout)
 
 
+def server_tokens():
+    return (_curl([f"{API}/api/usage?handle={HANDLE}"], 20) or {}).get("tokens") or {}
+
+
 def server_total():
-    return ((_curl([f"{API}/api/usage?handle={HANDLE}"], 20) or {}).get("tokens") or {}).get("total")
+    return server_tokens().get("total")
+
+
+def model_ratio(tokens, total):
+    """Sum of the server's per-model rows over its total, or None when it
+    publishes no rows. The rows drifted to 1.85x the total by Oct 21 while
+    the total stayed within 2% of the ledger, so the total check never fixed
+    them."""
+    rows = tokens.get("by_model")
+    if not isinstance(rows, list) or not rows or not total:
+        return None
+    summed = sum(sum(int(row.get(k) or 0) for k in ("in", "out", "cacheRead", "cacheWrite"))
+                 for row in rows if isinstance(row, dict))
+    return summed / total
 
 
 def build_payload(ledger):
@@ -162,8 +182,19 @@ def usable_total(value):
     return None
 
 
-def decide(server, audited, force=False):
-    """Return (action, reason); action is one of none / raise / lower."""
+def decide(server, audited, force=False, models=None):
+    """Return (action, reason); action is one of none / raise / lower.
+    `models` is the server's per-model rows over its total (model_ratio)."""
+    action, why = decide_total(server, audited, force)
+    if action != "none" or models is None or models <= MODEL_DRIFT_RATIO:
+        return action, why
+    if server > audited:
+        return "none", (f"model rows sum to {models:.2f}x the total, but the total is above "
+                        "the ledger; a model fix never lowers the counter")
+    return "raise", f"model rows sum to {models:.2f}x the total; replacing them with the ledger's"
+
+
+def decide_total(server, audited, force=False):
     ratio = server / audited
     if server < audited * (1 - DRIFT_THRESHOLD):
         return "raise", f"server {ratio:.4f}x ledger, more than {DRIFT_THRESHOLD:.0%} low"
@@ -214,7 +245,8 @@ def main(argv=None, now=None):
         return 2
 
     try:
-        raw_current = server_total()
+        tokens = server_tokens()
+        raw_current = tokens.get("total")
     except Exception as exc:
         print(f"reconcile: server unreachable ({exc}); skipping")
         return 1
@@ -226,7 +258,7 @@ def main(argv=None, now=None):
 
     drift = (current - audited) / audited
     print(f"reconcile: server {current:,} vs ledger {audited:,} ({drift:+.2%} drift)")
-    action, why = decide(current, audited, force)
+    action, why = decide(current, audited, force, model_ratio(tokens, current))
     if action == "none":
         print(f"reconcile: nothing to do ({why})")
         return 0

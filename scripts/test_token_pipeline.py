@@ -117,8 +117,9 @@ class FakeServer:
     """Stands in for curl: GET /api/usage answers `total`, POST /api/ingest
     accepts the payload. Records every call; the network is never touched."""
 
-    def __init__(self, total):
+    def __init__(self, total, by_model=None):
         self.total = total
+        self.by_model = by_model
         self.calls = []
 
     def __call__(self, args, timeout):
@@ -126,7 +127,12 @@ class FakeServer:
         if "-X" in args and args[args.index("-X") + 1] == "POST":
             payload = json.loads(args[args.index("--data-binary") + 1])
             return {"reconciled": True, "accepted": {"total": payload["tokens"]["total"]}}
-        return {"tokens": {} if self.total is MISSING else {"total": self.total}}
+        if self.total is MISSING:
+            return {"tokens": {}}
+        tokens = {"total": self.total}
+        if self.by_model is not None:
+            tokens["by_model"] = self.by_model
+        return {"tokens": tokens}
 
     @property
     def posts(self):
@@ -1541,7 +1547,7 @@ class TokenPipelineTests(unittest.TestCase):
     NOW = datetime.datetime(2026, 10, 18, 12, 0, tzinfo=datetime.timezone.utc)
 
     def run_reconcile(self, server_total, ledger_age_hours=0.25, extra=(),
-                      ledger_flag=False, ledger_total=1_000_000):
+                      ledger_flag=False, ledger_total=1_000_000, by_model=None):
         """Run main() against a temp ledger with curl and the Keychain mocked.
         The temp file stands in for data/tokens.json (reconcile.LEDGER) unless
         ledger_flag passes it with --ledger instead."""
@@ -1561,7 +1567,7 @@ class TokenPipelineTests(unittest.TestCase):
             }
             path = pathlib.Path(tmp) / "tokens.json"
             path.write_text(json.dumps(ledger))
-            server = FakeServer(server_total)
+            server = FakeServer(server_total, by_model)
             keychain_reads = []
             saved = reconcile._curl, reconcile.keychain_token, reconcile.LEDGER
             reconcile._curl = server
@@ -1578,6 +1584,28 @@ class TokenPipelineTests(unittest.TestCase):
             finally:
                 reconcile._curl, reconcile.keychain_token, reconcile.LEDGER = saved
         return code, server, keychain_reads, out.getvalue()
+
+    def test_inflated_model_rows_are_replaced_without_lowering_the_total(self):
+        # Oct 21: rows summed to 1.85x the total while the total sat within 2%.
+        inflated = [{"name": "claude-opus-5-5", "in": 1, "out": 1, "cacheRead": 1_850_000, "cacheWrite": 0}]
+        code, server, _, out = self.run_reconcile(990_000, by_model=inflated)
+        self.assertEqual((code, len(server.posts)), (0, 1), out)
+        payload = json.loads(server.posts[0][server.posts[0].index("--data-binary") + 1])
+        self.assertEqual(payload["tokens"]["total"], 1_000_000)
+        self.assertEqual(sum(r["in"] + r["out"] + r["cacheRead"] + r["cacheWrite"]
+                             for r in payload["tokens"]["by_model"]), 1_000_000)
+        self.assertIn("model rows sum to", out)
+        # Above the ledger the counter never goes down for a model fix.
+        code, server, keychain_reads, out = self.run_reconcile(1_010_000, by_model=inflated)
+        self.assertEqual((code, server.posts, keychain_reads), (0, [], []), out)
+        self.assertIn("never lowers", out)
+        # Rows that roughly match the total leave everything alone.
+        matching = [{"name": "claude-opus-5-5", "in": 0, "out": 0, "cacheRead": 1_020_000, "cacheWrite": 0}]
+        code, server, _, out = self.run_reconcile(990_000, by_model=matching)
+        self.assertEqual((code, server.posts), (0, []), out)
+        # A stale ledger still refuses first, model drift or not.
+        code, server, _, out = self.run_reconcile(990_000, ledger_age_hours=3, by_model=inflated)
+        self.assertEqual((code, server.calls), (2, []), out)
 
     def test_reconcile_refuses_a_stale_ledger_without_any_network_call(self):
         code, server, keychain_reads, out = self.run_reconcile(2_000_000, ledger_age_hours=3)
