@@ -191,7 +191,15 @@ run_scan monthly "$LOCAL/monthly.json" '{"monthly":[]}' \
   $CCUSAGE monthly --json --offline --timezone UTC
 run_scan daily "$LOCAL/daily.json" '{"daily":[]}' \
   $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)"
-for agent in claude codex droid kimi opencode; do
+# Muse (~/.local/share/muse) needs turbotokens 1.1.6+. An older counter has no
+# `muse` command (its `muse --help` still exits 0 with the root help), so ask
+# the root help; scanning without support would log a failure and a strict run
+# would refuse to build.
+COUNTED_AGENTS="claude codex droid kimi opencode"
+if [ "$COUNTER_IS_TURBOTOKENS" = "1" ] && $CCUSAGE --help 2>/dev/null | grep -qE '^[[:space:]]+muse[[:space:]]'; then
+  COUNTED_AGENTS="$COUNTED_AGENTS muse"
+fi
+for agent in $COUNTED_AGENTS; do
   run_scan "agent-$agent" "$LOCAL/agent-$agent.json" '{"monthly":[],"totals":{}}' \
     $CCUSAGE "$agent" monthly --json --offline --breakdown
 done

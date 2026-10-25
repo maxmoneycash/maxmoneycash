@@ -16,7 +16,7 @@ import sys
 from token_accounting import COMPONENTS, floor_total_tokens
 
 
-AGENTS = ["claude", "codex", "droid", "kimi", "opencode"]
+AGENTS = ["claude", "codex", "droid", "kimi", "opencode", "muse"]  # muse: turbotokens 1.1.6+
 TRUE_SOURCES = ["codex-true", "kimi-true", "grok-true", "cursor", "hermes-true"]
 
 

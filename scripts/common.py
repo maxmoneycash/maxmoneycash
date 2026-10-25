@@ -36,6 +36,7 @@ AGENT_COLORS = {
     "cursor": "#e3e9f0",
     "grok": "#1d9bf0",
     "hermes": "#ff9f43",
+    "muse": "#db61a2",
 }
 
 AGENT_LABELS = {
@@ -47,6 +48,7 @@ AGENT_LABELS = {
     "cursor": "CURSOR",
     "grok": "GROK BUILD",
     "hermes": "HERMES SWARM",
+    "muse": "MUSE",
 }
 
 

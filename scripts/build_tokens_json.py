@@ -198,6 +198,11 @@ def main():
         a: load(d, f"agent-{a}.json")
         for a in ("claude", "codex", "droid", "kimi", "opencode")
     }
+    # Muse is scanned only when the counter supports it (turbotokens 1.1.6+).
+    try:
+        agents_raw["muse"] = load(d, "agent-muse.json")
+    except FileNotFoundError:
+        pass
     codex_true = load(d, "codex-true.json")
     try:
         cursor = load(d, "cursor.json")

@@ -1462,7 +1462,7 @@ class TokenPipelineTests(unittest.TestCase):
         self.assertEqual(agent_drops.drops({}, new), [], "a first ledger has nothing to lose")
         self.assertEqual(agent_drops.drops(new, {**new, "agents": {**new["agents"], "droid": {}}}), [])
 
-    def fake_counter(self, box, codex_fails):
+    def fake_counter(self, box, codex_fails, knows_muse=False):
         """A stand-in for turbotokens whose Codex scans fail like the 300 s
         timeouts of 2026-10-20 while every other scan succeeds."""
         comps = {"inputTokens": 1, "outputTokens": 1, "cacheCreationTokens": 1, "cacheReadTokens": 97}
@@ -1483,6 +1483,7 @@ class TokenPipelineTests(unittest.TestCase):
         fake.write_text("#!/bin/sh\n"
                         f"D='{fixtures}'\n"
                         'case "$1" in\n'
+                        f"  --help) printf '  {'muse' if knows_muse else 'kimi'}   Show usage commands\\n' ;;\n"
                         '  monthly) cat "$D/monthly.json" ;;\n'
                         '  daily) cat "$D/daily.json" ;;\n'
                         f"  codex) {codex} ;;\n"
@@ -1515,6 +1516,51 @@ class TokenPipelineTests(unittest.TestCase):
             result = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(box.tmp / "audit"))
             self.assertIn("guard accepts", result.stdout, result.stdout + result.stderr)
             self.assertNotIn("agent total dropped", result.stdout)
+
+    def test_collector_scans_muse_only_when_the_counter_knows_it(self):
+        """Muse needs turbotokens 1.1.6+; an older counter's `muse --help`
+        still exits 0, so only its root help can tell."""
+        for knows_muse in (True, False):
+            with self.subTest(knows_muse=knows_muse), tempfile.TemporaryDirectory() as tmp:
+                box = CollectorSandbox(tmp, stale_ledger(generated_at="2026-10-20T16:14:31Z", total=1_000))
+                fake = self.fake_counter(box, codex_fails=False, knows_muse=knows_muse)
+                audit = box.tmp / "audit"
+                result = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(audit),
+                                 TOKENSTATS_STRICT_SCANS="1")
+                self.assertIn("guard accepts", result.stdout, result.stdout + result.stderr)
+                agents = json.loads((audit / "tokens.json").read_text())["agents"]
+                if knows_muse:
+                    self.assertEqual(agents["muse"]["totals"]["totalTokens"], 100)
+                else:
+                    self.assertNotIn("muse", agents)
+                    self.assertNotIn("agent-muse", (audit / "scan-times.txt").read_text())
+
+    def test_every_ledger_agent_has_a_readme_label_and_color(self):
+        """render_receipt/render_wrapped index AGENT_LABELS[name]; an agent the
+        ledger can emit without a label would crash the README render."""
+        for name in [*merge.AGENTS, "cursor", "grok", "hermes"]:
+            self.assertIn(name, common.AGENT_LABELS)
+            self.assertIn(name, common.AGENT_COLORS)
+
+    def test_build_adds_a_muse_row_only_from_a_muse_scan(self):
+        usage = {
+            "claude": {"2026-10": {"claude-opus-4-8": (100, 10, 0, 900)}},
+            "muse": {"2026-10": {"muse-wonder-1.0": (40, 5, 0, 360)}},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = pathlib.Path(tmp) / "scan"
+            write_scan(directory, usage, {"2026-10-24": (140, 15, 0, 1260)})
+            without = build_ledger(directory)
+            month = {"month": "2026-10", **usage_row((40, 5, 0, 360)), "totalCost": 0.0,
+                     "models": {"muse-wonder-1.0": usage_row((40, 5, 0, 360))}}
+            del month["cost"]
+            totals = {k: month[k] for k in COMPONENT_KEYS + ["totalTokens", "totalCost"]}
+            (directory / "agent-muse.json").write_text(json.dumps({"totals": totals, "monthly": [month]}))
+            ledger = build_ledger(directory)
+        self.assertNotIn("muse", without["agents"])
+        self.assertEqual(ledger["agents"]["muse"]["totals"]["totalTokens"], 405)
+        # The headline already counted Muse through the unified monthly scan.
+        self.assertEqual(ledger["totals"]["totalTokens"], without["totals"]["totalTokens"])
 
     def test_audit_run_keeps_side_caches_and_ledger_out_of_data(self):
         with tempfile.TemporaryDirectory() as tmp:
