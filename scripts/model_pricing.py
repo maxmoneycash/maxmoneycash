@@ -1,9 +1,8 @@
-"""Reference list prices per model family.
+"""Published model prices with legacy family estimates for unlisted models.
 
 Faithful port of commit-markets/web/src/lib/modelPricing.ts so the README
-pipeline and commits.sh compute the same list-price equivalent. Keep the two
-tables in sync — a divergence here is exactly how the receipt and the app
-started disagreeing.
+pipeline and commits.sh compute the same list-price equivalent. Keep these
+rates aligned with that table and the Mac's UsageCostEstimator.swift.
 
 Two different numbers, deliberately kept apart:
   * cost      — what the provider actually reported. Subscription plans
@@ -32,6 +31,61 @@ REFERENCE = {
     "google-gemma": (0.1, 0.4, 0.025, 0.1),
     "free": (0.0, 0.0, 0.0, 0.0),
 }
+
+
+# Standard API rates verified 2026-10-27; short-TTL cache writes.
+# https://platform.claude.com/docs/en/about-claude/pricing
+# https://developers.openai.com/api/docs/pricing
+# Keep UsageCostEstimator.swift and web/modelPricing.ts aligned.
+MODEL_REFERENCE = {
+    "claude-opus-5-5-fast": (8, 40, 0.4, 10),
+    "claude-opus-5-5": (4, 20, 0.2, 5),
+    "claude-opus-5-fast": (10, 50, 1, 12.5),
+    "claude-opus-5": (5, 25, 0.5, 6.25),
+    "claude-opus-4-8-fast": (10, 50, 1, 12.5),
+    "claude-opus-4-8": (5, 25, 0.5, 6.25),
+    "claude-opus-4-7": (5, 25, 0.5, 6.25),
+    "claude-opus-4-6": (5, 25, 0.5, 6.25),
+    "claude-opus-4-5": (5, 25, 0.5, 6.25),
+    "claude-fable-5-1": (10, 50, 0.25, 12.5),
+    "claude-fable-5": (10, 50, 1, 12.5),
+    "claude-sonnet-5-5": (2, 10, 0.1, 2.5),
+    "claude-sonnet-5": (2, 10, 0.2, 2.5),
+    "claude-haiku-4-5": (1, 5, 0.1, 1.25),
+    # Short-context reference; the ledger preserves quoted long-prompt costs.
+    "claude-haiku-5-5": (0.1, 0.5, 0.01, 0.125),
+    "gpt-6-astra": (10, 50, 1, 12.5),
+    "gpt-6-sol": (2, 10, 0.2, 2.5),
+    "gpt-6.1-sol": (2, 10, 0.1, 2.5),
+    "gpt-6.1-terra": (1, 5, 0.05, 1.25),
+    "gpt-6-luna": (0.1, 0.5, 0.01, 0.125),
+    "gpt-5.6-sol": (4, 20, 0.4, 5),
+    # No separate cache-write tariff for these models; use the input rate.
+    "gpt-5.5": (5, 30, 0.5, 5),
+    "gpt-5.3-codex": (1.75, 14, 0.175, 1.75),
+}
+
+MODEL_PATTERN = re.compile(
+    r"(?:^|[^a-z0-9])(claude-(?:opus|fable|sonnet|haiku)-\d+(?:[.-]\d+)?(?:-fast)?|gpt-\d+(?:\.\d+)?(?:-(?:astra|sol|terra|luna|codex))?)(?:-(?:\d{8}|\d{4}-\d{2}-\d{2}|thinking(?:-(?:low|medium|high|xhigh|max))?|low|medium|high|xhigh|max))?(?=$|[^a-z0-9.-])"
+)
+
+
+def reference_price(raw):
+    """Prefer a published model rate; keep legacy estimates for unlisted ids."""
+    family = family_of(raw)
+    if family == "free":
+        return REFERENCE[family]
+    if isinstance(raw, str):
+        normalized = re.sub(r"claude-(\d+(?:[.-]\d+)?)-(opus|sonnet|haiku)",
+                            r"claude-\2-\1", raw.lower())
+        match = MODEL_PATTERN.search(normalized)
+        if match:
+            name = match.group(1)
+            if name.startswith("claude-"):
+                name = name.replace(".", "-")
+            if name in MODEL_REFERENCE:
+                return MODEL_REFERENCE[name]
+    return REFERENCE.get(family)
 
 
 def family_of(raw):
@@ -93,7 +147,7 @@ def family_of(raw):
 
 def reference_cost(name, row):
     """List price for one model row. 0 when the family has no published quote."""
-    price = REFERENCE.get(family_of(name))
+    price = reference_price(name)
     if not price:
         return 0.0
     return (
