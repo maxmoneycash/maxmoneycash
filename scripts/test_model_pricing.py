@@ -29,6 +29,8 @@ class ModelPricingTests(unittest.TestCase):
             self.assertEqual(reference_price(name), (4, 20, 0.2, 5), name)
         self.assertEqual(reference_price("claude-4.5-opus-thinking"), (5, 25, 0.5, 6.25))
         self.assertEqual(reference_price("[openclaw] gpt-5.6-sol"), (4, 20, 0.4, 5))
+        self.assertEqual(reference_price("gpt-5.5-2026-04-23"), reference_price("gpt-5.5"))
+        self.assertEqual(reference_price("gpt-6.1-sol-2026-09-29"), reference_price("gpt-6.1-sol"))
         self.assertNotEqual(reference_price("claude-opus-5-50"), (4, 20, 0.2, 5))
         self.assertNotEqual(reference_price("gpt-5.5-pro"), reference_price("gpt-5.5"))
         self.assertNotEqual(reference_price("gpt-6-sol-fast"), reference_price("gpt-6-sol"))

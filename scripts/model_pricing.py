@@ -66,7 +66,7 @@ MODEL_REFERENCE = {
 }
 
 MODEL_PATTERN = re.compile(
-    r"(?:^|[^a-z0-9])(claude-(?:opus|fable|sonnet|haiku)-\d+(?:[.-]\d+)?(?:-fast)?|gpt-\d+(?:\.\d+)?(?:-(?:astra|sol|terra|luna|codex))?)(?:-(?:\d{8}|thinking(?:-(?:low|medium|high|xhigh|max))?|low|medium|high|xhigh|max))?(?=$|[^a-z0-9.-])"
+    r"(?:^|[^a-z0-9])(claude-(?:opus|fable|sonnet|haiku)-\d+(?:[.-]\d+)?(?:-fast)?|gpt-\d+(?:\.\d+)?(?:-(?:astra|sol|terra|luna|codex))?)(?:-(?:\d{8}|\d{4}-\d{2}-\d{2}|thinking(?:-(?:low|medium|high|xhigh|max))?|low|medium|high|xhigh|max))?(?=$|[^a-z0-9.-])"
 )
 
 
