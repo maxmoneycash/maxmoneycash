@@ -357,8 +357,8 @@ fi
 
 # Real-time cadence with noise guard: push immediately on meaningful token
 # burn, but batch tiny changes. Compare with the last published ledger, never
-# the preceding local commit: small scans must accumulate and still publish
-# at least hourly. A failed push must remain eligible on the next scan.
+# the preceding local commit: small scans accumulate and become due once the
+# published ledger reaches the age limit. Failed pushes stay eligible.
 THRESHOLD=${TOKENSTATS_PUSH_THRESHOLD:-25000000}
 MAX_AGE_SEC=${TOKENSTATS_MAX_AGE_SEC:-3600}
 if PUBLICATION=$(python3 "$REPO_DIR/scripts/publication_checkpoint.py" \
