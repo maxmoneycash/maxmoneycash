@@ -317,7 +317,6 @@ fi
 #     The one exception is the first audited Codex cumulative-delta correction,
 #     which intentionally removes duplicated token_count events. ---
 OLD=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['totals']['totalTokens'])" 2>/dev/null || echo 0)
-OLD_TIME=$(python3 -c "import json;print(json.load(open('data/tokens.json'))['generated_at'])" 2>/dev/null || echo "")
 NEW=$(python3 -c "import json;print(json.load(open('$TMP/tokens.out'))['totals']['totalTokens'])")
 OLD_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('data/tokens.json')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')" 2>/dev/null || echo 0)
 NEW_CODEX_CORRECTED=$(python3 -c "import json;print('1' if json.load(open('$TMP/tokens.out')).get('corrections',{}).get('codexCumulativeAdjusted') else '0')")
@@ -351,33 +350,27 @@ fi
 
 git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
 if git diff --cached --quiet; then
-  log "tokens.json unchanged; nothing to push"
-  exit 0
+  log "tokens.json unchanged; checking for unpublished commits"
+else
+  git commit -q -m "chore: token stats $(date -u +%Y-%m-%dT%H:%MZ)"
 fi
-git commit -q -m "chore: token stats $(date -u +%Y-%m-%dT%H:%MZ)"
 
 # Real-time cadence with noise guard: push immediately on meaningful token
-# burn, but batch tiny changes so we don't spam commits every 15 minutes.
+# burn, but batch tiny changes. Compare with the last published ledger, never
+# the preceding local commit: small scans accumulate and become due once the
+# published ledger reaches the age limit. Failed pushes stay eligible.
 THRESHOLD=${TOKENSTATS_PUSH_THRESHOLD:-25000000}
 MAX_AGE_SEC=${TOKENSTATS_MAX_AGE_SEC:-3600}
-DELTA=$((NEW - OLD))
-FORCE_AGE=false
-if [ -n "$OLD_TIME" ]; then
-  OLD_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "${OLD_TIME%%Z}" "+%s" 2>/dev/null || echo 0)
-  NOW_EPOCH=$(date -u +%s)
-  AGE=$((NOW_EPOCH - OLD_EPOCH))
-  if [ "$AGE" -ge "$MAX_AGE_SEC" ]; then
-    FORCE_AGE=true
-  fi
-fi
-if [ "$DELTA" -lt "$THRESHOLD" ] && [ "$FORCE_AGE" = false ]; then
-  log "delta ${DELTA} < ${THRESHOLD}; committing locally, skipping push"
-  exit 0
-fi
-if [ "$FORCE_AGE" = true ]; then
-  log "age ${AGE}s >= ${MAX_AGE_SEC}s; forcing push"
+if PUBLICATION=$(python3 "$REPO_DIR/scripts/publication_checkpoint.py" \
+  --repo "$REPO_DIR" --threshold "$THRESHOLD" --max-age "$MAX_AGE_SEC"); then
+  log "$PUBLICATION"
 else
-  log "delta ${DELTA} >= ${THRESHOLD}; pushing"
+  publication_status=$?
+  log "$PUBLICATION"
+  if [ "$publication_status" -eq 3 ]; then
+    exit 0
+  fi
+  exit "$publication_status"
 fi
 
 # The readme/3d workflows also commit to main. Rebase our generated-data commit
