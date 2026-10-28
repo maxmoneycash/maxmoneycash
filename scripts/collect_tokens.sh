@@ -131,6 +131,12 @@ if [ -z "$AUDIT_DIR" ] && [ -d "$LEGACY_LOCK" ]; then
   log "removing stale pre-upgrade lock (>15m)"
   rm -rf "$LEGACY_LOCK"
 fi
+# Do not scan into an unresolved merge or somebody else's locked index.
+# Audit runs write outside the checkout and can still run during Git work.
+if [ -z "$AUDIT_DIR" ]; then
+  bash "$REPO_DIR/scripts/publish_tokens.sh" "$REPO_DIR" --lock-held --check-git-idle
+fi
+
 # Server drift check FIRST, before any scanning. It compares the committed
 # ledger against the public total and re-anchors on >2% drift (observed:
 # restart-burst minting took the server from 68.2B to 270.7B in three days).
@@ -348,57 +354,5 @@ if [ "${TOKENSTATS_NO_GIT:-0}" = "1" ]; then
 fi
 
 
-git add data/tokens.json data/cursor-cache.json data/grok-cache.json data/hermes-cache.json
-if git diff --cached --quiet; then
-  log "tokens.json unchanged; checking for unpublished commits"
-else
-  git commit -q -m "chore: token stats $(date -u +%Y-%m-%dT%H:%MZ)"
-fi
-
-# Real-time cadence with noise guard: push immediately on meaningful token
-# burn, but batch tiny changes. Compare with the last published ledger, never
-# the preceding local commit: small scans accumulate and become due once the
-# published ledger reaches the age limit. Failed pushes stay eligible.
-THRESHOLD=${TOKENSTATS_PUSH_THRESHOLD:-25000000}
-MAX_AGE_SEC=${TOKENSTATS_MAX_AGE_SEC:-3600}
-if PUBLICATION=$(python3 "$REPO_DIR/scripts/publication_checkpoint.py" \
-  --repo "$REPO_DIR" --threshold "$THRESHOLD" --max-age "$MAX_AGE_SEC"); then
-  log "$PUBLICATION"
-else
-  publication_status=$?
-  log "$PUBLICATION"
-  if [ "$publication_status" -eq 3 ]; then
-    exit 0
-  fi
-  exit "$publication_status"
-fi
-
-# The readme/3d workflows also commit to main. Rebase our generated-data commit
-# onto theirs, preferring OUR data on conflict (it's the freshest), and ALWAYS
-# abort a failed rebase so a half-finished rebase can never wedge every future
-# run — that left-behind .git/rebase-merge froze pushes for days in June 2026.
-# --autostash stashes any unrelated WIP in the working tree (e.g. uncommitted
-# scripts/agent-host/ edits) so a dirty tree can't block the push either.
-clear_rebase() {
-  git rebase --abort 2>/dev/null || true
-  rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
-  # A git process that crashed mid-commit leaves .git/index.lock behind, which
-  # then makes EVERY future run die with "Unable to create index.lock". Our
-  # single-run tokenstats.lock guarantees no other collector is running, so any
-  # leftover index.lock here is stale by definition — froze the push for 72h in
-  # June 2026 until it was cleared by hand.
-  rm -f .git/index.lock 2>/dev/null || true
-}
-clear_rebase  # heal any pre-existing stuck rebase/lock before we start
-for i in 1 2 3 4 5; do
-  if git fetch -q origin main \
-     && git rebase -X theirs --autostash origin/main \
-     && git push -q origin main; then
-    log "pushed token stats"
-    exit 0
-  fi
-  clear_rebase
-  sleep 5
-done
-log "failed to push after 5 attempts"
-exit 1
+# Retain the collection lock while the publication helper commits and pushes.
+bash "$REPO_DIR/scripts/publish_tokens.sh" "$REPO_DIR" --lock-held
