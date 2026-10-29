@@ -274,11 +274,11 @@ if [ "$OFFLINE" = "1" ]; then
   run_scan hermes-cache "$LOCAL/hermes-true.json" "$EMPTY_TRUE" \
     python3 "$REPO_DIR/scripts/hermes_true_usage.py"
   SOURCES=("$LOCAL")
-elif bash "$REPO_DIR/scripts/collect_cloud_tokens.sh" "$CLOUD" >>"$TMP/cloud.log" 2>&1; then
+elif bash "$REPO_DIR/scripts/run_cloud_collection.sh" "$CLOUD" "$LOG_DIR/tokenstats-cloud.log" "$SCAN_TIMEOUT_SEC"; then
   log "cloud collected"
   SOURCES=("$LOCAL" "$CLOUD")
 else
-  log "WARNING: cloud collection failed (see $TMP/cloud.log); using local only"
+  log "WARNING: cloud collection failed (see $LOG_DIR/tokenstats-cloud.log); using local only"
   # Keep hermes history alive from the committed cache so the box being
   # offline can't shrink the totals (hermes-true must exist in exactly ONE
   # source dir — merge sums same-named files across sources).

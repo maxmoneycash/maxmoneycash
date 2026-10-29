@@ -21,23 +21,24 @@ mkdir -p "$OUT_DIR"
 HOST="agent-host"
 REMOTE_DIR="/tmp/tokenstats-cloud-$$"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SSH_OPTIONS=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
 
 log() { echo "[cloud] $*"; }
 
 log "checking SSH to $HOST"
-ssh -o ConnectTimeout=10 "$HOST" "mkdir -p $REMOTE_DIR && node -v && npx --yes ccusage@20.0.9 --version" >/dev/null 2>&1 || {
+ssh "${SSH_OPTIONS[@]}" "$HOST" "mkdir -p $REMOTE_DIR && node -v && npx --yes ccusage@20.0.9 --version" >/dev/null || {
   echo "ERROR: cannot reach $HOST or ccusage won't run there" >&2
   exit 1
 }
 
 # Copy the true-counter scripts we want to run on the box.
-scp -q "$REPO_DIR/scripts/codex_true_usage.py" "$REPO_DIR/scripts/kimi_true_usage.py" "$HOST:$REMOTE_DIR/" 2>/dev/null || {
+scp -q "${SSH_OPTIONS[@]}" "$REPO_DIR/scripts/codex_true_usage.py" "$REPO_DIR/scripts/kimi_true_usage.py" "$HOST:$REMOTE_DIR/" || {
   echo "ERROR: failed to copy scripts to $HOST" >&2
   exit 1
 }
 
 log "collecting ccusage from $HOST"
-ssh -o ConnectTimeout=30 "$HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE'
+ssh "${SSH_OPTIONS[@]}" "$HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE'
 set -euo pipefail
 REMOTE_DIR="$1"
 CCUSAGE="npx --yes ccusage@20.0.9"
@@ -78,7 +79,7 @@ PYEOF
 REMOTE
 
 log "pulling results from $HOST"
-scp -q "$HOST:$REMOTE_DIR/*.json" "$OUT_DIR/"
+scp -q "${SSH_OPTIONS[@]}" "$HOST:$REMOTE_DIR/*.json" "$OUT_DIR/"
 
 # Fold the hermes session dump into the committed cache and emit the merged
 # monthly series. The Hermes `main` profile is mirrored into ccusage's default
@@ -102,6 +103,6 @@ fi
 rm -f "$OUT_DIR/hermes-sessions.json"
 
 # Clean up the remote temp dir.
-ssh -o ConnectTimeout=10 "$HOST" "rm -rf $REMOTE_DIR" >/dev/null 2>&1 || true
+ssh "${SSH_OPTIONS[@]}" "$HOST" "rm -rf $REMOTE_DIR" >/dev/null 2>&1 || true
 
 log "cloud collection complete -> $OUT_DIR"
