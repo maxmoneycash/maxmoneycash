@@ -37,6 +37,7 @@ import json
 import os
 import pathlib
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # TOKENSTATS_CACHE_DIR: a sandboxed audit run keeps its caches out of data/.
@@ -52,6 +53,22 @@ def load_cache():
     except Exception:
         pass
     return {"sessions": {}}
+
+
+def save_cache(cache):
+    """Replace the cache only after a complete write in the same directory."""
+    fd, temporary = tempfile.mkstemp(prefix=".hermes-cache-", dir=str(CACHE.parent))
+    try:
+        with os.fdopen(fd, "w") as out:
+            json.dump(cache, out, sort_keys=True)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, CACHE)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
 
 
 def month_of(started_at):
@@ -260,7 +277,7 @@ def main():
     if dump_path:
         dump = json.loads(pathlib.Path(dump_path).read_text())
         dump_keys = fold_rows(sessions, dump)
-        CACHE.write_text(json.dumps(cache, sort_keys=True))
+        save_cache(cache)
 
     excluded_keys = set()
     covered_profiles = []
