@@ -1517,6 +1517,26 @@ class TokenPipelineTests(unittest.TestCase):
             self.assertIn("guard accepts", result.stdout, result.stdout + result.stderr)
             self.assertNotIn("agent total dropped", result.stdout)
 
+    def test_collector_refuses_even_a_small_lifetime_total_decrease(self):
+        # A missing slice can be less than 2% while individual agent totals
+        # still hold. The published lifetime total must not move backwards.
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger(total=1_000))
+            fake = self.fake_counter(box, codex_fails=False)
+            audit = box.tmp / "audit"
+            first = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(audit))
+            self.assertIn("guard accepts", first.stdout, first.stdout + first.stderr)
+            candidate = json.loads((audit / "tokens.json").read_text())
+            candidate["totals"]["totalTokens"] += 1
+            candidate["corrections"]["codexCumulativeAdjusted"] = True
+            candidate["agents"] = {}
+            (box.repo / "data" / "tokens.json").write_text(json.dumps(candidate))
+            before = box.digest("tokens.json")
+            result = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(audit))
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("keeping previous tokens.json", result.stdout)
+            self.assertEqual(box.digest("tokens.json"), before)
+
     def test_collector_scans_muse_only_when_the_counter_knows_it(self):
         """Muse needs turbotokens 1.1.6+; an older counter's `muse --help`
         still exits 0, so only its root help can tell."""
