@@ -9,9 +9,65 @@ import unittest
 from unittest import mock
 
 import atomic_cache
+import grok_true_usage
 
 
 class AtomicUsageCacheTests(unittest.TestCase):
+    def test_invalid_grok_history_is_never_replaced_by_a_fresh_empty_scan(self):
+        with tempfile.TemporaryDirectory() as root:
+            cache = pathlib.Path(root) / "grok-cache.json"
+            env = {**os.environ, "TOKENSTATS_CACHE_DIR": root,
+                   "GROK_HOME": str(pathlib.Path(root) / "empty-grok-home")}
+            counts = {"inputTokens": 10, "outputTokens": 2, "cacheCreationTokens": 0,
+                      "cacheReadTokens": 30, "totalTokens": 42}
+            inconsistent = {"version": 2, "monthly": {"2026-08": {**counts,
+                "models": {"old-model": {**counts, "inputTokens": 9, "totalTokens": 41}}}}, "seen": ["old"]}
+            for invalid in (b'{"monthly":', b'{}', b'[]',
+                            b'{"monthly":[],"seen":[]}',
+                            b'{"version":3,"monthly":{},"seen":[]}',
+                            b'{"monthly":{},"seen":[null]}',
+                            json.dumps(inconsistent).encode()):
+                cache.write_bytes(invalid)
+                run = subprocess.run([sys.executable, grok_true_usage.__file__], env=env,
+                                     capture_output=True, text=True, timeout=10)
+                self.assertNotEqual(run.returncode, 0)
+                self.assertIn("keeping the existing file", run.stderr)
+                self.assertEqual(cache.read_bytes(), invalid)
+                self.assertEqual(run.stdout, "")
+
+    def test_missing_and_valid_legacy_grok_caches_keep_supported_startup_paths(self):
+        with tempfile.TemporaryDirectory() as root:
+            cache = pathlib.Path(root) / "grok-cache.json"
+            env = {**os.environ, "TOKENSTATS_CACHE_DIR": root,
+                   "GROK_HOME": str(pathlib.Path(root) / "empty-grok-home")}
+            def run():
+                return json.loads(subprocess.check_output(
+                    [sys.executable, grok_true_usage.__file__], env=env, text=True, timeout=10))
+            self.assertEqual(run()["totals"]["totalTokens"], 0)
+            counts = {"inputTokens": 10, "outputTokens": 2, "cacheCreationTokens": 0,
+                      "cacheReadTokens": 30, "totalTokens": 42}
+            cache.write_text(json.dumps({"monthly": {"2026-08": {**counts, "calls": 1}}, "seen": ["old"]}))
+            self.assertEqual(run()["totals"]["totalTokens"], 42)
+            migrated = json.loads(cache.read_text())
+            self.assertEqual(migrated["monthly"]["2026-08"]["models"]["unknown"], counts)
+            self.assertEqual(migrated["seen"], ["old"])
+            self.assertEqual(run()["totals"]["totalTokens"], 42)
+
+    def test_unavailable_grok_cache_symlink_is_not_a_first_run(self):
+        with tempfile.TemporaryDirectory() as root:
+            cache = pathlib.Path(root) / "grok-cache.json"
+            missing = pathlib.Path(root) / "unavailable-history.json"
+            cache.symlink_to(missing)
+            env = {**os.environ, "TOKENSTATS_CACHE_DIR": root,
+                   "GROK_HOME": str(pathlib.Path(root) / "empty-grok-home")}
+            result = subprocess.run([sys.executable, grok_true_usage.__file__], env=env,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("keeping the existing file", result.stderr)
+            self.assertTrue(cache.is_symlink())
+            self.assertEqual(os.readlink(cache), str(missing))
+            self.assertFalse(missing.exists())
+
     def test_failed_replace_preserves_grok_cache_and_cleans_staging(self):
         with tempfile.TemporaryDirectory() as root:
             path = pathlib.Path(root) / "grok-cache.json"

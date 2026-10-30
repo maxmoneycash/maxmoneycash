@@ -52,19 +52,47 @@ def empty_model():
 def load_cache():
     try:
         c = json.loads(CACHE.read_text())
-        c.setdefault("version", 1)
-        c.setdefault("monthly", {})
-        c.setdefault("seen", [])
-        # A 2026-06-21 commit stored this script's OUTPUT (monthly as a list)
-        # as the cache, which crashed every run since (monthly must be a dict
-        # keyed by month). That stale list was verified on 2026-07-07 to be a
-        # strict subset of the still-unrotated rolling log, so discarding it
-        # and recounting from the log loses nothing and can't double-count.
-        if not isinstance(c["monthly"], dict) or not isinstance(c["seen"], list):
-            return {"version": CACHE_VERSION, "monthly": {}, "seen": []}
-        return c
-    except Exception:
+    except FileNotFoundError as exc:
+        if os.path.lexists(CACHE):
+            raise ValueError("Grok history cache target is missing; keeping the existing file") from exc
         return {"version": CACHE_VERSION, "monthly": {}, "seen": []}
+    except (OSError, ValueError) as exc:
+        raise ValueError("Grok history cache is unreadable; keeping the existing file") from exc
+    # Old inferences rotate out of the source logs. An invalid durable cache
+    # cannot be repaired by silently starting over from the surviving tail.
+    if not isinstance(c, dict) or not isinstance(c.get("monthly"), dict):
+        raise ValueError("Grok history cache has invalid months; keeping the existing file")
+    if not isinstance(c.get("seen"), list) or not all(isinstance(x, str) for x in c["seen"]):
+        raise ValueError("Grok history cache has invalid inference ids; keeping the existing file")
+    version = c.get("version", 1)
+    if type(version) is not int or version not in (1, CACHE_VERSION):
+        raise ValueError("Grok history cache has an unsupported version; keeping the existing file")
+
+    def validate_counts(row):
+        if not isinstance(row, dict) or any(
+            type(row.get(k)) is not int or row[k] < 0 for k in COMPONENTS + ["totalTokens"]
+        ) or sum(row[k] for k in COMPONENTS) != row["totalTokens"]:
+            raise ValueError("Grok history cache has invalid counters; keeping the existing file")
+
+    for name, month in c["monthly"].items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Grok history cache has an invalid month key; keeping the existing file")
+        validate_counts(month)
+        if type(month.get("calls", 0)) is not int or month.get("calls", 0) < 0:
+            raise ValueError("Grok history cache has invalid calls; keeping the existing file")
+        if version == CACHE_VERSION:
+            models = month.get("models")
+            if not isinstance(models, dict):
+                raise ValueError("Grok history cache has invalid models; keeping the existing file")
+            for model, row in models.items():
+                if not isinstance(model, str) or not model:
+                    raise ValueError("Grok history cache has an invalid model key; keeping the existing file")
+                validate_counts(row)
+            if any(sum(row[k] for row in models.values()) != month[k]
+                   for k in COMPONENTS + ["totalTokens"]):
+                raise ValueError("Grok history cache model counts disagree; keeping the existing file")
+    c.setdefault("version", 1)
+    return c
 
 
 def model_timelines():
