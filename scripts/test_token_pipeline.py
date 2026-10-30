@@ -247,6 +247,52 @@ class CollectorSandbox:
 
 
 class TokenPipelineTests(unittest.TestCase):
+    def test_same_model_quote_does_not_swallow_unquoted_source_tokens(self):
+        rows = [
+            {"modelName": "gpt-6-sol", **usage_row((1_000_000, 0, 0, 0), 2)},
+            {"modelName": "GPT-6-SOL", **usage_row((1_000_000, 0, 0, 0))},
+        ]
+        month = {**usage_row((2_000_000, 0, 0, 0)), "totalCost": 2, "modelBreakdowns": rows}
+        priced = build.price_model_breakdowns(month)
+        self.assertEqual(len(priced), 1)
+        self.assertEqual(priced[0]["cost"], 2)
+        self.assertEqual(priced[0]["inputTokens"], 2_000_000)
+        self.assertEqual(priced[0]["listValue"], 4)
+        month["inputTokens"] = 1_000_000
+        capped = build.price_model_breakdowns(month)[0]
+        self.assertEqual(capped["inputTokens"], 1_000_000)
+        self.assertEqual(capped["listValue"], 3)
+        self.assertEqual(rows[1]["inputTokens"], 1_000_000)  # inputs unchanged
+
+    def test_source_value_handles_quote_caps_free_and_unknown_models(self):
+        rows = [
+            {"modelName": "gpt-6-sol", **usage_row((1_000_000, 0, 0, 0), 9)},
+            {"modelName": "private-model", **usage_row((1_000_000, 0, 0, 0))},
+            {"modelName": "free-auto", **usage_row((1_000_000, 0, 0, 0))},
+        ]
+        month = {**usage_row((3_000_000, 0, 0, 0)), "totalCost": 3, "modelBreakdowns": rows}
+        priced = {r["modelName"]: r for r in build.price_model_breakdowns(month)}
+        self.assertEqual(priced["gpt-6-sol"]["listValue"], 3)
+        self.assertEqual(priced["private-model"]["listValue"], 0)
+        self.assertEqual(priced["free-auto"]["listValue"], 0)
+        month["totalCost"] = 0
+        capped = {r["modelName"]: r for r in build.price_model_breakdowns(month)}
+        self.assertEqual(capped["gpt-6-sol"]["listValue"], 0)
+
+    def test_pipeline_prices_separate_cursor_and_grok_rows_before_merge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = pathlib.Path(tmp)
+            write_scan(directory, {}, {})
+            for filename, cost in (("cursor.json", 2), ("grok-true.json", 0)):
+                row = usage_row((1_000_000, 0, 0, 0), cost)
+                source = {"monthly": [{"month": "2026-09", **row, "totalCost": cost,
+                    "models": {"gpt-6-sol": row}}], "totals": {**row, "totalCost": cost}}
+                (directory / filename).write_text(json.dumps(source))
+            ledger = build_ledger(directory)
+            self.assertEqual(ledger["totals"]["totalTokens"], 2_000_000)
+            self.assertEqual(ledger["totals"]["totalCost"], 2)
+            self.assertEqual(ledger["totals"]["listValueUsd"], 4)
+
     def test_readme_keeps_the_july_card_compositions(self):
         readme = (ROOT.parent / "README.md").read_text()
 

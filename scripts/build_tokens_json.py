@@ -26,7 +26,7 @@ import json
 import pathlib
 import sys
 
-from model_pricing import list_value
+from model_pricing import reference_cost
 from token_accounting import COMPONENTS, floor_total_tokens
 
 
@@ -167,6 +167,40 @@ def cap_model_breakdowns(month):
         for row in rows:
             row["cost"] = float(row.get("cost", 0) or 0) * factor
     return aggregate_breakdowns(rows)
+
+
+def price_model_breakdowns(month):
+    """Value unquoted source rows before a quoted source can hide them.
+
+    Component caps retain the existing model allocation. Apply the same
+    per-model component ratios to the unquoted portion for pricing only;
+    these fractional allocations are never emitted as token counters.
+    Reducing a recorded quote under its month budget does not turn its
+    already quoted tokens into a new reference-price estimate.
+    """
+    raw_totals = {}
+    unquoted = {}
+    for raw in month.get("modelBreakdowns", []):
+        name = canonical_model(raw.get("modelName") or raw.get("model"))
+        if not name:
+            continue
+        totals = raw_totals.setdefault(name, {c: 0 for c in COMPONENTS})
+        remainder = unquoted.setdefault(name, {c: 0 for c in COMPONENTS})
+        for c in COMPONENTS:
+            amount = raw.get(c, 0) or 0
+            totals[c] += amount
+            if not (raw.get("cost", 0) or 0) > 0:
+                remainder[c] += amount
+    rows = cap_model_breakdowns(month)
+    for row in rows:
+        name = row["modelName"]
+        components = {
+            c: row[c] * unquoted[name][c] / raw_totals[name][c]
+            if raw_totals[name][c] else 0
+            for c in COMPONENTS
+        }
+        row["listValue"] = row["cost"] + reference_cost(name, components)
+    return rows
 
 
 def infer_single_reported_model(reported, corrected):
@@ -374,22 +408,18 @@ def main():
     # in all-time totals but are intentionally left unattributed.
     for m in monthly:
         floor_total_tokens(m)
-        m["modelBreakdowns"] = cap_model_breakdowns(m)
+        m["modelBreakdowns"] = price_model_breakdowns(m)
         m["modelsUsed"] = [row["modelName"] for row in m["modelBreakdowns"]]
     for day in daily["daily"]:
         floor_total_tokens(day)
 
     monthly.sort(key=lambda m: m["period"])
 
-    # List-price equivalent. `cost` stays a faithful record of what a provider
-    # actually quoted — subscription agents (codex, kimi, grok, hermes) quote
-    # zero, which is why the receipt read $36k against 67B tokens. listValue
-    # keeps every quoted cost and fills only the zero rows from the reference
-    # table, matching estimatedListValue() in web/src/lib/usageValue.ts.
+    # Sum the values computed before source rows lost their quote coverage.
+    # Recorded cost and reference value for unquoted sources stay separate.
     for m in monthly:
         m["listValueUsd"] = 0.0
         for row in m["modelBreakdowns"]:
-            row["listValue"] = list_value(row["modelName"], row)
             m["listValueUsd"] += row["listValue"]
 
     totals = {c: sum(m.get(c, 0) for m in monthly) for c in COMPONENTS}
