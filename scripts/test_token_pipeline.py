@@ -1517,6 +1517,18 @@ class TokenPipelineTests(unittest.TestCase):
             self.assertIn("guard accepts", result.stdout, result.stdout + result.stderr)
             self.assertNotIn("agent total dropped", result.stdout)
 
+    def test_collector_aborts_on_corrupt_cursor_cache_before_rewriting_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            box = CollectorSandbox(tmp, stale_ledger(total=1_000))
+            cache = box.repo / "data" / "cursor-cache.json"
+            cache.write_text('{"monthly":')
+            before = box.digest("tokens.json", "cursor-cache.json")
+            fake = self.fake_counter(box, codex_fails=False)
+            result = box.run(CCUSAGE=str(fake), TOKENSTATS_AUDIT_DIR=str(box.tmp / "audit"))
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Cursor cache is invalid; keeping previous tokens.json", result.stdout)
+            self.assertEqual(box.digest("tokens.json", "cursor-cache.json"), before)
+
     def test_collector_refuses_even_a_small_lifetime_total_decrease(self):
         # A missing slice can be less than 2% while individual agent totals
         # still hold. The published lifetime total must not move backwards.

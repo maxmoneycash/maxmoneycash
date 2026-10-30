@@ -247,13 +247,20 @@ run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
   fi
   took=$((SECONDS - started))
   if [ "$rc" = "0" ]; then
-    cp "$LOCAL/cursor.json" "$CACHE_DIR/cursor-cache.json"
+    python3 "$REPO_DIR/scripts/atomic_cache.py" "$LOCAL/cursor.json" "$CACHE_DIR/cursor-cache.json" 2>>"$SCAN_LOG" || rc=invalid-cache
+  fi
+  if [ "$rc" = "0" ]; then
     echo "cursor ok ${took}s" >> "$SCAN_TIMES"
   elif [ -f "$CACHE_DIR/cursor-cache.json" ]; then
-    cp "$CACHE_DIR/cursor-cache.json" "$LOCAL/cursor.json"
-    echo "cursor cache($rc) ${took}s" >> "$SCAN_TIMES"
-    if [ "$rc" != "offline" ]; then
-      log "WARNING: cursor dashboard failed ($rc) after ${took}s; using $CACHE_DIR/cursor-cache.json"
+    if python3 "$REPO_DIR/scripts/atomic_cache.py" --validate "$CACHE_DIR/cursor-cache.json" 2>>"$SCAN_LOG"; then
+      cp "$CACHE_DIR/cursor-cache.json" "$LOCAL/cursor.json"
+      echo "cursor cache($rc) ${took}s" >> "$SCAN_TIMES"
+      if [ "$rc" != "offline" ]; then
+        log "WARNING: cursor dashboard failed ($rc) after ${took}s; using $CACHE_DIR/cursor-cache.json"
+      fi
+    else
+      echo "cursor cache invalid" > "$TMP/cursor-cache-invalid"
+      echo "cursor invalid-cache ${took}s" >> "$SCAN_FAILURES"
     fi
   else
     echo "$EMPTY_TRUE" > "$LOCAL/cursor.json"
@@ -261,6 +268,10 @@ run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
   fi ) &
 wait
 log "local collected ($(tr '\n' ' ' < "$SCAN_TIMES"))"
+if [ -f "$TMP/cursor-cache-invalid" ]; then
+  log "ERROR: Cursor cache is invalid; keeping previous tokens.json (see $SCAN_LOG)"
+  exit 3
+fi
 if [ -s "$SCAN_FAILURES" ] && [ "$STRICT_SCANS" = "1" ]; then
   log "ERROR: strict scans: $(tr '\n' ' ' < "$SCAN_FAILURES")— not building"
   [ -n "$AUDIT_DIR" ] && cp "$SCAN_FAILURES" "$AUDIT_DIR/scan-failures.txt"
