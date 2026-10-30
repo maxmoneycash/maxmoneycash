@@ -20,6 +20,7 @@ Historical cached usage whose raw record has rotated away remains `unknown`.
 
 Outputs the accumulated {totals, monthly:[...]} (cursor/codex schema) to stdout.
 """
+import argparse
 import bisect
 import datetime
 import glob
@@ -49,12 +50,18 @@ def empty_model():
             "cacheReadTokens": 0, "totalTokens": 0}
 
 
-def load_cache():
+def load_cache(prior_ledger=None):
     try:
         c = json.loads(CACHE.read_text())
     except FileNotFoundError as exc:
         if os.path.lexists(CACHE):
             raise ValueError("Grok history cache target is missing; keeping the existing file") from exc
+        if prior_ledger and prior_ledger.exists():
+            with open(prior_ledger) as source:
+                previous = json.load(source)
+            previous_grok = previous.get("agents", {}).get("grok", {})
+            if previous_grok.get("totals", {}).get("totalTokens", 0) > 0:
+                raise ValueError("Grok history cache is missing but the ledger contains Grok usage; keeping the existing ledger") from exc
         return {"version": CACHE_VERSION, "monthly": {}, "seen": []}
     except (OSError, ValueError) as exc:
         raise ValueError("Grok history cache is unreadable; keeping the existing file") from exc
@@ -203,8 +210,8 @@ def migrate_legacy_months(monthly, records, seen):
         }
 
 
-def main():
-    cache = load_cache()
+def main(prior_ledger=None):
+    cache = load_cache(prior_ledger)
     monthly = cache["monthly"]
     seen = set(cache["seen"])
     new_ids = []
@@ -256,4 +263,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--prior-ledger", type=pathlib.Path)
+    main(parser.parse_args().prior_ledger)

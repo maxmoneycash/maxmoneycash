@@ -1520,7 +1520,11 @@ class TokenPipelineTests(unittest.TestCase):
                     "metadata": {"agents": []}, "models": {"claude-opus-4-8": model}}
         fixtures = box.tmp / "fake-counter"
         fixtures.mkdir()
-        (fixtures / "monthly.json").write_text(json.dumps({"monthly": [row("period", "2026-10")]}))
+        month = row("period", "2026-10")
+        month["agents"] = [{"agent": "claude", **comps, "totalTokens": 100, "totalCost": 0}]
+        month["metadata"]["agents"] = ["claude"]
+        (fixtures / "monthly.json").write_text(json.dumps({"monthly": [month],
+            "totals": {**comps, "totalTokens": 100, "totalCost": 0}}))
         (fixtures / "daily.json").write_text(json.dumps({"daily": [row("period", "2026-10-20")]}))
         (fixtures / "agent.json").write_text(json.dumps({"monthly": [row("month", "2026-10")],
                                                          "totals": {**comps, "totalTokens": 100}}))
