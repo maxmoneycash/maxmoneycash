@@ -1771,6 +1771,37 @@ class TokenPipelineTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError):
             cursor_usage.collect(months, forbidden, cache, clock=lambda: 0, sleep=lambda _: None)
 
+    def test_cursor_preserves_cached_month_when_dashboard_returns_fewer_tokens(self):
+        months = [("2026-09", 1, 2)]
+        prior = cursor_usage.month_entry("2026-09", [
+            {"modelIntent": "gpt-5", "inputTokens": 100, "totalCents": 250},
+        ])
+        cache = {"2026-09": prior}
+        for aggs in ([], [{"modelIntent": "gpt-5", "inputTokens": 99}]):
+            with self.subTest(aggregations=aggs):
+                out, degraded = cursor_usage.collect(months, lambda *_: {"aggregations": aggs},
+                    cache, clock=lambda: 0, sleep=lambda _: None)
+                self.assertEqual(out["monthly"], [prior])
+                self.assertEqual(out["totals"]["totalTokens"], 100)
+                self.assertEqual(degraded, ["2026-09 (dashboard token decrease)"])
+
+        # New usage and a corrected price at the same token count stay live.
+        for tokens in (100, 101):
+            out, degraded = cursor_usage.collect(months, lambda *_: {"aggregations": [
+                {"modelIntent": "gpt-5", "inputTokens": tokens, "totalCents": 100},
+            ]}, cache, clock=lambda: 0, sleep=lambda _: None)
+            self.assertEqual(out["totals"]["totalTokens"], tokens)
+            self.assertEqual(out["totals"]["totalCost"], 1.0)
+            self.assertEqual(degraded, [])
+
+        # A malformed cached count must not crash an otherwise healthy scan.
+        malformed = {"2026-09": {**prior, "totalTokens": "100"}}
+        out, degraded = cursor_usage.collect(months, lambda *_: {"aggregations": [
+            {"modelIntent": "gpt-5", "inputTokens": 101},
+        ]}, malformed, clock=lambda: 0, sleep=lambda _: None)
+        self.assertEqual(out["totals"]["totalTokens"], 101)
+        self.assertEqual(degraded, [])
+
     @staticmethod
     def token_event(input_tokens, cached_tokens, output_tokens, total_tokens, timestamp):
         return {

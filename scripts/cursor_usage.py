@@ -207,9 +207,18 @@ def collect(months, fetch, cache, clock=time.monotonic, budget=BUDGET_SEC,
                 rows[month] = cache[month]
             continue
         aggs = data.get("aggregations") or []
-        if not aggs:
-            continue
         entry = month_entry(month, aggs)
+        prior = cache.get(month)
+        prior_total = prior.get("totalTokens") if prior else 0
+        if isinstance(prior_total, bool) or not isinstance(prior_total, int) or prior_total < 0:
+            prior_total = 0
+        # A successful HTTP response can still be empty or incomplete. Do not
+        # overwrite previously observed tokens with a smaller dashboard row;
+        # keep the last known-good month and make the discrepancy visible.
+        if prior and entry["totalTokens"] < prior_total:
+            rows[month] = prior
+            degraded.append(f"{month} (dashboard token decrease)")
+            continue
         if entry["totalTokens"] or entry["totalCost"]:
             rows[month] = entry
     monthly = [rows[m] for m in sorted(rows)]
