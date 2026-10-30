@@ -193,8 +193,28 @@ run_scan() {
 }
 
 log "collecting local ccusage…"
-run_scan monthly "$LOCAL/monthly.json" '{"monthly":[]}' \
-  $CCUSAGE monthly --json --offline --timezone UTC
+if [ "${GROK_HOME+x}" = x ]; then
+  case "$GROK_HOME" in
+    *,*) log "ERROR: durable Grok collection requires a single GROK_HOME; keeping previous tokens.json"; exit 3 ;;
+  esac
+  if [ -z "$GROK_HOME" ] || [ ! -d "$GROK_HOME" ]; then
+    log "ERROR: explicit GROK_HOME must be an existing directory; keeping previous tokens.json"
+    exit 3
+  fi
+fi
+# The durable Grok ledger below already includes the surviving raw logs. Keep
+# native Grok out of this one monthly scan so those events enter exactly once.
+# The override belongs only to this command: daily activity and the durable
+# parser still use the real Grok home, and cloud scans retain their own scope.
+if [ "$COUNTER_IS_TURBOTOKENS" = "1" ]; then
+  mkdir -p "$TMP/grok-excluded"
+  run_scan monthly "$LOCAL/monthly.json" '{"monthly":[]}' \
+    env GROK_HOME="$TMP/grok-excluded" $CCUSAGE monthly --json --offline --timezone UTC --by-agent
+  python3 "$REPO_DIR/scripts/validate_monthly_scope.py" "$LOCAL/monthly.json"
+else
+  run_scan monthly "$LOCAL/monthly.json" '{"monthly":[]}' \
+    $CCUSAGE monthly --json --offline --timezone UTC
+fi
 run_scan daily "$LOCAL/daily.json" '{"daily":[]}' \
   $CCUSAGE daily --json --offline --timezone UTC --since "$(date -u -v-35d +%Y-%m-%d)"
 # Muse (~/.local/share/muse) needs turbotokens 1.1.6+. An older counter has no
@@ -232,7 +252,7 @@ else
     python3 "$REPO_DIR/scripts/kimi_true_usage.py" &
 fi
 run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
-  python3 "$REPO_DIR/scripts/grok_true_usage.py" &
+  python3 "$REPO_DIR/scripts/grok_true_usage.py" --prior-ledger "$REPO_DIR/data/tokens.json" &
 # Cursor dashboard (network); fall back to the committed cache on any failure.
 # This is the step that kept hitting the 300s deadline: the true-counter phase
 # sat at exactly 5:00 (codex/kimi/grok finish in under a minute) and
@@ -268,6 +288,10 @@ run_scan grok-true "$LOCAL/grok-true.json" "$EMPTY_TRUE" \
   fi ) &
 wait
 log "local collected ($(tr '\n' ' ' < "$SCAN_TIMES"))"
+if grep -q '^grok-true ' "$SCAN_FAILURES"; then
+  log "ERROR: durable Grok scan failed; keeping previous tokens.json (see $SCAN_LOG)"
+  exit 3
+fi
 if [ -f "$TMP/cursor-cache-invalid" ]; then
   log "ERROR: Cursor cache is invalid; keeping previous tokens.json (see $SCAN_LOG)"
   exit 3
