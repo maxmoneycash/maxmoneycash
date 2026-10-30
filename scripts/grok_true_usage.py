@@ -27,6 +27,7 @@ import json
 import os
 import pathlib
 import sys
+from atomic_cache import write_bytes
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # TOKENSTATS_CACHE_DIR: a sandboxed audit run keeps its caches out of data/.
@@ -199,9 +200,9 @@ def main():
     if len(all_seen) > SEEN_CAP:
         all_seen = all_seen[-SEEN_CAP:]
     CACHE.parent.mkdir(exist_ok=True)
-    CACHE.write_text(json.dumps({
+    write_bytes(CACHE, json.dumps({
         "version": CACHE_VERSION, "monthly": monthly, "seen": all_seen,
-    }))
+    }).encode("utf-8"))
 
     # build output in the cursor/codex monthly schema
     out_monthly = []
