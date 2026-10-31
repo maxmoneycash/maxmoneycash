@@ -1,0 +1,25 @@
+name: Profile README card
+description: Ask for an activity-card pull request to your own GitHub profile.
+title: "[Profile card] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request a public GitHub activity card for your personal profile README.
+        We'll use the personal profile of the GitHub account submitting this request.
+        The card works without an app installation. You can also add it yourself by entering your handle at [commits.sh/badges](https://commits.sh/badges?starter=1).
+  - type: textarea
+    id: placement
+    attributes:
+      label: Placement or preferences
+      description: Where would you like the card? Existing content and badges will be preserved.
+      placeholder: After the streak card in my GitHub Statistics section.
+    validations:
+      required: false
+  - type: checkboxes
+    id: owner-request
+    attributes:
+      label: Owner request
+      options:
+        - label: I own this personal GitHub profile README and would like one activity-card pull request.
+          required: true
