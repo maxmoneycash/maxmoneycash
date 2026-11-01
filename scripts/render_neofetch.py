@@ -7,6 +7,7 @@ from common import (
     compact,
     esc,
     money,
+    shown_value,
     source_total,
     write_svg,
 )
@@ -56,6 +57,7 @@ def render(gh, tokens):
     uptime = f"{months_total // 12} years, {months_total % 12} months"
 
     totals = tokens["totals"]
+    spend, adjusted = shown_value(totals)
     agents = tokens["agents"]
     cloud_total = source_total(tokens, "cloud")
     local_total = source_total(tokens, "local")
@@ -80,7 +82,7 @@ def render(gh, tokens):
         ("GPU", f"Codex (OpenAI) — {compact(agents['codex']['totals']['totalTokens'])} tok"),
         ("Memory", f"{compact(totals['cacheReadTokens'])} cache-read tokens"),
         ("Disk", f"{compact(totals['totalTokens'])} tokens all-time"),
-        ("Battery", f"{money(totals.get('listValueUsd', totals['totalCost']))} burned, still at 100%"),
+        ("Battery", f"{money(spend)} burned{' (adjusted)' if adjusted else ''}, still at 100%"),
     ]
 
     rows = [
@@ -110,7 +112,7 @@ def render(gh, tokens):
     chip_w, chip_h, gap = 199, 80, 16
     chips = [
         ("TOKENS ALL-TIME", f"{totals['totalTokens']:,}", t["phosphor"]),
-        ("COMPUTE BURNED", money(totals.get("listValueUsd", totals["totalCost"])), t["amber"]),
+        ("COMPUTE BURNED · ADJ" if adjusted else "COMPUTE BURNED", money(spend), t["amber"]),
         ("PUBLIC REPOS", str(user["public_repos"]), t["value"]),
         ("FOLLOWERS", str(user["followers"]), APPLE_STRIPES[4]),
     ]

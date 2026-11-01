@@ -75,6 +75,20 @@ def money(x, cents=False):
     return f"${x:,.2f}" if cents else f"${x:,.0f}"
 
 
+def shown_value(totals):
+    """(value, adjusted) for the all-time headline: the calculated list value,
+    or the owner's declared baseline plus calculated growth since it was set
+    (data/value_baseline.json, the same rule as the Mac menu bar and commits.sh)."""
+    calculated = totals.get("listValueUsd", totals["totalCost"])
+    try:
+        with open(ROOT / "data" / "value_baseline.json") as f:
+            baseline = json.load(f)
+        value, at_set = float(baseline["value"]), float(baseline["calculatedAtSet"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return calculated, False
+    return value + max(0.0, calculated - at_set), True
+
+
 def load_tokens():
     with open(ROOT / "data" / "tokens.json") as f:
         return json.load(f)

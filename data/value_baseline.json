@@ -1,0 +1,5 @@
+{
+  "note": "Owner-declared all-time value, mirroring the Mac menu bar's local adjustment and commits.sh (web/src/lib/ownerValueBaseline.ts). Shown value = value + max(0, calculated - calculatedAtSet). Presentation only; tokens.json keeps the calculated value.",
+  "value": 192000,
+  "calculatedAtSet": 118686.69608380074
+}

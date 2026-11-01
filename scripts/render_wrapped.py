@@ -8,6 +8,7 @@ from common import (
     compact,
     esc,
     money,
+    shown_value,
     write_svg,
 )
 
@@ -20,6 +21,7 @@ W, H = 1200, 630
 def render(gh, tokens):
     t = THEME
     totals = tokens["totals"]
+    spend, adjusted = shown_value(totals)
     agents = tokens["agents"]
     first = datetime.datetime.strptime(tokens["monthly"][0]["period"], "%Y-%m")
     last = datetime.datetime.strptime(tokens["monthly"][-1]["period"], "%Y-%m")
@@ -48,7 +50,7 @@ def render(gh, tokens):
         f'<text x="{W / 2}" y="276" text-anchor="middle" font-size="{size}" '
         f'font-weight="700" fill="{t["phosphor"]}">{total_str}</text>'
         f'<text x="{W / 2}" y="316" text-anchor="middle" font-size="15" letter-spacing="4" '
-        f'fill="{t["muted"]}">TOKENS ACROSS SIX CODING AGENTS · {esc(money(totals["totalCost"]))} BURNED</text>'
+        f'fill="{t["muted"]}">TOKENS ACROSS SIX CODING AGENTS · {esc(money(spend))} BURNED{" (ADJUSTED)" if adjusted else ""}</text>'
     )
 
     # agent split stacked bar
@@ -91,7 +93,7 @@ def render(gh, tokens):
         ("OUTPUT WRITTEN", compact(totals["outputTokens"]), f"≈ {novels:,.0f} novels"),
         ("CACHE HIT RATE", f"{cache_pct:.1f}%", "context re-reads"),
         ("MODELS USED", str(n_models), "claude · fable · gpt · kimi +"),
-        ("AVG / MONTH", money(totals["totalCost"] / max(len(tokens["monthly"]), 1)), "every month, all year"),
+        ("AVG / MONTH", money(spend / max(len(tokens["monthly"]), 1)), "every month, all year"),
     ]
     col_w = (W - 140) / 4
     for i, (label, value, sub) in enumerate(stats):

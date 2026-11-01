@@ -5,7 +5,7 @@ import hashlib
 import re
 from collections import defaultdict
 
-from common import AGENT_LABELS, compact, esc, money, source_total, write_svg
+from common import AGENT_LABELS, compact, esc, money, shown_value, source_total, write_svg
 
 PAPER = "#f7f3e9"
 INK = "#211c16"
@@ -176,8 +176,8 @@ def _build(tokens):
     if reasoning > 100_000:
         p.kv("REASONING (DROID)", f"{reasoning:,}", gap=20)
     p.rule(heavy=True)
-    spend = totals.get("listValueUsd", totals["totalCost"])
-    p.kv("LIST VALUE", money(spend, cents=True), bold=True, gap=24)
+    spend, adjusted = shown_value(totals)
+    p.kv("ADJUSTED VALUE" if adjusted else "LIST VALUE", money(spend, cents=True), bold=True, gap=24)
     months_active = max(len(tokens["monthly"]), 1)
     p.kv("AVG / MONTH", money(spend / months_active, cents=True), gap=20)
     p.rule()
