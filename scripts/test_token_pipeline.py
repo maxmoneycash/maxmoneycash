@@ -38,6 +38,7 @@ purge = load_module("make_purge_baseline")
 reconcile = load_module("reconcile_server")
 cursor_usage = load_module("cursor_usage")
 audit_guard = load_module("audit_dir_guard")
+carry_daily = load_module("carry_daily")
 agent_drops = load_module("agent_drops")
 heatmaps = load_module("render_heatmaps")
 
@@ -1879,6 +1880,47 @@ class TokenPipelineTests(unittest.TestCase):
                 }},
             },
         }
+
+    def test_failed_daily_scan_keeps_the_published_daily_window(self):
+        previous = {"generated_at": "a", "totals": {"totalTokens": 5}, "daily": [{"period": "2026-10-31"}], "agents": {}}
+        built = {"generated_at": "b", "totals": {"totalTokens": 6}, "daily": [], "agents": {}}
+        ledger, carried = carry_daily.carry_forward(previous, built)
+        self.assertTrue(carried)
+        self.assertEqual(ledger["daily"], previous["daily"])
+        self.assertEqual(ledger["totals"], built["totals"])
+        self.assertEqual(list(ledger), list(built))  # key order unchanged
+        # A build that has its own rows, or nothing to carry, is left alone.
+        fresh = {**built, "daily": [{"period": "2026-11-01"}]}
+        self.assertEqual(carry_daily.carry_forward(previous, fresh), (fresh, False))
+        self.assertEqual(carry_daily.carry_forward({"daily": []}, built), (built, False))
+
+    def test_carry_daily_rewrites_only_the_built_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            published = pathlib.Path(tmp, "tokens.json")
+            built = pathlib.Path(tmp, "tokens.out")
+            published.write_text(json.dumps({"daily": [{"period": "2026-10-31"}]}))
+            built.write_text(json.dumps({"totals": {}, "daily": []}))
+            before = published.read_bytes()
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(carry_daily.main(str(published), str(built)), 0)
+            self.assertIn("kept 1", out.getvalue())
+            self.assertEqual(json.loads(built.read_text())["daily"], [{"period": "2026-10-31"}])
+            self.assertNotIn("\n", built.read_text())
+            self.assertEqual(published.read_bytes(), before)
+            # No published ledger yet: nothing to carry, the build is untouched.
+            published.unlink()
+            built.write_text('{"daily": []}')
+            self.assertEqual(carry_daily.main(str(published), str(built)), 0)
+            self.assertEqual(built.read_text(), '{"daily": []}')
+
+    def test_collector_carries_daily_only_after_a_recorded_daily_failure(self):
+        script = (ROOT / "collect_tokens.sh").read_text()
+        build = script.index('build_tokens_json.py" "$MERGED"')
+        hook = script.index("if grep -q '^daily ' \"$SCAN_FAILURES\"; then")
+        guard = script.index("# --- safety: all-time totals normally only grow")
+        self.assertLess(build, hook)
+        self.assertLess(hook, guard)
+        self.assertIn('carry_daily.py" data/tokens.json "$TMP/tokens.out"', script[hook:guard])
 
 
 if __name__ == "__main__":
