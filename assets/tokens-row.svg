@@ -10,7 +10,7 @@
 <text x="280.0" y="120" text-anchor="middle" font-size="11" fill="#6b6256">BILLING PERIOD: JUL 2025 — NOV 2026</text>
 <text x="280.0" y="140" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
 <g font-size="13"><text x="42" y="159" fill="#211c16">STATEMENT #</text><text x="518" y="159" text-anchor="end" fill="#211c16">MMC_20261101_C947D8</text></g>
-<g font-size="13"><text x="42" y="178" fill="#211c16">ISSUED</text><text x="518" y="178" text-anchor="end" fill="#211c16">2026-11-01 01:20 UTC</text></g>
+<g font-size="13"><text x="42" y="178" fill="#211c16">ISSUED</text><text x="518" y="178" text-anchor="end" fill="#211c16">2026-11-01 01:27 UTC</text></g>
 <g font-size="13"><text x="42" y="197" fill="#211c16">DATA AS OF</text><text x="518" y="197" text-anchor="end" fill="#211c16">2026-11-01 01:20:32 UTC</text></g>
 <g font-size="13"><text x="42" y="216" fill="#211c16">BILLED TO</text><text x="518" y="216" text-anchor="end" fill="#211c16">MAX @MAXMONEYCASH</text></g>
 <g font-size="13"><text x="42" y="235" fill="#211c16">SERVED BY</text><text x="518" y="235" text-anchor="end" fill="#211c16">7 AGENTS + 8-HEAD CLOUD SWARM</text></g>
@@ -52,8 +52,8 @@
 <g font-size="13"><text x="42" y="896" fill="#6b6256">  · CONTEXT RE-READ</text><text x="518" y="896" text-anchor="end" fill="#6b6256">97.1% OF ALL TOK</text></g>
 <g font-size="13"><text x="42" y="916" fill="#211c16">REASONING (DROID)</text><text x="518" y="916" text-anchor="end" fill="#211c16">3,370,284</text></g>
 <text x="280.0" y="936" text-anchor="middle" font-size="13" fill="#211c16" xml:space="preserve">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</text>
-<g font-size="13" font-weight="700"><text x="42" y="955" fill="#211c16">LIST VALUE</text><text x="518" y="955" text-anchor="end" fill="#211c16">$119,520.72</text></g>
-<g font-size="13"><text x="42" y="979" fill="#211c16">AVG / MONTH</text><text x="518" y="979" text-anchor="end" fill="#211c16">$7,030.63</text></g>
+<g font-size="13" font-weight="700"><text x="42" y="955" fill="#211c16">ADJUSTED VALUE</text><text x="518" y="955" text-anchor="end" fill="#211c16">$192,834.03</text></g>
+<g font-size="13"><text x="42" y="979" fill="#211c16">AVG / MONTH</text><text x="518" y="979" text-anchor="end" fill="#211c16">$11,343.18</text></g>
 <text x="280.0" y="999" text-anchor="middle" font-size="13" fill="#6b6256" xml:space="preserve">───────────────────────────────────</text>
 <text x="280.0" y="1018" text-anchor="middle" font-size="12" fill="#211c16">162,733,079,609 TOKENS.</text>
 <text x="280.0" y="1037" text-anchor="middle" font-size="12" fill="#211c16">ZERO REGRETS.</text>
