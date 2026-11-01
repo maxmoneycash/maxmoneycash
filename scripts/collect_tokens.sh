@@ -348,6 +348,11 @@ if [ "$PURGE_BASELINE" != "none" ]; then
   BASELINES+=("$PURGE_BASELINE")
 fi
 python3 "$REPO_DIR/scripts/build_tokens_json.py" "$MERGED" "${BASELINES[@]}" > "$TMP/tokens.out"
+# A failed daily scan (fallback: empty) must not publish an empty 30-day strip.
+if grep -q '^daily ' "$SCAN_FAILURES"; then
+  CARRIED=$(python3 "$REPO_DIR/scripts/carry_daily.py" data/tokens.json "$TMP/tokens.out")
+  if [ -n "$CARRIED" ]; then log "daily scan failed: $CARRIED"; fi
+fi
 if [ -n "$AUDIT_DIR" ]; then
   cp "$TMP/tokens.out" "$AUDIT_DIR/tokens.json"
   cp "$SCAN_FAILURES" "$AUDIT_DIR/scan-failures.txt"
