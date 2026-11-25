@@ -47,13 +47,6 @@
 
 <picture><source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=code-lands&theme=light&v=45554734480"/><img src="https://commits.sh/api/badge?handle=maxmoneycash&style=code-lands&theme=dark&v=45554734480" width="100%" alt="When the code lands: commits by weekday and hour"/></picture>
 
-## <samp>~ ❯ burn --by-model</samp>
-
-<a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=light&v=45554734480"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=dark&v=45554734480" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
-</picture></a>
-
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
 
 <sub>Hand-picked deploy screenshots + 52-week commit velocity per repo — click any to open the live app.</sub>
