@@ -39,27 +39,6 @@
 <img src="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=dark&v=45554069623" alt="maxmoneycash's rank on the commits.sh token board"/>
 </picture></a>
 
-<br/><br/>
-
-<picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=light&v=45554069623"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=dark&v=45554069623" width="720" alt="repositories, stars, forks, followers, commits in the last 12 months, active days, longest streak and busiest day"/>
-</picture>
-
-<picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=light&v=45554069623"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=dark&v=45554069623" width="49%" alt="most-starred public repositories on a log scale"/>
-</picture>
-<picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=light&v=45554069623"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=dark&v=45554069623" width="49%" alt="merged pull requests in repositories maintained by others"/>
-</picture>
-
-<picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=light&v=45554069623"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=dark&v=45554069623" width="720" alt="when the code lands: my newest commits by weekday and local hour"/>
-</picture>
-
 ## <samp>~ ❯ gh repo list --stats</samp>
 
 <picture><source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=written-in&theme=light&v=45554069623"/><img src="https://commits.sh/api/badge?handle=maxmoneycash&style=written-in&theme=dark&v=45554069623" width="100%" alt="A spinning 3D donut of the primary language of each public repository"/></picture>
