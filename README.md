@@ -1,14 +1,14 @@
 <div align="center">
 
-<a href="https://github.com/maxmoneycash/maxmoneycash"><img src="./assets/neofetch.svg?v=45538114734" width="100%" alt="neofetch — maxmoneycash@github"/></a>
+<a href="https://github.com/maxmoneycash/maxmoneycash"><img src="./assets/neofetch.svg?v=45540487693" width="100%" alt="neofetch — maxmoneycash@github"/></a>
 
 <br/>
 
 ## <samp>~ ❯ commits.sh --live</samp>
 
 <a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro-classic&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro-classic&theme=dark&v=45538114734" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=pro-classic&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=pro-classic&theme=dark&v=45540487693" width="720" alt="$MAXMONEYCASH on commits.sh — live velocity chart + snapshot"/>
 </picture></a>
 
 <sub><samp><a href="https://commits.sh/badges?starter=1">Make your own README card →</a> · Public GitHub activity needs no app. <a href="https://commits.sh/download/mac">Get the Mac app</a> for AI usage cards.</samp></sub>
@@ -20,51 +20,51 @@
 <br/><br/>
 
 <picture>
-<source media="(max-width: 768px)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/tokens-stack.svg?v=45538114734"/>
-<img src="./assets/tokens-row.svg?v=45538114734" width="100%" alt="all-time token receipt and token-ops dashboard"/>
+<source media="(max-width: 768px)" srcset="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/tokens-stack.svg?v=45540487693"/>
+<img src="./assets/tokens-row.svg?v=45540487693" width="100%" alt="all-time token receipt and token-ops dashboard"/>
 </picture>
 
 ## <samp>~ ❯ git log --graph --all</samp>
 
-<a href="https://github.com/maxmoneycash?tab=overview&from=2026-01-01&to=2026-12-31"><img src="./assets/heatmap-2026.svg?v=45538114734" width="100%" alt="2026 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2025-01-01&to=2025-12-31"><img src="./assets/heatmap-2025.svg?v=45538114734" width="100%" alt="2025 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2024-01-01&to=2024-12-31"><img src="./assets/heatmap-2024.svg?v=45538114734" width="100%" alt="2024 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg?v=45538114734" width="100%" alt="2023 contributions"/></a>
-<a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg?v=45538114734" width="100%" alt="2022 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2026-01-01&to=2026-12-31"><img src="./assets/heatmap-2026.svg?v=45540487693" width="100%" alt="2026 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2025-01-01&to=2025-12-31"><img src="./assets/heatmap-2025.svg?v=45540487693" width="100%" alt="2025 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2024-01-01&to=2024-12-31"><img src="./assets/heatmap-2024.svg?v=45540487693" width="100%" alt="2024 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg?v=45540487693" width="100%" alt="2023 contributions"/></a>
+<a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg?v=45540487693" width="100%" alt="2022 contributions"/></a>
 
 ## <samp>~ ❯ gh stats --public</samp>
 
 <a href="https://commits.sh/maxmoneycash"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=dark&v=45538114734" alt="maxmoneycash's rank on the commits.sh token board"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=dark&v=45540487693" alt="maxmoneycash's rank on the commits.sh token board"/>
 </picture></a>
 
 <br/><br/>
 
 <picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=dark&v=45538114734" width="720" alt="repositories, stars, forks, followers, commits in the last 12 months, active days, longest streak and busiest day"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=dark&v=45540487693" width="720" alt="repositories, stars, forks, followers, commits in the last 12 months, active days, longest streak and busiest day"/>
 </picture>
 
 <picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=dark&v=45538114734" width="49%" alt="most-starred public repositories on a log scale"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=dark&v=45540487693" width="49%" alt="most-starred public repositories on a log scale"/>
 </picture>
 <picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=dark&v=45538114734" width="49%" alt="merged pull requests in repositories maintained by others"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=dark&v=45540487693" width="49%" alt="merged pull requests in repositories maintained by others"/>
 </picture>
 
 <picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=dark&v=45538114734" width="720" alt="when the code lands: my newest commits by weekday and local hour"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=dark&v=45540487693" width="720" alt="when the code lands: my newest commits by weekday and local hour"/>
 </picture>
 
 ## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
-<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=light&v=45538114734"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=dark&v=45538114734" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=light&v=45540487693"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=burn-classic&theme=dark&v=45540487693" width="720" alt="$MAXMONEYCASH AI burn — live tokens, value, leverage, by model"/>
 </picture></a>
 
 ## <samp>~ ❯ ls ~/projects --holdings</samp>
@@ -73,21 +73,21 @@
 
 <!-- HOLDINGS:START -->
 <p align="center">
-<a href="https://github.com/seammoney/cash-orderbook"><img src="./assets/holding-cash-orderbook.svg?v=45538114734" width="400" alt="cash-orderbook"/></a>
-<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg?v=45538114734" width="400" alt="datacenter-globe"/></a>
-<a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg?v=45538114734" width="400" alt="terminal-portfolio"/></a>
-<a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg?v=45538114734" width="400" alt="options-payoff-motion"/></a>
-<a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg?v=45538114734" width="400" alt="ohlone-unicode"/></a>
-<a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg?v=45538114734" width="400" alt="decibel-evolution"/></a>
-<a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg?v=45538114734" width="400" alt="NIPAHSCAN"/></a>
+<a href="https://github.com/seammoney/cash-orderbook"><img src="./assets/holding-cash-orderbook.svg?v=45540487693" width="400" alt="cash-orderbook"/></a>
+<a href="https://datacenter-globe.vercel.app"><img src="./assets/holding-datacenter-globe.svg?v=45540487693" width="400" alt="datacenter-globe"/></a>
+<a href="https://terminal-portfolio-eight-chi.vercel.app"><img src="./assets/holding-terminal-portfolio.svg?v=45540487693" width="400" alt="terminal-portfolio"/></a>
+<a href="https://cipher-payoff-atlas.vercel.app"><img src="./assets/holding-options-payoff-motion.svg?v=45540487693" width="400" alt="options-payoff-motion"/></a>
+<a href="https://ohlone-unicode.vercel.app"><img src="./assets/holding-ohlone-unicode.svg?v=45540487693" width="400" alt="ohlone-unicode"/></a>
+<a href="https://decibel-presentation.vercel.app"><img src="./assets/holding-decibel-evolution.svg?v=45540487693" width="400" alt="decibel-evolution"/></a>
+<a href="https://nipahscan.vercel.app"><img src="./assets/holding-NIPAHSCAN.svg?v=45540487693" width="400" alt="NIPAHSCAN"/></a>
 </p>
 <!-- HOLDINGS:END -->
 
 ## <samp>~ ❯ wrapped --share</samp>
 
-<img src="./assets/wrapped.svg?v=45538114734" width="100%" alt="year in tokens — annual compute report"/>
+<img src="./assets/wrapped.svg?v=45540487693" width="100%" alt="year in tokens — annual compute report"/>
 
-<sub><samp><a href="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/wrapped.png?v=45538114734">download PNG for posting →</a></samp></sub>
+<sub><samp><a href="https://raw.githubusercontent.com/maxmoneycash/maxmoneycash/main/assets/wrapped.png?v=45540487693">download PNG for posting →</a></samp></sub>
 
 <br/>
 
