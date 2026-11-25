@@ -32,6 +32,34 @@
 <a href="https://github.com/maxmoneycash?tab=overview&from=2023-01-01&to=2023-12-31"><img src="./assets/heatmap-2023.svg?v=45535918910" width="100%" alt="2023 contributions"/></a>
 <a href="https://github.com/maxmoneycash?tab=overview&from=2022-01-01&to=2022-12-31"><img src="./assets/heatmap-2022.svg?v=45535918910" width="100%" alt="2022 contributions"/></a>
 
+## <samp>~ ❯ gh stats --public</samp>
+
+<a href="https://commits.sh/maxmoneycash"><picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=dark" alt="maxmoneycash's rank on the commits.sh token board"/>
+</picture></a>
+
+<br/><br/>
+
+<picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=numbers&theme=dark" width="720" alt="repositories, stars, forks, followers, commits in the last 12 months, active days, longest streak and busiest day"/>
+</picture>
+
+<picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=top-repos&theme=dark" width="49%" alt="most-starred public repositories on a log scale"/>
+</picture>
+<picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=dark" width="49%" alt="merged pull requests in repositories maintained by others"/>
+</picture>
+
+<picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=dark" width="720" alt="when the code lands: my newest commits by weekday and local hour"/>
+</picture>
+
 ## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
