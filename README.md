@@ -60,6 +60,14 @@
 <img src="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=dark&v=45550074657" width="720" alt="when the code lands: my newest commits by weekday and local hour"/>
 </picture>
 
+## <samp>~ ❯ gh repo list --stats</samp>
+
+<picture><source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=written-in&theme=light"/><img src="https://commits.sh/api/badge?handle=maxmoneycash&style=written-in&theme=dark" width="100%" alt="A spinning 3D donut of the primary language of each public repository"/></picture>
+
+<picture><source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=repos-born&theme=light"/><img src="https://commits.sh/api/badge?handle=maxmoneycash&style=repos-born&theme=dark" width="100%" alt="When repositories are born: creation time by weekday and hour"/></picture>
+
+<picture><source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=code-lands&theme=light"/><img src="https://commits.sh/api/badge?handle=maxmoneycash&style=code-lands&theme=dark" width="100%" alt="When the code lands: commits by weekday and hour"/></picture>
+
 ## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
