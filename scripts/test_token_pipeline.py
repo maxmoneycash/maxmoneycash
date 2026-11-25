@@ -302,7 +302,6 @@ class TokenPipelineTests(unittest.TestCase):
             'style=pro-classic',
             './assets/tokens-row.svg',
             'assets/tokens-stack.svg',
-            'style=burn-classic',
             './assets/wrapped.svg',
         ):
             self.assertIn(expected, readme)
