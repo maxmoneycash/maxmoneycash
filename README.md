@@ -55,6 +55,11 @@
 <img src="https://commits.sh/api/badge?handle=maxmoneycash&style=oss&theme=dark" width="49%" alt="merged pull requests in repositories maintained by others"/>
 </picture>
 
+<picture>
+<source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=light"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=punchcard&theme=dark" width="720" alt="when the code lands: my newest commits by weekday and local hour"/>
+</picture>
+
 ## <samp>~ ❯ burn --by-model</samp>
 
 <a href="https://commits.sh/maxmoneycash/live"><picture>
