@@ -36,7 +36,7 @@
 
 <a href="https://commits.sh/maxmoneycash"><picture>
 <source media="(prefers-color-scheme: light)" srcset="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=light&v=45554734480"/>
-<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=dark&v=45554734480" alt="maxmoneycash's rank on the commits.sh token board"/>
+<img src="https://commits.sh/api/badge?handle=maxmoneycash&style=rank&theme=dark&v=45554734480" width="100%" alt="maxmoneycash's rank on the commits.sh token board"/>
 </picture></a>
 
 ## <samp>~ ❯ gh repo list --stats</samp>
