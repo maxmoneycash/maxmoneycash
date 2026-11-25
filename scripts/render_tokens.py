@@ -226,7 +226,7 @@ def render(gh, tokens, target_h=None):
 <circle cx="24" cy="24" r="6" fill="#ff5f56"/><circle cx="44" cy="24" r="6" fill="#ffbd2e"/><circle cx="64" cy="24" r="6" fill="#27c93f"/>
 <text x="{W / 2}" y="28" text-anchor="middle" font-size="12" fill="{t['muted']}">token-ops</text>
 <line x1="0" y1="42" x2="{W}" y2="42" stroke="{t['border']}"/>
-<text x="{LEFT}" y="70" font-size="12" fill="{t['muted']}">~ <tspan fill="{t['phosphor']}">❯</tspan> <tspan fill="{t['fg']}">ccusage monthly --json | jq .monthly</tspan></text>
+<text x="{LEFT}" y="70" font-size="12" fill="{t['muted']}">~ <tspan fill="{t['phosphor']}">❯</tspan> <tspan fill="{t['fg']}">turbotokens monthly --json | jq .monthly</tspan></text>
 {"".join(parts)}
 <rect width="{W}" height="{H}" rx="14" fill="url(#scan)"/>
 </svg>"""

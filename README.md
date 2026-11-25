@@ -13,9 +13,9 @@
 
 <sub><samp><a href="https://commits.sh/badges?starter=1">Make your own README card →</a> · Public GitHub activity needs no app. <a href="https://commits.sh/download/mac">Get the Mac app</a> for AI usage cards.</samp></sub>
 
-## <samp>~ ❯ ccusage --all-time</samp>
+## <samp>~ ❯ turbotokens --all-time</samp>
 
-<sub>Live token telemetry across <b>Claude Code · Codex · Hermes Swarm · Cursor · Grok Build · Kimi Code · OpenCode · Droid</b> — pushed hourly from my Mac + cloud swarm (launchd → <a href="https://github.com/ryoppippi/ccusage">ccusage</a> + custom counters) and rendered by GitHub Actions.</sub>
+<sub>Live token telemetry across <b>Claude Code · Codex · Hermes Swarm · Cursor · Grok Build · Kimi Code · OpenCode · Droid</b> — pushed hourly from my Mac + cloud swarm (launchd → turbotokens + custom counters) and rendered by GitHub Actions.</sub>
 
 <br/><br/>
 
@@ -71,6 +71,6 @@
 
 <br/>
 
-<sub><samp>rendered hourly · cards by GitHub Actions · token data via launchd + ccusage on my mac + hermes swarm telemetry · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
+<sub><samp>rendered hourly · cards by GitHub Actions · token data via launchd + turbotokens on my mac + hermes swarm telemetry · org work lives at <a href="https://github.com/seammoney">@seammoney</a></samp></sub>
 
 </div>

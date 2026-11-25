@@ -172,7 +172,7 @@ def render(gh, tokens):
 {_ascii_block(ascii_x, ascii_y, line_h, 13)}
 {"".join(rows)}
 {dots}
-<text x="42" y="{prompt_y}" font-size="13" fill="{t['muted']}">~ <tspan fill="{t['phosphor']}">❯</tspan> <tspan fill="{t['fg']}">ccusage --all-time --agents claude,codex,kimi,opencode,droid</tspan><tspan class="cursor" fill="{t['phosphor']}">▍</tspan></text>
+<text x="42" y="{prompt_y}" font-size="13" fill="{t['muted']}">~ <tspan fill="{t['phosphor']}">❯</tspan> <tspan fill="{t['fg']}">turbotokens --all-time --agents claude,codex,kimi,opencode,droid</tspan><tspan class="cursor" fill="{t['phosphor']}">▍</tspan></text>
 {"".join(chip_svg)}
 <rect width="{W}" height="{H}" rx="14" fill="url(#scan)"/>
 <rect width="{W}" height="{H}" rx="14" fill="url(#vig)"/>
