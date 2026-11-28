@@ -47,6 +47,130 @@ def tokens_of(b):
             + b.get("cacheCreationTokens", 0) + b.get("cacheReadTokens", 0))
 
 
+def _heading(y, text):
+    return (f'<text x="{LEFT}" y="{y}" font-size="11" letter-spacing="2" '
+            f'fill="{THEME["muted"]}">{esc(text)}</text>')
+
+
+def _day(d):
+    return datetime.date.fromisoformat(d["period"])
+
+
+def extra_sections(tokens, colors):
+    """(height, draw(y)) pairs, most telling first: what the receipt and the
+    rest of this card don't already say. `y` is the section's heading line."""
+    t = THEME
+    daily = [d for d in tokens["daily"] if re.match(r"^\d{4}-\d{2}-\d{2}$", d.get("period", ""))]
+    daily.sort(key=lambda d: d["period"])
+    out = []
+
+    # Last 7 days against the 7 before, the week's spend and the daily pace.
+    if len(daily) >= 8:
+        week, prior = daily[-7:], daily[-14:-7]
+        wk = sum(d["totalTokens"] for d in week)
+        pr = sum(d["totalTokens"] for d in prior)
+        cost = sum(d.get("totalCost") or 0 for d in week)
+        avg = sum(d["totalTokens"] for d in daily[-30:]) / max(len(daily[-30:]), 1)
+        change = (wk - pr) / pr * 100 if pr else None
+
+        def draw_week(y):
+            col = INNER / 3
+            delta = "" if change is None else (
+                f'<tspan dx="6" fill="{t["phosphor"] if change >= 0 else "#ff7b72"}" font-size="11">'
+                f'{"▲" if change >= 0 else "▼"}{abs(change):.0f}%</tspan>')
+            cells = [
+                (f'{compact(wk)}{delta}', "TOKENS · 7D"),
+                (money(cost), "EST. COST · 7D"),
+                (f"{compact(avg)}/day", "AVG · 30D"),
+            ]
+            body = "".join(
+                f'<text x="{LEFT + i * col}" y="{y + 30}" font-size="19" font-weight="700" fill="{t["fg"]}">{value}</text>'
+                f'<text x="{LEFT + i * col}" y="{y + 47}" font-size="9.5" letter-spacing="1.5" fill="{t["muted"]}">{label}</text>'
+                for i, (value, label) in enumerate(cells)
+            )
+            return _heading(y, "THIS WEEK") + body
+        out.append((48, draw_week))
+
+    # Weekly rhythm: average tokens by weekday over the days on record.
+    if len(daily) >= 14:
+        by = defaultdict(list)
+        for d in daily[-35:]:
+            by[_day(d).weekday()].append(d["totalTokens"])
+        avgs = [sum(by[i]) / len(by[i]) if by[i] else 0 for i in range(7)]
+        top = max(avgs) or 1
+        best = avgs.index(max(avgs))
+
+        def draw_rhythm(y):
+            bw, bh = INNER / 7, 46
+            names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            bars = "".join(
+                f'<rect x="{LEFT + i * bw + 6:.1f}" y="{y + 12 + bh - max(bh * v / top, 2):.1f}" width="{bw - 12:.1f}" '
+                f'height="{max(bh * v / top, 2):.1f}" rx="3" fill="{t["amber"] if i == best else t["phosphor"]}" '
+                f'opacity="{1 if i == best else 0.35 + 0.55 * v / top:.2f}"/>'
+                f'<text x="{LEFT + i * bw + bw / 2:.1f}" y="{y + 12 + bh + 15}" text-anchor="middle" font-size="10" '
+                f'fill="{t["amber"] if i == best else t["muted"]}">{names[i]}</text>'
+                for i, v in enumerate(avgs)
+            )
+            return _heading(y, f"RHYTHM · AVG BY WEEKDAY · BUSIEST {names[best].upper()}") + bars
+        out.append((76, draw_rhythm))
+
+    # The last 30 days' model mix, beside the card's lifetime top models.
+    fam_tok = defaultdict(int)
+    for d in daily[-30:]:
+        for b in d.get("modelBreakdowns") or []:
+            fam_tok[family_of(b.get("modelName", ""))] += tokens_of(b)
+    mix_total = sum(fam_tok.values())
+    if mix_total:
+        fams = [(k, label, colors[k]) for k, label, _ in FAMILIES + [OTHER] if fam_tok.get(k)]
+
+        def draw_mix(y):
+            x, parts = LEFT, []
+            for k, _, color in fams:
+                w = INNER * fam_tok[k] / mix_total
+                parts.append(f'<rect x="{x:.1f}" y="{y + 10}" width="{max(w - 2, 1):.1f}" height="12" rx="3" fill="{color}"/>')
+                x += w
+            lx = LEFT
+            for k, label, color in fams:
+                pct = 100 * fam_tok[k] / mix_total
+                text = f"{label} {pct:.0f}%" if pct >= 1 else f"{label} <1%"
+                parts.append(
+                    f'<rect x="{lx}" y="{y + 32}" width="9" height="9" rx="2" fill="{color}"/>'
+                    f'<text x="{lx + 14}" y="{y + 40}" font-size="11" fill="{t["fg"]}">{text}</text>')
+                lx += 14 + len(text) * 6.7 + 18
+            return _heading(y, "MODEL MIX · LAST 30 DAYS") + "".join(parts)
+        out.append((44, draw_mix))
+
+    # Records: the busiest day and month on record, and the current run.
+    if daily:
+        busiest = max(daily, key=lambda d: d["totalTokens"])
+        months = [m for m in tokens["monthly"] if m.get("totalTokens")]
+        top_month = max(months, key=lambda m: m["totalTokens"]) if months else None
+        run = 0
+        for d in reversed(daily):
+            if d["totalTokens"] <= 0:
+                break
+            run += 1
+        run_label = f"{run}+ days" if run == len(daily) else f"{run} days"
+
+        def draw_records(y):
+            rows = [
+                ("BUSIEST DAY", f'{_day(busiest):%b %-d}', compact(busiest["totalTokens"])),
+                ("BUSIEST MONTH", datetime.date.fromisoformat(top_month["period"] + "-01").strftime("%b %Y") if top_month else "-",
+                 compact(top_month["totalTokens"]) if top_month else ""),
+                ("ACTIVE RUN", run_label, "every day with tokens"),
+            ]
+            body = "".join(
+                f'<text x="{LEFT}" y="{y + 24 + i * 20}" font-size="11" fill="{t["muted"]}">{label}</text>'
+                f'<text x="{LEFT + 150}" y="{y + 24 + i * 20}" font-size="12" fill="{t["fg"]}" font-weight="700">{esc(when)}</text>'
+                f'<text x="{LEFT + 270}" y="{y + 24 + i * 20}" font-size="12" fill="{t["phosphor"] if i < 2 else t["muted"]}">{esc(value)}</text>'
+                for i, (label, when, value) in enumerate(rows)
+            )
+            return _heading(y, "RECORDS") + body
+        out.append((64, draw_records))
+
+    return out
+
+
 def render(gh, tokens, target_h=None):
     t = THEME
     months = tokens["monthly"][-9:]
@@ -204,6 +328,23 @@ def render(gh, tokens, target_h=None):
     # If the receipt next door is naturally taller, anchor the footer lower
     # so both cards end up the same height.
     foot_y = max(d_y + d_h + 30, (target_h or 0) - 26)
+
+    # ---- extra sections: fill the height the receipt gives us -------------
+    # As many sections as fit (most telling first), the leftover height shared
+    # evenly between them and the footer, so the card never grows past the
+    # receipt, never crowds the footer, and never leaves one empty band.
+    sections = extra_sections(tokens, colors)
+    space = (foot_y - 14) - (d_y + d_h)
+    MIN_GAP = 30
+    while sections and sum(h for h, _ in sections) + MIN_GAP * (len(sections) + 1) > space:
+        sections.pop()
+    if sections:
+        gap = (space - sum(h for h, _ in sections)) / (len(sections) + 1)
+        y = d_y + d_h + gap + 10
+        for height, draw in sections:
+            parts.append(draw(round(y)))
+            y += height + gap
+
     parts.append(
         f'<text x="{LEFT}" y="{foot_y}" font-size="10.5" fill="{t["muted"]}">'
         f'Σ <tspan fill="{t["phosphor"]}" font-weight="700">{totals["totalTokens"]:,}</tspan> tok'
